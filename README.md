@@ -266,14 +266,21 @@ Entropy was designed under zero-trust privacy constraints:
 
 ## Performance
 
-Tested and benchmarked on Windows 10/11:
+Tested and benchmarked on Windows 10/11 across real developer workspaces:
 
-| Target Workspace | Complexity | Average Time |
+| Operation | Scope | Average Time |
 | :--- | :--- | :--- |
-| Empty Directory | 0 files | **29.1 ms** |
-| Active Small Project (`entropy`) | Git + 8 Processes | **37.3 ms** |
-| Medium Project (`AfterSalesManagement`) | Git + NuGet cache | **38.6 ms** |
-| Large Project (`talib_ilm-main`) | Git (7 mo inactive) + 1.8 GB | **35.8 ms** |
+| **Graph Synthesis & Reasoning** | Pure in-memory topological inference | **< 1 ms** |
+| **Workspace Inspection (Docker Active or Skipped)** | Full Git, OS processes, caches & disk metadata | **~1.5 – 2.5 s** |
+| **Workspace Inspection (Docker Daemon Inactive)** | Includes Docker CLI daemon connection timeout (4s) | **~6.8 s** |
+
+### Benchmark Breakdown by Workspace
+- **Small Project (`entropy`):** ~6.8s (Git, 8 active processes, caches, Docker check)
+- **Medium Project (`AfterSalesManagement`):** ~6.9s (Git, NuGet cache mapping, Docker check)
+- **Large Project (`talib_ilm-main`):** ~7.7s (Git, 1.8 GB disk footprint, caches, Docker check)
+- **Empty Directory:** ~9.8s (Fallback project creation, full subsystem scan)
+
+Entropy prioritizes predictable interactive CLI behavior, safety, and thoroughness over benchmark gaming.
 
 ---
 
