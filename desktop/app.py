@@ -30,22 +30,43 @@ class EntropyDesktopApi:
     def inspect_workspace(self, path: str) -> dict[str, Any]:
         """Inspect a single workspace and return the structured JSON payload."""
         abs_path = os.path.abspath(path)
+        if not os.path.exists(abs_path):
+            return {
+                "error": f"Target path '{abs_path}' does not exist on disk.",
+                "workspace": None,
+            }
+        if not os.path.isdir(abs_path):
+            return {
+                "error": f"Target path '{abs_path}' is a file, not a directory.",
+                "workspace": None,
+            }
+
         try:
             target_project, graph, findings = run_entropy_inspect(abs_path)
             if target_project:
                 return serialize_workspace_inspection(target_project, graph, findings)
             else:
                 return {
-                    "error": f"Path '{abs_path}' is not recognized as a project.",
+                    "error": f"Could not inspect workspace at '{abs_path}'.",
                     "workspace": None,
                 }
         except Exception as e:
             return {"error": str(e), "workspace": None}
 
-    def scan_environment(self, roots: Optional[List[str]] = None, depth: int = 4) -> dict[str, Any]:
+    def scan_environment(self, roots: Optional[List[str]] = None, depth: int = 2) -> dict[str, Any]:
         """Scan environment across specified root directories."""
         if not roots:
-            roots = [os.path.abspath(os.path.expanduser("~"))]
+            user_home = os.path.expanduser("~")
+            candidate_roots = [
+                os.path.join(user_home, "Desktop"),
+                os.path.join(user_home, "Documents"),
+                os.path.join(user_home, "source", "repos"),
+                os.path.join(user_home, "projects"),
+                os.path.join(user_home, "dev"),
+            ]
+            roots = [os.path.abspath(r) for r in candidate_roots if os.path.isdir(r)]
+            if not roots:
+                roots = [os.path.abspath(user_home)]
         else:
             roots = [os.path.abspath(r) for r in roots]
 

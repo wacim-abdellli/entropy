@@ -80,6 +80,22 @@ def collect_docker() -> Tuple[
 
     # 1. Quick availability check
     try:
+        # Probe CLI presence (50ms)
+        probe = subprocess.run(
+            ["docker", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+            shell=True if os.name == "nt" else False,
+        )
+        if probe.returncode != 0:
+            return False, "Docker CLI not functional", containers, images, volumes
+
+        # On Windows, if named pipe doesn't exist, daemon is offline (0ms vs 4000ms timeout)
+        if os.name == "nt" and "DOCKER_HOST" not in os.environ and not os.path.exists(r"\\.\pipe\docker_engine"):
+            return False, "Docker daemon not running", containers, images, volumes
+
         res = subprocess.run(
             ["docker", "info"],
             capture_output=True,

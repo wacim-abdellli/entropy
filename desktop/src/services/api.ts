@@ -15,6 +15,17 @@ const isPyWebView = (): boolean => {
   return typeof window !== 'undefined' && Boolean((window as any).pywebview?.api);
 };
 
+const waitForPyWebView = async (timeoutMs = 1500): Promise<boolean> => {
+  if (typeof window === 'undefined') return false;
+  if ((window as any).pywebview?.api) return true;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if ((window as any).pywebview?.api) return true;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return Boolean((window as any).pywebview?.api);
+};
+
 export class EntropyApiClient {
   /**
    * Inspect a specific workspace path.
@@ -24,18 +35,18 @@ export class EntropyApiClient {
       try {
         const { invoke } = await import('@tauri-apps/api/core');
         return await invoke<WorkspaceInspection>('inspect_workspace', { path });
-      } catch (err) {
-        console.warn('Tauri invoke inspect_workspace failed, falling back:', err);
+      } catch (err: any) {
+        throw new Error(err?.message || String(err));
       }
     }
 
-    if (isPyWebView()) {
-      try {
-        const res = await (window as any).pywebview.api.inspect_workspace(path);
-        return typeof res === 'string' ? JSON.parse(res) : res;
-      } catch (err) {
-        console.warn('pywebview inspect_workspace failed, falling back:', err);
+    if (await waitForPyWebView()) {
+      const res = await (window as any).pywebview.api.inspect_workspace(path);
+      const parsed = typeof res === 'string' ? JSON.parse(res) : res;
+      if (parsed?.error) {
+        throw new Error(parsed.error);
       }
+      return parsed;
     }
 
     // Try local dev server API if available
@@ -45,7 +56,7 @@ export class EntropyApiClient {
         return await resp.json();
       }
     } catch {
-      // Fallback to mock data
+      // Fallback to mock data in pure web preview mode
     }
 
     const norm = path.toLowerCase().replace(/\\/g, '/');
@@ -53,30 +64,34 @@ export class EntropyApiClient {
       return MOCK_AFTERSALES_INSPECTION;
     } else if (norm.includes('talib')) {
       return MOCK_TALIB_INSPECTION;
+    } else if (norm.includes('entropy')) {
+      return MOCK_ENTROPY_INSPECTION;
     }
-    return MOCK_ENTROPY_INSPECTION;
+
+    // If path is unknown and doesn't match sample workspaces, report error
+    throw new Error(`Target path '${path}' does not exist or is not an accessible workspace.`);
   }
 
   /**
    * Scan the environment across specified root directories.
    */
-  static async scanEnvironment(roots?: string[], depth = 4): Promise<EnvironmentOverview> {
+  static async scanEnvironment(roots?: string[], depth = 2): Promise<EnvironmentOverview> {
     if (isTauri()) {
       try {
         const { invoke } = await import('@tauri-apps/api/core');
         return await invoke<EnvironmentOverview>('scan_environment', { roots, depth });
-      } catch (err) {
-        console.warn('Tauri invoke scan_environment failed, falling back:', err);
+      } catch (err: any) {
+        throw new Error(err?.message || String(err));
       }
     }
 
-    if (isPyWebView()) {
-      try {
-        const res = await (window as any).pywebview.api.scan_environment(roots || [], depth);
-        return typeof res === 'string' ? JSON.parse(res) : res;
-      } catch (err) {
-        console.warn('pywebview scan_environment failed, falling back:', err);
+    if (await waitForPyWebView()) {
+      const res = await (window as any).pywebview.api.scan_environment(roots || [], depth);
+      const parsed = typeof res === 'string' ? JSON.parse(res) : res;
+      if (parsed?.error) {
+        throw new Error(parsed.error);
       }
+      return parsed;
     }
 
     // Try local dev server API if available

@@ -388,9 +388,9 @@ export const MOCK_TALIB_INSPECTION: WorkspaceInspection = {
 
 export const MOCK_AFTERSALES_INSPECTION: WorkspaceInspection = {
   workspace: {
-    id: "project:C:\\Users\\pc\\Desktop\\AfterSalesManagement",
+    id: "project:C:\\Users\\pc\\source\\repos\\AfterSalesManagement",
     name: "AfterSalesManagement",
-    path: "C:\\Users\\pc\\Desktop\\AfterSalesManagement",
+    path: "C:\\Users\\pc\\source\\repos\\AfterSalesManagement",
     project_type: "node",
     total_size_bytes: 142000000,
     created: 1785000000,
@@ -398,20 +398,20 @@ export const MOCK_AFTERSALES_INSPECTION: WorkspaceInspection = {
     runtime_version_hint: "20.x",
   },
   state: {
-    label: "Paused / Work in Progress",
+    label: "Paused / Intermittent Project",
     summary: "Uncommitted changes exist on feature branch, but workspace has had no execution for 45 days.",
-    category: "attention",
+    category: "paused",
     why_factors: [
-      "Branch 'feature/rma-tracker' has 8 modified files not yet committed",
-      "Last commit made 45 days ago",
-      "No active Node.js server or container running"
+      "Branch 'main' has modified files not yet committed",
+      "Last commit was observed 4 months ago",
+      "No active processes running from this workspace"
     ],
   },
   connections: {
     git: {
-      entity_id: "git:C:\\Users\\pc\\Desktop\\AfterSalesManagement",
-      repo_path: "C:\\Users\\pc\\Desktop\\AfterSalesManagement",
-      current_branch: "feature/rma-tracker",
+      entity_id: "git:C:\\Users\\pc\\source\\repos\\AfterSalesManagement",
+      repo_path: "C:\\Users\\pc\\source\\repos\\AfterSalesManagement",
+      current_branch: "main",
       is_clean: false,
       commit_count: 48,
       last_commit_timestamp: 1787000000,
@@ -442,7 +442,7 @@ export const MOCK_AFTERSALES_INSPECTION: WorkspaceInspection = {
       {
         entity_id: "dep:node_modules",
         dep_type: "node_modules",
-        path: "C:\\Users\\pc\\Desktop\\AfterSalesManagement\\node_modules",
+        path: "C:\\Users\\pc\\source\\repos\\AfterSalesManagement\\node_modules",
         size_bytes: 128000000,
         package_count: 890,
         is_stale: true,
@@ -548,18 +548,18 @@ export const MOCK_ENVIRONMENT_OVERVIEW: EnvironmentOverview = {
   },
   workspaces: [
     {
-      id: "project:C:\\Users\\pc\\Desktop\\AfterSalesManagement",
+      id: "project:C:\\Users\\pc\\source\\repos\\AfterSalesManagement",
       name: "AfterSalesManagement",
-      path: "C:\\Users\\pc\\Desktop\\AfterSalesManagement",
+      path: "C:\\Users\\pc\\source\\repos\\AfterSalesManagement",
       project_type: "node",
       total_size_bytes: 142000000,
       last_modified: 1787000000,
-      state_label: "Paused / Work in Progress",
-      state_category: "attention",
-      git_branch: "feature/rma-tracker",
+      state_label: "Paused / Intermittent Project",
+      state_category: "paused",
+      git_branch: "main",
       git_remote: "github.com/company/AfterSalesManagement",
       last_commit_timestamp: 1787000000,
-      has_uncommitted_changes: true,
+      has_uncommitted_changes: false,
       process_count: 0,
     },
     {
