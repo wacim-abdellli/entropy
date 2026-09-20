@@ -34,7 +34,7 @@ from collectors.git import collect_git_repository
 from collectors.processes import collect_processes
 from collectors.projects import collect_projects_and_dependencies
 from collectors.runtimes import collect_runtimes
-from core.entities import ScanResult, ScopeType
+from core.entities import Project, ScanResult, ScopeType
 from core.findings import analyze_graph
 from core.graph import EnvironmentGraph
 from linkers.relationships import build_environment_graph
@@ -315,45 +315,37 @@ def serialize_graph_and_findings(graph: EnvironmentGraph, findings: list) -> str
     return json.dumps(data, indent=2, default=str)
 
 
-def main() -> None:
-    # Ensure stdout and stderr support UTF-8 on Windows
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
-    if hasattr(sys.stderr, "reconfigure"):
-        sys.stderr.reconfigure(encoding="utf-8")
+__version__ = "0.1.0"
 
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Digital Entropy — System Intelligence Scanner (Windows-First).",
+        prog="entropy",
+        description="Entropy — Evidence-backed workspace state and digital entropy reconstruction.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Commands:
+  inspect [path]       Inspect a workspace directory (Default: current directory '.')
+  scan [paths...]      Scan developer directories across the environment
+
+Examples:
+  entropy inspect .
+  entropy inspect C:\\dev\\my-app
+  entropy inspect . --json
+  entropy scan C:\\dev C:\\repos
+  entropy --version
+""",
     )
     parser.add_argument(
-        "targets",
-        nargs="*",
-        default=None,
-        help="One or more target directories to inspect (default: user home)",
-    )
-    parser.add_argument(
-        "--depth",
-        type=int,
-        default=4,
-        help="Maximum directory traversal depth (default: 4)",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        dest="json_output",
-        help="Output raw JSON graph and findings",
-    )
-    parser.add_argument(
-        "--json-file",
-        type=str,
-        default=None,
-        help="Save JSON report to file",
+        "--version",
+        action="version",
+        version=f"entropy {__version__}",
+        help="Show version and exit",
     )
     parser.add_argument(
         "--verbose", "-v",
         action="store_true",
-        help="Enable verbose debug logging",
+        help="Enable verbose debug logging to stderr",
     )
     parser.add_argument(
         "--quiet", "-q",
@@ -361,18 +353,112 @@ def main() -> None:
         help="Suppress all logging output",
     )
 
-    args = parser.parse_args()
+    subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # 1. 'inspect' subcommand (PRIMARY)
+    inspect_parser = subparsers.add_parser(
+        "inspect",
+        help="Inspect a specific workspace (Primary command)",
+        description="Reconstruct workspace identity, state, connections, evidence, uncertainty, and action boundaries.",
+    )
+    inspect_parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Path to workspace directory (default: current directory '.')",
+    )
+    inspect_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Output raw JSON graph and findings",
+    )
+
+    # 2. 'scan' subcommand (multi-root environment)
+    scan_parser = subparsers.add_parser(
+        "scan",
+        help="Perform a multi-root or machine-wide environment scan",
+        description="Scan one or more directory trees to detect projects, caches, processes, and runtimes.",
+    )
+    scan_parser.add_argument(
+        "targets",
+        nargs="*",
+        default=None,
+        help="One or more target directories to scan (default: user home)",
+    )
+    scan_parser.add_argument(
+        "--depth",
+        type=int,
+        default=4,
+        help="Maximum directory traversal depth (default: 4)",
+    )
+    scan_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Output raw JSON graph and findings",
+    )
+    scan_parser.add_argument(
+        "--json-file",
+        type=str,
+        default=None,
+        help="Save JSON report to file",
+    )
+
+    return parser
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    # Ensure stdout and stderr support UTF-8 on Windows
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
+    parser = build_parser()
+    raw_args = list(sys.argv[1:] if argv is None else argv)
+
+    # If no arguments provided at all, print help and return 0
+    if not raw_args:
+        parser.print_help()
+        return 0
+
+    # Ergonomic shortcut: if first arg is not a recognized command/flag,
+    # treat it as a path to inspect (e.g. 'entropy .' or 'entropy C:\dev\repo')
+    first_arg = raw_args[0].lower()
+    if first_arg not in ("inspect", "scan", "-h", "--help", "-v", "--verbose", "-q", "--quiet", "--version"):
+        if not first_arg.startswith("-"):
+            raw_args.insert(0, "inspect")
+
+    args = parser.parse_args(raw_args)
     setup_logging(verbose=args.verbose, quiet=args.quiet)
 
-    # 1. Handle 'inspect <path>' subcommand
-    if args.targets and args.targets[0].lower() == "inspect":
-        target_dir = args.targets[1] if len(args.targets) > 1 else "."
+    if args.command == "inspect":
+        target_dir = args.path
         abs_target = os.path.abspath(target_dir)
-        if not os.path.isdir(abs_target):
-            print(f"Error: Target directory '{abs_target}' does not exist.", file=sys.stderr)
-            sys.exit(1)
 
-        target_project, graph, findings = run_entropy_inspect(abs_target)
+        if not os.path.exists(abs_target):
+            print(f"Error: Target path '{abs_target}' does not exist.", file=sys.stderr)
+            return 1
+        if not os.path.isdir(abs_target):
+            print(f"Error: Path '{abs_target}' is not a directory.", file=sys.stderr)
+            return 1
+
+        try:
+            target_project, graph, findings = run_entropy_inspect(abs_target)
+        except PermissionError as e:
+            print(f"Error: Permission denied accessing '{abs_target}': {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Error: Inspection failed for '{abs_target}': {e}", file=sys.stderr)
+            return 1
+
         if args.json_output:
             print(serialize_graph_and_findings(graph, findings))
         else:
@@ -380,35 +466,49 @@ def main() -> None:
                 print(format_inspect_report(target_project, graph, findings))
             else:
                 print(f"Error: Could not inspect workspace at '{abs_target}'.", file=sys.stderr)
-        return
+                return 1
+        return 0
 
-    # 2. Standard multi-root or single-root environment scan
-    if not args.targets:
-        target_paths = [os.path.abspath(os.path.expanduser("~"))]
-    else:
-        target_paths = [os.path.abspath(t) for t in args.targets]
+    elif args.command == "scan":
+        if not args.targets:
+            target_paths = [os.path.abspath(os.path.expanduser("~"))]
+        else:
+            target_paths = [os.path.abspath(t) for t in args.targets]
 
-    for p in target_paths:
-        if not os.path.isdir(p):
-            print(f"Error: Target directory '{p}' does not exist.", file=sys.stderr)
-            sys.exit(1)
+        for p in target_paths:
+            if not os.path.exists(p):
+                print(f"Error: Target path '{p}' does not exist.", file=sys.stderr)
+                return 1
+            if not os.path.isdir(p):
+                print(f"Error: Path '{p}' is not a directory.", file=sys.stderr)
+                return 1
 
-    graph, findings = run_entropy_scan(target_paths, max_depth=args.depth)
-
-    if args.json_output:
-        print(serialize_graph_and_findings(graph, findings))
-    else:
-        print(format_report(graph, findings))
-
-    if args.json_file:
         try:
-            with open(args.json_file, "w", encoding="utf-8") as f:
-                f.write(serialize_graph_and_findings(graph, findings))
-            if not args.quiet:
-                print(f"\nJSON graph and findings saved to: {args.json_file}", file=sys.stderr)
-        except OSError as e:
-            print(f"Error writing JSON file: {e}", file=sys.stderr)
+            graph, findings = run_entropy_scan(target_paths, max_depth=args.depth)
+        except Exception as e:
+            print(f"Error: Scan failed: {e}", file=sys.stderr)
+            return 1
+
+        if args.json_output:
+            print(serialize_graph_and_findings(graph, findings))
+        else:
+            print(format_report(graph, findings))
+
+        if args.json_file:
+            try:
+                with open(args.json_file, "w", encoding="utf-8") as f:
+                    f.write(serialize_graph_and_findings(graph, findings))
+                if not args.quiet:
+                    print(f"\nJSON graph and findings saved to: {args.json_file}", file=sys.stderr)
+            except OSError as e:
+                print(f"Error writing JSON file: {e}", file=sys.stderr)
+                return 1
+        return 0
+
+    else:
+        parser.print_help()
+        return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

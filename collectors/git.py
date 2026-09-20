@@ -117,11 +117,26 @@ def collect_git_repository(repo_path: str) -> Optional[GitRepository]:
     count_str = _run_git_command(repo_path, ["rev-list", "--count", "HEAD"])
     if count_str and count_str.isdigit():
         repo.commit_count = int(count_str)
+    elif repo.last_commit_timestamp is None:
+        repo.commit_count = 0
 
     # 5. Current branch
     branch = _run_git_command(repo_path, ["rev-parse", "--abbrev-ref", "HEAD"])
-    if branch:
+    if branch and branch != "HEAD":
         repo.current_branch = branch
+    else:
+        # Fallback: check .git/HEAD for symbolic ref (e.g. ref: refs/heads/main)
+        head_file = os.path.join(repo_path, ".git", "HEAD") if not is_worktree else None
+        if head_file and os.path.exists(head_file):
+            try:
+                with open(head_file, "r", encoding="utf-8", errors="ignore") as f:
+                    ref_line = f.read().strip()
+                    if ref_line.startswith("ref: refs/heads/"):
+                        repo.current_branch = ref_line.split("refs/heads/")[-1]
+            except OSError:
+                pass
+        if not repo.current_branch:
+            repo.current_branch = "HEAD (detached)" if branch == "HEAD" else None
 
     # 6. Branch count
     branches_out = _run_git_command(repo_path, ["branch", "--list"])

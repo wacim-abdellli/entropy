@@ -126,6 +126,9 @@ def format_inspect_report(
     elif git_repo and git_repo.is_worktree:
         state_title = "Git Worktree"
         state_desc = f"Linked worktree of repository '{git_repo.remote_repo_id or 'parent'}' on branch '{git_repo.current_branch}'."
+    elif git_repo and git_repo.commit_count == 0 and git_repo.last_commit_timestamp is None:
+        state_title = "Empty / Newly Initialized Repository"
+        state_desc = "Git repository initialized, but no commits have been made yet."
     elif active_runtime_procs:
         proc_str = ", ".join(f"{p.name} (PID {p.pid})" for p in active_runtime_procs)
         if git_repo and git_repo.last_commit_timestamp and (now - git_repo.last_commit_timestamp) > 30 * 86400:
@@ -170,7 +173,8 @@ def format_inspect_report(
     if git_repo:
         wt_note = " [Worktree]" if git_repo.is_worktree else ""
         remote_note = f" (Remote: {git_repo.remote_repo_id})" if git_repo.remote_repo_id else ""
-        lines.append(f"  • Git:                Repository{wt_note} on branch '{git_repo.current_branch}'{remote_note}")
+        branch_str = git_repo.current_branch or "None"
+        lines.append(f"  • Git:                Repository{wt_note} on branch '{branch_str}'{remote_note}")
     else:
         lines.append("  • Git:                None (unversioned directory)")
 
@@ -219,9 +223,18 @@ def format_inspect_report(
     # -------------------------------------------------------------------------
     lines.append("EVIDENCE")
     if git_repo:
-        last_commit_str = _format_time_ago(git_repo.last_commit_timestamp, now)
-        lines.append(f"  • Git Branch:         {git_repo.current_branch}")
-        lines.append(f"  • Last Commit:        {last_commit_str} ({git_repo.commit_count or 'unknown'} commits in HEAD history)")
+        branch_str = git_repo.current_branch or "None"
+        if git_repo.last_commit_timestamp is not None:
+            last_commit_str = _format_time_ago(git_repo.last_commit_timestamp, now)
+            commit_cnt_str = f"{git_repo.commit_count or 'unknown'} commits in HEAD history"
+        elif git_repo.commit_count == 0:
+            last_commit_str = "Never"
+            commit_cnt_str = "0 commits (new repository)"
+        else:
+            last_commit_str = "Unknown"
+            commit_cnt_str = f"{git_repo.commit_count or 'unknown'} commits in HEAD history"
+        lines.append(f"  • Git Branch:         {branch_str}")
+        lines.append(f"  • Last Commit:        {last_commit_str} ({commit_cnt_str})")
         uncommitted_str = "YES (uncommitted file modifications detected in working tree)" if git_repo.has_uncommitted_changes else "No (working tree is clean)"
         lines.append(f"  • Uncommitted Files:  {uncommitted_str}")
         lines.append(f"  • Remote Origin:      {git_repo.remote_repo_id or git_repo.remote_host or 'None (local only)'}")
