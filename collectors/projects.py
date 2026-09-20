@@ -76,7 +76,7 @@ def _detect_project_type_and_sentinels(
     filenames = {e.name for e in entries if e.is_file()}
     dirnames = {e.name for e in entries if e.is_dir()}
 
-    if ".git" in dirnames:
+    if ".git" in dirnames or ".git" in filenames:
         sentinels.append(".git")
 
     if "package.json" in filenames:

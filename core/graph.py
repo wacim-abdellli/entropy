@@ -70,6 +70,7 @@ class EnvironmentGraph:
     scan_timestamp: float = 0.0
     scan_duration_seconds: float = 0.0
     scan_root: str = ""
+    scan_roots: list[str] = field(default_factory=list)
     scope_type: ScopeType = ScopeType.LOCAL_DIRECTORY
     hostname: Optional[str] = None
     docker_available: bool = False

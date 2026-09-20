@@ -18,6 +18,18 @@ from core.entities import Process
 
 logger = logging.getLogger(__name__)
 
+SHELL_PROCESS_NAMES = {
+    "powershell.exe",
+    "pwsh.exe",
+    "cmd.exe",
+    "bash.exe",
+    "zsh.exe",
+    "wt.exe",
+    "conhost.exe",
+    "sh.exe",
+    "wsl.exe",
+}
+
 
 def collect_processes() -> List[Process]:
     """
@@ -83,6 +95,7 @@ def collect_processes() -> List[Process]:
                 memory_bytes=memory_bytes,
                 cpu_percent=None,
                 cmdline_preview=cmdline_preview,
+                is_shell=name.lower() in SHELL_PROCESS_NAMES,
             )
             processes.append(process_entity)
 

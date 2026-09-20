@@ -72,6 +72,7 @@ def build_environment_graph(scan: ScanResult) -> EnvironmentGraph:
         scan_timestamp=scan.scan_timestamp,
         scan_duration_seconds=scan.scan_duration_seconds,
         scan_root=scan.scan_root,
+        scan_roots=list(scan.scan_roots),
         scope_type=scan.scope_type,
         hostname=scan.hostname,
         docker_available=scan.docker_available,
@@ -249,12 +250,18 @@ def build_environment_graph(scan: ScanResult) -> EnvironmentGraph:
                 continue
 
             if g1.remote_repo_id.lower() == g2.remote_repo_id.lower() and p1.path != p2.path:
+                is_wt = g1.is_worktree or g2.is_worktree
+                ev_text = (
+                    f"Both projects share the same remote repository via Git Worktree: {g1.remote_repo_id}"
+                    if is_wt
+                    else f"Both projects clone the same remote repository: {g1.remote_repo_id}"
+                )
                 graph.add_relationship(
                     source_id=p1.entity_id,
                     target_id=p2.entity_id,
                     rel_type=RelationshipType.SHARES_REMOTE,
                     observability=Observability.DIRECTLY_OBSERVABLE,
-                    evidence=f"Both projects clone the same remote repository: {g1.remote_repo_id}",
+                    evidence=ev_text,
                 )
 
     return graph

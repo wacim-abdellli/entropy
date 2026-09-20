@@ -57,19 +57,50 @@ def _run_git_command(repo_path: str, args: List[str], timeout: int = 5) -> Optio
 def collect_git_repository(repo_path: str) -> Optional[GitRepository]:
     """
     Collect Git metadata for a given repository root directory.
+    Supports both traditional .git directories and git worktree file pointers.
     Returns GitRepository entity or None if not a git repository.
     """
-    git_dir = os.path.join(repo_path, ".git")
-    if not os.path.isdir(git_dir):
+    git_entry = os.path.join(repo_path, ".git")
+    if not os.path.exists(git_entry):
         return None
+
+    is_worktree = os.path.isfile(git_entry)
+    parent_repo: Optional[str] = None
+
+    if is_worktree:
+        # Try to resolve common parent repository via git CLI first
+        common_dir = _run_git_command(repo_path, ["rev-parse", "--git-common-dir"])
+        if common_dir:
+            norm_common = os.path.normpath(os.path.join(repo_path, common_dir))
+            parent_repo = os.path.dirname(norm_common)
+        else:
+            # Fallback: parse gitdir: line in .git file
+            try:
+                with open(git_entry, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read().strip()
+                    if content.startswith("gitdir:"):
+                        target = content[len("gitdir:"):].strip()
+                        norm_target = os.path.normpath(os.path.join(repo_path, target))
+                        if ".git" in norm_target:
+                            parent_repo = norm_target.split(".git")[0].rstrip(os.sep)
+            except OSError:
+                pass
 
     repo = GitRepository(
         entity_id=f"git:{os.path.abspath(repo_path)}",
         path=os.path.abspath(repo_path),
+        is_worktree=is_worktree,
+        worktree_parent_repo=parent_repo,
     )
 
-    # 1. Size of .git directory
-    repo.repo_size_bytes = _get_dir_size(git_dir)
+    # 1. Size of .git metadata
+    if is_worktree:
+        try:
+            repo.repo_size_bytes = os.path.getsize(git_entry)
+        except OSError:
+            repo.repo_size_bytes = 0
+    else:
+        repo.repo_size_bytes = _get_dir_size(git_entry)
 
     # 2. Last commit timestamp
     ts_str = _run_git_command(repo_path, ["log", "--format=%at", "-1"])

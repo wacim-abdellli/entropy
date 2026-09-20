@@ -64,6 +64,7 @@ class DockerContainerState(str, Enum):
 
 class ScopeType(str, Enum):
     LOCAL_DIRECTORY = "local_directory"    # Scoped to a specific folder (e.g. Desktop, IdeaProjects)
+    MULTI_ROOT = "multi_root"              # Scoped across multiple specified project directories
     USER_ENVIRONMENT = "user_environment"  # Entire user home directory
     MACHINE_WIDE = "machine_wide"          # Machine-wide / all drives
 
@@ -112,7 +113,9 @@ class GitRepository(Entity):
     has_remote: bool = False
     remote_host: Optional[str] = None            # Hostname only (e.g. "github.com")
     remote_repo_id: Optional[str] = None         # Anonymized repo identifier (e.g. "github.com/user/repo")
-    repo_size_bytes: Optional[int] = None        # Size of .git/ directory
+    repo_size_bytes: Optional[int] = None        # Size of .git/ directory or worktree pointer
+    is_worktree: bool = False                    # True if .git is a worktree pointer file
+    worktree_parent_repo: Optional[str] = None   # Path to parent git repository if worktree
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +134,7 @@ class Process(Entity):
     memory_bytes: Optional[int] = None           # RSS memory
     cpu_percent: Optional[float] = None
     cmdline_preview: Optional[str] = None        # Executable name only, NOT full args (privacy)
+    is_shell: bool = False                       # True for interactive shells (powershell, cmd, bash, etc.)
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +220,7 @@ class ScanResult:
     scan_timestamp: float = 0.0
     scan_duration_seconds: float = 0.0
     scan_root: str = ""
+    scan_roots: list[str] = field(default_factory=list)
     scope_type: ScopeType = ScopeType.LOCAL_DIRECTORY
     hostname: Optional[str] = None
 

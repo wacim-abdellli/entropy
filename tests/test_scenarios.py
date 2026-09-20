@@ -438,6 +438,156 @@ class TestLifecycleScenarios(unittest.TestCase):
         self.assertEqual(cache_findings[0].severity, FindingSeverity.ATTENTION)
         self.assertIn("Gradle", cache_findings[0].title)
 
+    # -------------------------------------------------------------------------
+    # Scenario 11: Idle Shell Does Not Suppress Project Staleness
+    # -------------------------------------------------------------------------
+    def test_scenario_11_idle_shell_does_not_suppress_stale(self):
+        """Idle powershell.exe open in 8-mo stale project must NOT suppress inactive resource warning."""
+        p = Project(
+            entity_id="project:c:/dev/old-portal",
+            path="c:/dev/old-portal",
+            project_type=ProjectType.NODE,
+            total_size_bytes=2 * 1024 * 1024 * 1024,
+            activity=ActivityLevel.STALE,
+        )
+        g = GitRepository(
+            entity_id="git:c:/dev/old-portal",
+            path="c:/dev/old-portal",
+            last_commit_timestamp=self.now - (240 * self.day), # 8 months
+            has_remote=True,
+            remote_host="github.com",
+            has_uncommitted_changes=False,
+        )
+        dep = DependencyEnvironment(
+            entity_id="dep:c:/dev/old-portal/node_modules",
+            path="c:/dev/old-portal/node_modules",
+            dep_type="node_modules",
+            size_bytes=1200 * 1024 * 1024, # 1.2 GB
+        )
+        # Idle interactive shell
+        proc_shell = Process(
+            entity_id="proc:5208",
+            pid=5208,
+            name="powershell.exe",
+            cwd="c:/dev/old-portal",
+            is_shell=True,
+        )
+
+        scan = ScanResult(
+            scan_timestamp=self.now,
+            scan_root="c:/dev",
+            projects=[p],
+            git_repos=[g],
+            dep_environments=[dep],
+            processes=[proc_shell],
+        )
+        graph = build_environment_graph(scan)
+        findings = analyze_graph(graph)
+
+        # 1. Idle shell must generate idle_shell_stale ATTENTION finding
+        shell_findings = [f for f in findings if "idle_shell_stale" in f.id]
+        self.assertEqual(len(shell_findings), 1)
+        self.assertEqual(shell_findings[0].severity, FindingSeverity.ATTENTION)
+        self.assertIn("powershell.exe", shell_findings[0].summary)
+
+        # 2. Must NOT generate running_proc_stale (it's not an active daemon/server)
+        running_proc_findings = [f for f in findings if "running_proc_stale" in f.id]
+        self.assertEqual(len(running_proc_findings), 0)
+
+        # 3. Idle shell must NOT suppress inactive_resources finding (1.2 GB node_modules is still dormant)
+        inactive_res_findings = [f for f in findings if "inactive_resources" in f.id]
+        self.assertEqual(len(inactive_res_findings), 1)
+        self.assertEqual(inactive_res_findings[0].severity, FindingSeverity.ATTENTION)
+
+    # -------------------------------------------------------------------------
+    # Scenario 12: Git Worktree Cluster Recognized as Intentional Workflow
+    # -------------------------------------------------------------------------
+    def test_scenario_12_git_worktree_cluster(self):
+        """Worktree sharing remote with main repo must be classified as worktree cluster, not duplicate clone."""
+        p_main = Project(
+            entity_id="project:c:/dev/entropy-main",
+            path="c:/dev/entropy-main",
+            activity=ActivityLevel.ACTIVE,
+        )
+        g_main = GitRepository(
+            entity_id="git:c:/dev/entropy-main",
+            path="c:/dev/entropy-main",
+            remote_repo_id="github.com/wacim-abdellli/entropy",
+            current_branch="main",
+            is_worktree=False,
+        )
+
+        p_wt = Project(
+            entity_id="project:c:/dev/entropy-worktree",
+            path="c:/dev/entropy-worktree",
+            activity=ActivityLevel.ACTIVE,
+        )
+        g_wt = GitRepository(
+            entity_id="git:c:/dev/entropy-worktree",
+            path="c:/dev/entropy-worktree",
+            remote_repo_id="github.com/wacim-abdellli/entropy",
+            current_branch="feature/experiment",
+            is_worktree=True, # Explicitly marked as worktree
+            worktree_parent_repo="c:/dev/entropy-main",
+        )
+
+        scan = ScanResult(
+            scan_timestamp=self.now,
+            scan_root="c:/dev",
+            projects=[p_main, p_wt],
+            git_repos=[g_main, g_wt],
+        )
+        graph = build_environment_graph(scan)
+        findings = analyze_graph(graph)
+
+        # Must generate git_worktree_cluster INFO finding
+        wt_findings = [f for f in findings if "git_worktree_cluster" in f.id]
+        self.assertEqual(len(wt_findings), 1)
+        self.assertEqual(wt_findings[0].severity, FindingSeverity.INFO)
+        self.assertIn("linked Git worktrees", wt_findings[0].summary)
+
+        # Must NOT generate accidental duplicate clone warning
+        dup_findings = [f for f in findings if "duplicate_repo" in f.id]
+        self.assertEqual(len(dup_findings), 0)
+
+    # -------------------------------------------------------------------------
+    # Scenario 13: Multi-Root Workspace Build Cache Linking
+    # -------------------------------------------------------------------------
+    def test_scenario_13_multi_root_cache_linking(self):
+        """Multi-root scan resolves Maven cache to Java project in separate root."""
+        p_node = Project(
+            entity_id="project:c:/users/pc/desktop/web-app",
+            path="c:/users/pc/desktop/web-app",
+            project_type=ProjectType.NODE,
+        )
+        p_java = Project(
+            entity_id="project:c:/users/pc/ideaprojects/backend-service",
+            path="c:/users/pc/ideaprojects/backend-service",
+            project_type=ProjectType.JAVA,
+        )
+        cache_maven = CacheDirectory(
+            entity_id="cache:maven",
+            path="c:/users/pc/.m2/repository",
+            size_bytes=1400 * 1024 * 1024, # 1.4 GB
+            category="maven",
+            description="Maven repository cache",
+        )
+
+        scan = ScanResult(
+            scan_timestamp=self.now,
+            scan_roots=["c:/users/pc/desktop", "c:/users/pc/ideaprojects"],
+            scope_type=ScopeType.MULTI_ROOT,
+            projects=[p_node, p_java],
+            caches=[cache_maven],
+        )
+        graph = build_environment_graph(scan)
+        findings = analyze_graph(graph)
+
+        # Because Java project exists in IdeaProjects, Maven cache must NOT be flagged as unreferenced/obsolete!
+        obsolete_findings = [f for f in findings if "obsolete_cache" in f.id and "maven" in f.id.lower()]
+        self.assertEqual(len(obsolete_findings), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
+

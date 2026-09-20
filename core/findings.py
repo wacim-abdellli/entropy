@@ -126,12 +126,18 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
         if is_stale or (git_repo and git_repo.last_commit_timestamp and (current_time - git_repo.last_commit_timestamp) > 90 * 86400):
             proc_names = []
             proc_mem = 0
+            active_runtime_procs = []
+            shell_procs = []
             for r in runs_from_rels:
                 proc = graph.get_entity(r.source_id)
                 if isinstance(proc, Process):
                     proc_names.append(f"{proc.name} (PID {proc.pid})")
                     if proc.memory_bytes:
                         proc_mem += proc.memory_bytes
+                    if proc.is_shell:
+                        shell_procs.append(proc)
+                    else:
+                        active_runtime_procs.append(proc)
 
             evidence = [
                 f"Project directory: {p.path}",
@@ -146,30 +152,57 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
             if proc_mem > 0:
                 evidence.append(f"Combined process memory: {_format_size(proc_mem)}")
 
-            findings.append(
-                Finding(
-                    id=f"running_proc_stale_{p.entity_id}",
-                    title=f"Active process running in stale project: {os.path.basename(p.path)}",
-                    severity=FindingSeverity.WARNING,
-                    category="Process Lifecycle",
-                    summary=(
-                        f"Process {', '.join(proc_names)} is currently running from a project "
-                        f"with no Git activity for months."
-                    ),
-                    entities_involved=[p.entity_id] + [r.source_id for r in runs_from_rels],
-                    evidence=evidence,
-                    reasoning_chain=[
-                        "1. Process inspection detected an active process whose working directory or executable is inside this project.",
-                        "2. Git metadata demonstrates that code development has been inactive for a prolonged period.",
-                        "3. Filesystem modification timestamps may appear recent purely due to this process writing logs or cache files.",
-                        "4. This process may be an abandoned background server or forgotten development instance.",
-                    ],
-                    uncertainties=[
-                        "The process might be a long-running service intentionally left running by the developer.",
-                        "The project might be a stable utility that requires no recent code modifications.",
-                    ],
+            # Distinguish active runtime process from idle shell terminal
+            if not active_runtime_procs and shell_procs:
+                shell_names = ", ".join(f"{s.name} (PID {s.pid})" for s in shell_procs)
+                findings.append(
+                    Finding(
+                        id=f"idle_shell_stale_{p.entity_id}",
+                        title=f"Idle shell terminal open in inactive project: {os.path.basename(p.path)}",
+                        severity=FindingSeverity.ATTENTION,
+                        category="Terminal & Session Lifecycle",
+                        summary=(
+                            f"Interactive shell ({shell_names}) has its working directory in project "
+                            f"'{os.path.basename(p.path)}' with no Git activity for months, but no compiler or runtime is active."
+                        ),
+                        entities_involved=[p.entity_id] + [s.entity_id for s in shell_procs],
+                        evidence=evidence,
+                        reasoning_chain=[
+                            "1. Process inspection detected an interactive shell (e.g. powershell.exe) with this folder as cwd.",
+                            "2. No active compilers, language runtimes, or build tasks are executing from this directory.",
+                            "3. Git metadata demonstrates that code development has been inactive for a prolonged period.",
+                            "4. An open terminal window in an idle folder does not indicate active development or maintenance.",
+                        ],
+                        uncertainties=[
+                            "The developer may have recently navigated to this directory in a terminal tab and paused work.",
+                        ],
+                    )
                 )
-            )
+            else:
+                findings.append(
+                    Finding(
+                        id=f"running_proc_stale_{p.entity_id}",
+                        title=f"Active process running in stale project: {os.path.basename(p.path)}",
+                        severity=FindingSeverity.WARNING,
+                        category="Process Lifecycle",
+                        summary=(
+                            f"Process {', '.join(proc_names)} is currently running from a project "
+                            f"with no Git activity for months."
+                        ),
+                        entities_involved=[p.entity_id] + [r.source_id for r in runs_from_rels],
+                        evidence=evidence,
+                        reasoning_chain=[
+                            "1. Process inspection detected an active process whose working directory or executable is inside this project.",
+                            "2. Git metadata demonstrates that code development has been inactive for a prolonged period.",
+                            "3. Filesystem modification timestamps may appear recent purely due to this process writing logs or cache files.",
+                            "4. This process may be an abandoned background server or forgotten development instance.",
+                        ],
+                        uncertainties=[
+                            "The process might be a long-running service intentionally left running by the developer.",
+                            "The project might be a stable utility that requires no recent code modifications.",
+                        ],
+                    )
+                )
 
     # -------------------------------------------------------------------------
     # 2. Inactive Project with Substantial Lingering Resources
@@ -178,12 +211,17 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
         if p.activity not in (ActivityLevel.STALE, ActivityLevel.DORMANT):
             continue
 
-        # Ensure no process is running from it
-        has_running_proc = any(
-            r.rel_type == RelationshipType.RUNS_FROM
+        # Check running processes — ignore idle interactive shells (they do NOT indicate active work)
+        running_procs = [
+            graph.get_entity(r.source_id)
             for r in graph.get_relationships_to(p.entity_id)
+            if r.rel_type == RelationshipType.RUNS_FROM
+        ]
+        has_active_non_shell_proc = any(
+            isinstance(pr, Process) and not pr.is_shell
+            for pr in running_procs
         )
-        if has_running_proc:
+        if has_active_non_shell_proc:
             continue
 
         # Look for dependencies (node_modules, venvs, targets)
@@ -278,44 +316,72 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
             g1: Optional[GitRepository] = graph.get_entity(g1_rels[0].target_id) if g1_rels else None  # type: ignore
             g2: Optional[GitRepository] = graph.get_entity(g2_rels[0].target_id) if g2_rels else None  # type: ignore
 
+            is_worktree_cluster = bool((g1 and g1.is_worktree) or (g2 and g2.is_worktree))
+
             evidence = [
-                f"Copy 1: {p1.path} ({_format_size(p1.total_size_bytes)})",
-                f"Copy 2: {p2.path} ({_format_size(p2.total_size_bytes)})",
+                f"Location 1: {p1.path} ({_format_size(p1.total_size_bytes)})",
+                f"Location 2: {p2.path} ({_format_size(p2.total_size_bytes)})",
                 rel.evidence,
             ]
             if g1:
+                wt_note = " [Worktree]" if g1.is_worktree else ""
                 evidence.append(
-                    f"Copy 1: branch '{g1.current_branch}', uncommitted changes: {g1.has_uncommitted_changes}, "
+                    f"Location 1{wt_note}: branch '{g1.current_branch}', uncommitted changes: {g1.has_uncommitted_changes}, "
                     f"last commit: {_format_days_ago(g1.last_commit_timestamp, current_time)}"
                 )
             if g2:
+                wt_note = " [Worktree]" if g2.is_worktree else ""
                 evidence.append(
-                    f"Copy 2: branch '{g2.current_branch}', uncommitted changes: {g2.has_uncommitted_changes}, "
+                    f"Location 2{wt_note}: branch '{g2.current_branch}', uncommitted changes: {g2.has_uncommitted_changes}, "
                     f"last commit: {_format_days_ago(g2.last_commit_timestamp, current_time)}"
                 )
 
-            findings.append(
-                Finding(
-                    id=f"duplicate_repo_{p1.entity_id}_{p2.entity_id}",
-                    title=f"Duplicate project clones detected: {os.path.basename(p1.path)}",
-                    severity=FindingSeverity.WARNING if (g1 and g1.has_uncommitted_changes) or (g2 and g2.has_uncommitted_changes) else FindingSeverity.ATTENTION,
-                    category="Duplication",
-                    summary=(
-                        f"The same Git repository exists in two separate locations: "
-                        f"'{p1.path}' and '{p2.path}'."
-                    ),
-                    entities_involved=[p1.entity_id, p2.entity_id],
-                    evidence=evidence,
-                    reasoning_chain=[
-                        "1. Both directories contain Git repositories with identical remote repository identities.",
-                        "2. Multiple copies independently accumulate duplicate dependencies and build caches.",
-                        "3. Discrepancies in branches or uncommitted changes risk accidental work divergence or loss.",
-                    ],
-                    uncertainties=[
-                        "The developer might maintain multiple clones intentionally (e.g. for parallel branch testing or worktrees).",
-                    ],
+            if is_worktree_cluster:
+                findings.append(
+                    Finding(
+                        id=f"git_worktree_cluster_{p1.entity_id}_{p2.entity_id}",
+                        title=f"Git worktree cluster: {os.path.basename(p1.path)}",
+                        severity=FindingSeverity.INFO,
+                        category="Version Control Structure",
+                        summary=(
+                            f"Directories '{os.path.basename(p1.path)}' and '{os.path.basename(p2.path)}' "
+                            f"are linked Git worktrees sharing remote '{g1.remote_repo_id if g1 else ''}'."
+                        ),
+                        entities_involved=[p1.entity_id, p2.entity_id],
+                        evidence=evidence,
+                        reasoning_chain=[
+                            "1. Worktree pointer file (.git) detected connecting this directory to a parent repository.",
+                            "2. Worktrees share object storage intentionally for concurrent branch development.",
+                            "3. This represents a deliberate developer workflow, not an accidental redundant clone.",
+                        ],
+                        uncertainties=[
+                            "If the branch work is completed, the worktree can be pruned via 'git worktree remove'.",
+                        ],
+                    )
                 )
-            )
+            else:
+                findings.append(
+                    Finding(
+                        id=f"duplicate_repo_{p1.entity_id}_{p2.entity_id}",
+                        title=f"Duplicate project clones detected: {os.path.basename(p1.path)}",
+                        severity=FindingSeverity.WARNING if (g1 and g1.has_uncommitted_changes) or (g2 and g2.has_uncommitted_changes) else FindingSeverity.ATTENTION,
+                        category="Duplication",
+                        summary=(
+                            f"The same Git repository exists in two separate locations: "
+                            f"'{p1.path}' and '{p2.path}'."
+                        ),
+                        entities_involved=[p1.entity_id, p2.entity_id],
+                        evidence=evidence,
+                        reasoning_chain=[
+                            "1. Both directories contain Git repositories with identical remote repository identities.",
+                            "2. Multiple copies independently accumulate duplicate dependencies and build caches.",
+                            "3. Discrepancies in branches or uncommitted changes risk accidental work divergence or loss.",
+                        ],
+                        uncertainties=[
+                            "The developer might maintain multiple clones intentionally (e.g. for parallel branch testing).",
+                        ],
+                    )
+                )
 
     # -------------------------------------------------------------------------
     # 4. Stale Project with Uncommitted Changes (Risk of Lost Work)
@@ -468,18 +534,21 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
             has_matching_project = any(pt in project_types_present for pt in expected_types)
             if not has_matching_project and (c.size_bytes or 0) > 50 * 1024 * 1024:
                 type_names = ", ".join(pt.value for pt in expected_types)
-                is_local = graph.scope_type == ScopeType.LOCAL_DIRECTORY
-                severity = FindingSeverity.INFO if is_local else FindingSeverity.ATTENTION
+                is_scoped = graph.scope_type in (ScopeType.LOCAL_DIRECTORY, ScopeType.MULTI_ROOT)
+                severity = FindingSeverity.INFO if is_scoped else FindingSeverity.ATTENTION
                 title = (
                     f"Unreferenced build cache in scope: {c.description or c.category.capitalize()}"
-                    if is_local
+                    if is_scoped
                     else f"Potentially obsolete build cache: {c.description or c.category.capitalize()}"
                 )
-                scope_note = (
-                    f"within '{graph.scan_root}'. Projects in other directories on this machine may actively use this cache."
-                    if is_local
-                    else "across the scanned environment."
-                )
+                if graph.scope_type == ScopeType.MULTI_ROOT and graph.scan_roots:
+                    roots_display = ", ".join(graph.scan_roots)
+                    scope_note = f"within scanned roots ({roots_display}). Projects in other directories on this machine may actively use this cache."
+                elif is_scoped:
+                    scope_note = f"within '{graph.scan_root}'. Projects in other directories on this machine may actively use this cache."
+                else:
+                    scope_note = "across the scanned environment."
+
                 findings.append(
                     Finding(
                         id=f"obsolete_cache_{c.entity_id}",
@@ -499,7 +568,7 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
                         ],
                         reasoning_chain=[
                             f"1. Build cache directory exists on disk for toolchain '{c.category}'.",
-                            f"2. Scanned scope ({graph.scan_root}) contains zero projects requiring this toolchain.",
+                            f"2. Scanned scope contains zero projects requiring this toolchain.",
                             "3. If all project locations on this machine were scanned, this cache may be unneeded storage.",
                         ],
                         uncertainties=[

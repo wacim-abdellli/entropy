@@ -41,8 +41,14 @@ from linkers.relationships import build_environment_graph
 from report.text import format_report
 
 
-def determine_scope(target_path: str) -> ScopeType:
-    norm_target = os.path.normcase(os.path.abspath(target_path))
+def determine_scope(target_paths: list[str] | str) -> ScopeType:
+    if isinstance(target_paths, str):
+        target_paths = [target_paths]
+
+    if len(target_paths) > 1:
+        return ScopeType.MULTI_ROOT
+
+    norm_target = os.path.normcase(os.path.abspath(target_paths[0]))
     home = os.path.normcase(os.path.expanduser("~"))
     drive, rest = os.path.splitdrive(norm_target)
     if rest.strip(os.sep) == "":
@@ -67,30 +73,52 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     )
 
 
-def run_entropy_scan(scan_root: str, max_depth: int = 4) -> tuple[EnvironmentGraph, list]:
+def run_entropy_scan(scan_roots: list[str] | str, max_depth: int = 4) -> tuple[EnvironmentGraph, list]:
     """Execute full scanner workflow and return (graph, findings)."""
     logger = logging.getLogger("entropy")
     scan_start = time.time()
-    scope = determine_scope(scan_root)
+
+    if isinstance(scan_roots, str):
+        roots = [os.path.abspath(scan_roots)]
+    else:
+        roots = [os.path.abspath(r) for r in scan_roots]
+
+    scope = determine_scope(roots)
 
     scan_result = ScanResult(
         scan_timestamp=scan_start,
-        scan_root=os.path.abspath(scan_root),
+        scan_root=roots[0] if roots else "",
+        scan_roots=roots,
         scope_type=scope,
         hostname=socket.gethostname(),
     )
 
-    # 1. Projects and dependency environments
-    logger.info(f"Scanning for projects in {scan_root} (depth={max_depth})...")
-    projects, dep_envs = collect_projects_and_dependencies(scan_root, max_depth=max_depth)
-    scan_result.projects = projects
-    scan_result.dep_environments = dep_envs
-    logger.info(f"Detected {len(projects)} projects and {len(dep_envs)} dependency environments.")
+    # 1. Projects and dependency environments across all scan roots
+    seen_project_paths: set[str] = set()
+    all_projects: list[Project] = []
+    all_dep_envs: list[DependencyEnvironment] = []
+
+    for root in roots:
+        logger.info(f"Scanning for projects in {root} (depth={max_depth})...")
+        projects, dep_envs = collect_projects_and_dependencies(root, max_depth=max_depth)
+        for p in projects:
+            norm_p = os.path.normcase(os.path.abspath(p.path))
+            if norm_p not in seen_project_paths:
+                seen_project_paths.add(norm_p)
+                all_projects.append(p)
+        all_dep_envs.extend(dep_envs)
+
+    scan_result.projects = all_projects
+    scan_result.dep_environments = all_dep_envs
+    logger.info(
+        f"Detected {len(all_projects)} projects and {len(all_dep_envs)} dependency environments across {len(roots)} root(s)."
+    )
 
     # 2. Git metadata for projects
     logger.info("Extracting Git metadata for repositories...")
-    for p in projects:
-        if ".git" in p.detected_sentinels or os.path.isdir(os.path.join(p.path, ".git")):
+    for p in all_projects:
+        git_entry = os.path.join(p.path, ".git")
+        if ".git" in p.detected_sentinels or os.path.exists(git_entry):
             try:
                 repo = collect_git_repository(p.path)
                 if repo:
@@ -157,6 +185,8 @@ def serialize_graph_and_findings(graph: EnvironmentGraph, findings: list) -> str
             "timestamp": graph.scan_timestamp,
             "duration_seconds": graph.scan_duration_seconds,
             "root": graph.scan_root,
+            "roots": graph.scan_roots,
+            "scope_type": graph.scope_type.value,
             "hostname": graph.hostname,
             "docker_available": graph.docker_available,
         },
@@ -185,10 +215,10 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "target",
-        nargs="?",
-        default=os.path.expanduser("~"),
-        help="Target directory to inspect (default: user home)",
+        "targets",
+        nargs="*",
+        default=None,
+        help="One or more target directories to inspect (default: user home)",
     )
     parser.add_argument(
         "--depth",
@@ -222,12 +252,17 @@ def main() -> None:
     args = parser.parse_args()
     setup_logging(verbose=args.verbose, quiet=args.quiet)
 
-    target_path = os.path.abspath(args.target)
-    if not os.path.isdir(target_path):
-        print(f"Error: Target directory '{target_path}' does not exist.", file=sys.stderr)
-        sys.exit(1)
+    if not args.targets:
+        target_paths = [os.path.abspath(os.path.expanduser("~"))]
+    else:
+        target_paths = [os.path.abspath(t) for t in args.targets]
 
-    graph, findings = run_entropy_scan(target_path, max_depth=args.depth)
+    for p in target_paths:
+        if not os.path.isdir(p):
+            print(f"Error: Target directory '{p}' does not exist.", file=sys.stderr)
+            sys.exit(1)
+
+    graph, findings = run_entropy_scan(target_paths, max_depth=args.depth)
 
     if args.json_output:
         print(serialize_graph_and_findings(graph, findings))

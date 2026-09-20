@@ -25,6 +25,7 @@ from core.entities import (
     Process,
     Project,
     RuntimeInstallation,
+    ScopeType,
 )
 from core.findings import Finding, FindingSeverity
 from core.graph import EnvironmentGraph, RelationshipType
@@ -116,7 +117,11 @@ def format_report(graph: EnvironmentGraph, findings: List[Finding]) -> str:
     lines.append(f"  {time_str}  [{graph.hostname or 'local'}]")
     lines.append("═══════════════════════════════════════════════════════════════")
     lines.append("")
-    lines.append(f"  Scanned:    {_truncate_path(graph.scan_root)}")
+    if graph.scope_type == ScopeType.MULTI_ROOT and graph.scan_roots:
+        roots_disp = ", ".join(_truncate_path(r, 25) for r in graph.scan_roots)
+        lines.append(f"  Scanned:    [Multi-Root: {len(graph.scan_roots)}] {roots_disp}")
+    else:
+        lines.append(f"  Scanned:    {_truncate_path(graph.scan_root)}")
     lines.append(f"  Duration:   {graph.scan_duration_seconds:.1f}s")
     lines.append(f"  Entities:   {len(graph.entities)} discovered")
     lines.append(f"  Relations:  {len(graph.relationships)} connections mapped")
@@ -257,7 +262,10 @@ def format_report(graph: EnvironmentGraph, findings: List[Finding]) -> str:
 
             name = os.path.basename(p.path)
             size_str = _format_size(p.total_size_bytes)
-            status_tag = f"[{p.activity.value.upper()}]"
+            if git_repo and git_repo.is_worktree:
+                status_tag = f"[{p.activity.value.upper()} │ WORKTREE]"
+            else:
+                status_tag = f"[{p.activity.value.upper()}]"
 
             lines.append(f"  {_truncate_path(p.path, 42).ljust(43)} {size_str.rjust(10)}  {status_tag}")
             type_str = p.project_type.value.capitalize()
