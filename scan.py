@@ -1,42 +1,47 @@
 #!/usr/bin/env python3
 """
-Digital Entropy — Environment Scanner
+Digital Entropy — System Intelligence Scanner (Windows-First)
 
-Read-only tool that inspects a developer's machine and builds a model
-of its digital environment.
+A local-first, read-only system intelligence tool that models digital state
+and detects digital entropy across projects, processes, runtimes, and containers.
 
 Usage:
     python scan.py [TARGET_DIRECTORY] [OPTIONS]
 
 Options:
-    --json          Output raw JSON instead of formatted report
-    --json-file F   Write JSON report to file F (in addition to text output)
-    --depth N       Maximum directory traversal depth (default: 5)
-    --verbose       Enable verbose logging
-    --quiet         Suppress all logging output
-
-If TARGET_DIRECTORY is omitted, defaults to the current user's home directory.
+    --depth N       Maximum directory traversal depth (default: 4)
+    --json          Output raw JSON graph and findings
+    --json-file F   Save JSON output to file
+    --verbose, -v   Verbose debug logging
+    --quiet, -q     Quiet mode
 """
+
+from __future__ import annotations
 
 import argparse
 import json
 import logging
 import os
-import platform
 import socket
 import sys
 import time
+from dataclasses import asdict
+from pathlib import Path
 
-from collectors.projects import collect_projects
-from collectors.runtimes import collect_runtimes
-from collectors.docker import collect_docker
 from collectors.caches import collect_caches
-from model.inventory import EnvironmentInventory
+from collectors.docker import collect_docker
+from collectors.git import collect_git_repository
+from collectors.processes import collect_processes
+from collectors.projects import collect_projects_and_dependencies
+from collectors.runtimes import collect_runtimes
+from core.entities import ScanResult
+from core.findings import analyze_graph
+from core.graph import EnvironmentGraph
+from linkers.relationships import build_environment_graph
 from report.text import format_report
 
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
-    """Configure logging based on verbosity flags."""
     if quiet:
         level = logging.CRITICAL
     elif verbose:
@@ -51,105 +56,149 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     )
 
 
-def run_scan(scan_root: str, max_depth: int = 5) -> EnvironmentInventory:
-    """Execute a full environment scan and return the inventory."""
-    logger = logging.getLogger("scan")
+def run_entropy_scan(scan_root: str, max_depth: int = 4) -> tuple[EnvironmentGraph, list]:
+    """Execute full scanner workflow and return (graph, findings)."""
+    logger = logging.getLogger("entropy")
+    scan_start = time.time()
 
-    inventory = EnvironmentInventory()
-    inventory.scan_timestamp = time.time()
-    inventory.scan_root = os.path.abspath(scan_root)
-    inventory.hostname = socket.gethostname()
+    scan_result = ScanResult(
+        scan_timestamp=scan_start,
+        scan_root=os.path.abspath(scan_root),
+        hostname=socket.gethostname(),
+    )
 
-    start_time = time.time()
+    # 1. Projects and dependency environments
+    logger.info(f"Scanning for projects in {scan_root} (depth={max_depth})...")
+    projects, dep_envs = collect_projects_and_dependencies(scan_root, max_depth=max_depth)
+    scan_result.projects = projects
+    scan_result.dep_environments = dep_envs
+    logger.info(f"Detected {len(projects)} projects and {len(dep_envs)} dependency environments.")
 
-    # --- Collect projects ---
-    logger.info("Scanning for projects in %s (depth=%d)...", scan_root, max_depth)
+    # 2. Git metadata for projects
+    logger.info("Extracting Git metadata for repositories...")
+    for p in projects:
+        if ".git" in p.detected_sentinels or os.path.isdir(os.path.join(p.path, ".git")):
+            try:
+                repo = collect_git_repository(p.path)
+                if repo:
+                    scan_result.git_repos.append(repo)
+            except Exception as e:
+                logger.debug(f"Git inspection error on {p.path}: {e}")
+
+    # 3. Processes
+    logger.info("Inspecting active processes...")
     try:
-        inventory.projects = collect_projects(scan_root, max_depth=max_depth)
-        logger.info("Found %d projects.", len(inventory.projects))
+        scan_result.processes = collect_processes()
+        logger.info(f"Observed {len(scan_result.processes)} accessible processes.")
     except Exception as e:
-        logger.error("Project collection failed: %s", e)
-        inventory.errors.append(f"Project collection failed: {e}")
+        logger.warning(f"Process inspection failed: {e}")
+        scan_result.errors.append(f"Process inspection: {e}")
 
-    # --- Collect runtimes ---
-    logger.info("Detecting installed runtimes...")
+    # 4. Runtimes
+    logger.info("Detecting installed runtimes and SDKs...")
     try:
-        inventory.runtimes = collect_runtimes()
-        logger.info("Found %d runtime installations.", len(inventory.runtimes))
+        scan_result.runtimes = collect_runtimes()
+        logger.info(f"Found {len(scan_result.runtimes)} runtime installations.")
     except Exception as e:
-        logger.error("Runtime collection failed: %s", e)
-        inventory.errors.append(f"Runtime collection failed: {e}")
+        logger.warning(f"Runtime inspection failed: {e}")
+        scan_result.errors.append(f"Runtime inspection: {e}")
 
-    # --- Collect Docker state ---
-    logger.info("Inspecting Docker state...")
+    # 5. Docker
+    logger.info("Inspecting Docker resources...")
     try:
-        inventory.docker = collect_docker()
-        if inventory.docker.available:
-            logger.info(
-                "Docker: %d containers, %d images, %d volumes.",
-                len(inventory.docker.containers),
-                len(inventory.docker.images),
-                len(inventory.docker.volumes),
-            )
-        else:
-            logger.info("Docker not available: %s", inventory.docker.error)
+        docker_ok, docker_err, containers, images, volumes = collect_docker()
+        scan_result.docker_available = docker_ok
+        scan_result.docker_error = docker_err
+        scan_result.docker_containers = containers
+        scan_result.docker_images = images
+        scan_result.docker_volumes = volumes
     except Exception as e:
-        logger.error("Docker collection failed: %s", e)
-        inventory.errors.append(f"Docker collection failed: {e}")
+        logger.debug(f"Docker inspection error: {e}")
+        scan_result.docker_available = False
+        scan_result.docker_error = str(e)
 
-    # --- Collect caches ---
+    # 6. Caches
     logger.info("Inventorying caches...")
     try:
-        inventory.caches = collect_caches()
-        logger.info("Found %d cache entries.", len(inventory.caches))
+        scan_result.caches = collect_caches()
     except Exception as e:
-        logger.error("Cache collection failed: %s", e)
-        inventory.errors.append(f"Cache collection failed: {e}")
+        logger.debug(f"Cache inspection error: {e}")
 
-    inventory.scan_duration_seconds = time.time() - start_time
-    return inventory
+    scan_result.scan_duration_seconds = time.time() - scan_start
+
+    # 7. Assemble EnvironmentGraph and link relationships
+    logger.info("Synthesizing relationship graph...")
+    graph = build_environment_graph(scan_result)
+
+    # 8. Run digital entropy analysis
+    logger.info("Running cross-entity entropy analysis...")
+    findings = analyze_graph(graph)
+
+    return graph, findings
+
+
+def serialize_graph_and_findings(graph: EnvironmentGraph, findings: list) -> str:
+    """Serialize graph entities, relationships, and findings into JSON."""
+    data = {
+        "scan_metadata": {
+            "timestamp": graph.scan_timestamp,
+            "duration_seconds": graph.scan_duration_seconds,
+            "root": graph.scan_root,
+            "hostname": graph.hostname,
+            "docker_available": graph.docker_available,
+        },
+        "entities": {
+            eid: asdict(ent) for eid, ent in graph.entities.items()
+        },
+        "relationships": [
+            asdict(r) for r in graph.relationships
+        ],
+        "findings": [
+            asdict(f) for f in findings
+        ],
+    }
+    return json.dumps(data, indent=2, default=str)
 
 
 def main() -> None:
-    # Ensure stdout can handle Unicode (fixes Windows cp1252 encoding errors)
+    # Ensure stdout and stderr support UTF-8 on Windows
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
 
     parser = argparse.ArgumentParser(
-        description="Digital Entropy — Environment Scanner. "
-        "Inspects a developer's machine and reports on digital entropy.",
+        description="Digital Entropy — System Intelligence Scanner (Windows-First).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "target",
         nargs="?",
         default=os.path.expanduser("~"),
-        help="Root directory to scan (default: home directory)",
+        help="Target directory to inspect (default: user home)",
+    )
+    parser.add_argument(
+        "--depth",
+        type=int,
+        default=4,
+        help="Maximum directory traversal depth (default: 4)",
     )
     parser.add_argument(
         "--json",
         action="store_true",
         dest="json_output",
-        help="Output raw JSON instead of formatted report",
+        help="Output raw JSON graph and findings",
     )
     parser.add_argument(
         "--json-file",
         type=str,
         default=None,
-        help="Write JSON report to a file (in addition to text output)",
-    )
-    parser.add_argument(
-        "--depth",
-        type=int,
-        default=5,
-        help="Maximum directory traversal depth (default: 5)",
+        help="Save JSON report to file",
     )
     parser.add_argument(
         "--verbose", "-v",
         action="store_true",
-        help="Enable verbose logging",
+        help="Enable verbose debug logging",
     )
     parser.add_argument(
         "--quiet", "-q",
@@ -160,37 +209,26 @@ def main() -> None:
     args = parser.parse_args()
     setup_logging(verbose=args.verbose, quiet=args.quiet)
 
-    # Validate target directory
-    target = os.path.abspath(args.target)
-    if not os.path.isdir(target):
-        print(f"Error: '{target}' is not a valid directory.", file=sys.stderr)
+    target_path = os.path.abspath(args.target)
+    if not os.path.isdir(target_path):
+        print(f"Error: Target directory '{target_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
 
-    # Run the scan
-    inventory = run_scan(target, max_depth=args.depth)
+    graph, findings = run_entropy_scan(target_path, max_depth=args.depth)
 
-    # Output results
     if args.json_output:
-        print(inventory.to_json())
+        print(serialize_graph_and_findings(graph, findings))
     else:
-        print(format_report(inventory))
+        print(format_report(graph, findings))
 
-    # Optionally write JSON to file
     if args.json_file:
         try:
             with open(args.json_file, "w", encoding="utf-8") as f:
-                f.write(inventory.to_json())
+                f.write(serialize_graph_and_findings(graph, findings))
             if not args.quiet:
-                print(f"\nJSON report written to: {args.json_file}", file=sys.stderr)
+                print(f"\nJSON graph and findings saved to: {args.json_file}", file=sys.stderr)
         except OSError as e:
             print(f"Error writing JSON file: {e}", file=sys.stderr)
-            sys.exit(1)
-
-    # Report errors if any
-    if inventory.errors and not args.quiet:
-        print(f"\n{len(inventory.errors)} error(s) during scan:", file=sys.stderr)
-        for err in inventory.errors:
-            print(f"  - {err}", file=sys.stderr)
 
 
 if __name__ == "__main__":

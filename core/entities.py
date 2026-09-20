@@ -105,6 +105,7 @@ class GitRepository(Entity):
     has_uncommitted_changes: bool = False
     has_remote: bool = False
     remote_host: Optional[str] = None            # Hostname only (e.g. "github.com")
+    remote_repo_id: Optional[str] = None         # Anonymized repo identifier (e.g. "github.com/user/repo")
     repo_size_bytes: Optional[int] = None        # Size of .git/ directory
 
 
