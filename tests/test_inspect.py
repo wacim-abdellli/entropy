@@ -10,11 +10,16 @@ and zero false accusations across five adversarial workspace classes:
 - Case E: Git worktree (Git Worktree, NOT Duplicate Clone)
 """
 
+import os
+import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
+from collectors.git import collect_git_repository
 from core.entities import (
     ActivityLevel,
+    CacheDirectory,
     DockerContainer,
     DockerContainerState,
     DockerVolume,
@@ -28,6 +33,7 @@ from core.entities import (
 from core.findings import FindingSeverity, analyze_graph
 from core.graph import EnvironmentGraph
 from linkers.relationships import build_environment_graph
+from report.contract import serialize_workspace_inspection
 from report.inspect import format_inspect_report
 
 
@@ -385,6 +391,71 @@ class TestAdversarialInspectionScenarios(unittest.TestCase):
 
         self.assertIn("Inactive / Clean Codebase", report_clean)
         self.assertNotIn("Paused", report_clean)
+
+    @patch("collectors.git._run_git_command")
+    def test_git_porcelain_parser_edge_cases_and_process_grouping(self, mock_git):
+        """Test porcelain parsing for spaces, unicode, deleted binaries, and process grouping isolation."""
+        porcelain_output = (
+            " D git.exe\n"
+            " M \"path with spaces/service.dart\"\n"
+            "?? src/café_module.dart\n"
+            "R  old_file.dart -> new_file.dart\n"
+            "A  added_file.dart\n"
+        )
+        def git_side_effect(repo_path, args, timeout=5):
+            if "status" in args:
+                return porcelain_output
+            if "rev-parse" in args:
+                return "main"
+            if "rev-list" in args:
+                return "10"
+            if "log" in args:
+                return "1780000000|abc1234|feat: test commit|Tester <t@test.com>"
+            return None
+
+        mock_git.side_effect = git_side_effect
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dot_git = os.path.join(tmpdir, ".git")
+            os.makedirs(dot_git, exist_ok=True)
+            repo = collect_git_repository(tmpdir)
+            self.assertIsNotNone(repo)
+            self.assertTrue(repo.has_uncommitted_changes)
+            self.assertEqual(len(repo.dirty_files), 5)
+
+            # Check classifications
+            self.assertEqual(repo.dirty_files[0], {"status": "deleted", "path": "git.exe"})
+            self.assertEqual(repo.dirty_files[1], {"status": "modified", "path": "path with spaces/service.dart"})
+            self.assertEqual(repo.dirty_files[2], {"status": "untracked", "path": "src/café_module.dart"})
+            self.assertEqual(repo.dirty_files[3], {"status": "renamed", "path": "old_file.dart -> new_file.dart"})
+            self.assertEqual(repo.dirty_files[4], {"status": "added", "path": "added_file.dart"})
+
+        # Process grouping isolation test: two shells with DIFFERENT parent PIDs must remain separate
+        p_iso = Project(entity_id="project:c:/dev/iso", path="c:/dev/iso")
+        shell_parent_a = Process(
+            entity_id="proc:1", pid=1, name="powershell.exe", cwd="c:/dev/iso",
+            parent_pid=1000, is_shell=True, memory_bytes=50 * 1024 * 1024
+        )
+        shell_parent_b = Process(
+            entity_id="proc:2", pid=2, name="powershell.exe", cwd="c:/dev/iso",
+            parent_pid=2000, is_shell=True, memory_bytes=50 * 1024 * 1024
+        )
+        scan_iso = ScanResult(
+            scan_timestamp=self.now,
+            scan_root="c:/dev/iso",
+            projects=[p_iso],
+            processes=[shell_parent_a, shell_parent_b],
+        )
+        graph_iso = build_environment_graph(scan_iso)
+        contract_iso = serialize_workspace_inspection(p_iso, graph_iso, [])
+        # Neither shell should be grouped because each parent has count == 1
+        self.assertEqual(len(contract_iso["connections"]["process_groups"]), 0)
+
+        report_iso = format_inspect_report(p_iso, graph_iso, [])
+        # Must display individual PIDs, not a collapsed group
+        self.assertIn("powershell.exe (PID 1", report_iso)
+        self.assertIn("powershell.exe (PID 2", report_iso)
+        self.assertNotIn("Interactive Shell Sessions", report_iso)
 
 
 if __name__ == "__main__":

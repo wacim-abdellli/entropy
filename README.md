@@ -141,7 +141,7 @@ Action Boundaries (Manual verification instructions)
 
 1. **Observation:** Collects raw facts from OS tables, Git porcelain outputs, and Docker inspect data.
 2. **Relationship:** Links entities together across boundaries (e.g. `Process(PID 4740) RUNS_FROM Project(C:\dev\entropy)`).
-3. **Interpretation:** Determines grounded lifecycle state without judgmental language (`Active Development Session`, `Active Runtime`, `Disconnected Infrastructure`, `Git Worktree`, `Uncommitted Local State`, `Dormant / Static Codebase`, or `Paused / Intermittent Project`).
+3. **Interpretation:** Determines grounded lifecycle state without judgmental language (`Active Development Session`, `Active Runtime`, `Disconnected Infrastructure`, `Git Worktree`, `Uncommitted Local State`, `Dormant / Static Codebase`, or `Inactive / Clean Codebase`).
 4. **Uncertainty:** Explicitly exposes what the machine *cannot* deduce (e.g., whether uncommitted files are human code edits or disposable build residue).
 
 ---

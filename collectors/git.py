@@ -154,6 +154,7 @@ def collect_git_repository(repo_path: str) -> Optional[GitRepository]:
             if len(parts) != 2:
                 continue
             code, path_str = parts[0], parts[1].strip().strip('"')
+            path_str = path_str.replace("\\", "/")
             if "??" in code:
                 status_type = "untracked"
             elif "D" in code:
