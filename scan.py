@@ -38,6 +38,7 @@ from core.entities import ScanResult, ScopeType
 from core.findings import analyze_graph
 from core.graph import EnvironmentGraph
 from linkers.relationships import build_environment_graph
+from report.inspect import format_inspect_report
 from report.text import format_report
 
 
@@ -178,6 +179,117 @@ def run_entropy_scan(scan_roots: list[str] | str, max_depth: int = 4) -> tuple[E
     return graph, findings
 
 
+def run_entropy_inspect(target_dir: str) -> tuple[Optional[Project], EnvironmentGraph, list]:
+    """Inspect a single workspace and return its targeted graph footprint."""
+    logger = logging.getLogger("entropy")
+    scan_start = time.time()
+    abs_target = os.path.abspath(target_dir)
+
+    projects, dep_envs = collect_projects_and_dependencies(abs_target, max_depth=2)
+
+    target_project: Optional[Project] = None
+    for p in projects:
+        if os.path.normcase(p.path) == os.path.normcase(abs_target):
+            target_project = p
+            break
+
+    if not target_project:
+        if projects:
+            target_project = projects[0]
+        else:
+            # Fallback: create generic Project entity for the inspected directory
+            stat_info = None
+            try:
+                stat_info = os.stat(abs_target)
+            except OSError:
+                pass
+            created_ts = stat_info.st_ctime if stat_info else None
+            mtime_ts = stat_info.st_mtime if stat_info else None
+            from collectors.projects import _get_dir_size
+            total_size = _get_dir_size(abs_target)
+            target_project = Project(
+                entity_id=f"project:{abs_target}",
+                path=abs_target,
+                total_size_bytes=total_size,
+                created=created_ts,
+                last_modified=mtime_ts,
+            )
+            projects.append(target_project)
+
+    matching_deps = [
+        d for d in dep_envs
+        if os.path.normcase(d.path).startswith(os.path.normcase(target_project.path))
+    ]
+
+    scan_result = ScanResult(
+        scan_timestamp=scan_start,
+        scan_root=target_project.path,
+        scan_roots=[target_project.path],
+        scope_type=ScopeType.LOCAL_DIRECTORY,
+        hostname=socket.gethostname(),
+        projects=[target_project],
+        dep_environments=matching_deps,
+    )
+
+    # Git repository
+    git_entry = os.path.join(target_project.path, ".git")
+    if os.path.exists(git_entry):
+        try:
+            repo = collect_git_repository(target_project.path)
+            if repo:
+                scan_result.git_repos.append(repo)
+        except Exception as e:
+            logger.debug(f"Git inspection error: {e}")
+
+    # Processes running from or within this project
+    try:
+        all_procs = collect_processes()
+        norm_proj = os.path.normcase(target_project.path)
+        matching_procs = []
+        for pr in all_procs:
+            if pr.cwd and os.path.normcase(pr.cwd).startswith(norm_proj):
+                matching_procs.append(pr)
+            elif pr.exe_path and os.path.normcase(pr.exe_path).startswith(norm_proj):
+                matching_procs.append(pr)
+        scan_result.processes = matching_procs
+    except Exception as e:
+        logger.debug(f"Process inspection error: {e}")
+
+    # Runtimes
+    try:
+        scan_result.runtimes = collect_runtimes()
+    except Exception:
+        pass
+
+    # Docker
+    try:
+        docker_ok, docker_err, containers, images, volumes = collect_docker()
+        scan_result.docker_available = docker_ok
+        norm_proj = os.path.normcase(target_project.path)
+        relevant_containers = []
+        for c in containers:
+            for m in c.bind_mounts:
+                if os.path.normcase(m).startswith(norm_proj) or norm_proj.startswith(os.path.normcase(m)):
+                    relevant_containers.append(c)
+                    break
+        scan_result.docker_containers = relevant_containers
+        scan_result.docker_volumes = volumes
+    except Exception:
+        pass
+
+    # Caches
+    try:
+        scan_result.caches = collect_caches()
+    except Exception:
+        pass
+
+    scan_result.scan_duration_seconds = time.time() - scan_start
+    graph = build_environment_graph(scan_result)
+    findings = analyze_graph(graph)
+
+    return target_project, graph, findings
+
+
 def serialize_graph_and_findings(graph: EnvironmentGraph, findings: list) -> str:
     """Serialize graph entities, relationships, and findings into JSON."""
     data = {
@@ -252,6 +364,25 @@ def main() -> None:
     args = parser.parse_args()
     setup_logging(verbose=args.verbose, quiet=args.quiet)
 
+    # 1. Handle 'inspect <path>' subcommand
+    if args.targets and args.targets[0].lower() == "inspect":
+        target_dir = args.targets[1] if len(args.targets) > 1 else "."
+        abs_target = os.path.abspath(target_dir)
+        if not os.path.isdir(abs_target):
+            print(f"Error: Target directory '{abs_target}' does not exist.", file=sys.stderr)
+            sys.exit(1)
+
+        target_project, graph, findings = run_entropy_inspect(abs_target)
+        if args.json_output:
+            print(serialize_graph_and_findings(graph, findings))
+        else:
+            if target_project:
+                print(format_inspect_report(target_project, graph, findings))
+            else:
+                print(f"Error: Could not inspect workspace at '{abs_target}'.", file=sys.stderr)
+        return
+
+    # 2. Standard multi-root or single-root environment scan
     if not args.targets:
         target_paths = [os.path.abspath(os.path.expanduser("~"))]
     else:
