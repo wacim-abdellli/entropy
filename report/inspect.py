@@ -155,14 +155,27 @@ def format_inspect_report(
             state_title = "Dormant / Static Codebase (Unversioned)"
             state_desc = f"No recent filesystem activity ({_format_time_ago(target_project.last_modified, now)}); unversioned directory."
     elif target_project.activity == ActivityLevel.INACTIVE:
-        state_title = "Paused / Intermittent Project"
+        state_title = "Inactive / Clean Codebase"
         state_desc = "No activity in the last 30–180 days; normal development pause with clean working state."
     else:
         state_title = "Active / Current Codebase"
         state_desc = "Recent modifications or commits observed within the last 30 days."
 
+    # Primary uncertainty / cognitive boundary
+    primary_uncertainty = None
+    if git_repo and git_repo.has_uncommitted_changes:
+        primary_uncertainty = "Uncommitted changes are detected, but Entropy cannot determine whether they are intentional code changes or generated residue."
+    elif procs and not git_repo:
+        primary_uncertainty = "In the absence of Git metadata, commit recency, author identity, and development intent cannot be independently verified."
+    elif procs:
+        primary_uncertainty = "Process execution confirms running code, but Entropy cannot determine if it is an active developer session or an unattended background service."
+    elif git_repo and not git_repo.has_uncommitted_changes and target_project.activity in (ActivityLevel.STALE, ActivityLevel.DORMANT, ActivityLevel.INACTIVE):
+        primary_uncertainty = "Absence of recent Git activity does not indicate abandonment; completed or stable reference code naturally remains static."
+
     lines.append(f"  Status:               {state_title}")
     lines.append(f"  Summary:              {state_desc}")
+    if primary_uncertainty:
+        lines.append(f"  Boundary:             {primary_uncertainty}")
     lines.append("")
 
     # -------------------------------------------------------------------------
@@ -175,12 +188,47 @@ def format_inspect_report(
         remote_note = f" (Remote: {git_repo.remote_repo_id})" if git_repo.remote_repo_id else ""
         branch_str = git_repo.current_branch or "None"
         lines.append(f"  • Git:                Repository{wt_note} on branch '{branch_str}'{remote_note}")
+        if git_repo.has_uncommitted_changes and getattr(git_repo, "dirty_files", None):
+            top_dirty = git_repo.dirty_files[:5]
+            grouped_dirty: dict[str, list[str]] = {}
+            for d in top_dirty:
+                grouped_dirty.setdefault(d["status"], []).append(d["path"])
+            lines.append(f"                        Uncommitted Changes ({len(git_repo.dirty_files)}):")
+            for st, paths in grouped_dirty.items():
+                for p in paths:
+                    lines.append(f"                          - [{st.capitalize()}] {p}")
+            if len(git_repo.dirty_files) > 5:
+                lines.append(f"                          ... (+{len(git_repo.dirty_files) - 5} more)")
     else:
         lines.append("  • Git:                None (unversioned directory)")
 
     # Processes
     if procs:
-        proc_items = [f"{p.name} (PID {p.pid}, RSS {_format_size(p.memory_bytes)})" for p in procs]
+        # Group interactive shells sharing the same parent_pid
+        shells_by_parent: dict[int, list[Process]] = {}
+        non_grouped_procs: list[Process] = []
+        for p in procs:
+            if p.is_shell and p.parent_pid is not None:
+                shells_by_parent.setdefault(p.parent_pid, []).append(p)
+            else:
+                non_grouped_procs.append(p)
+
+        proc_items = []
+        # Add non-grouped processes first (e.g. workers/runtimes)
+        for p in non_grouped_procs:
+            proc_items.append(f"{p.name} (PID {p.pid}, RSS {_format_size(p.memory_bytes)})")
+
+        for parent_pid, shells in shells_by_parent.items():
+            if len(shells) > 1:
+                total_rss = sum(s.memory_bytes or 0 for s in shells)
+                shell_name = shells[0].name
+                proc_items.append(
+                    f"{len(shells)} Interactive Shell Sessions [{shell_name}] (Terminal Host PID {parent_pid}, RSS {_format_size(total_rss)})"
+                )
+            else:
+                s = shells[0]
+                proc_items.append(f"{s.name} (PID {s.pid}, RSS {_format_size(s.memory_bytes)})")
+
         lines.append(f"  • Processes ({len(procs)}):      {', '.join(proc_items)}")
     else:
         lines.append("  • Processes:          0 active processes running from this path")
@@ -214,8 +262,12 @@ def format_inspect_report(
            (c.category in ("maven", "gradle") and target_project.project_type.value == "java")
     ]
     if matching_caches:
-        c_items = [f"{c.category} ({_format_size(c.size_bytes)})" for c in matching_caches]
+        c_items = [
+            f"{c.category} ({_format_size(c.size_bytes)}) [SHARED SYSTEM CACHE]"
+            for c in matching_caches
+        ]
         lines.append(f"  • Toolchain Caches:   {', '.join(c_items)}")
+        lines.append("                        (Shared across projects on this machine)")
     lines.append("")
 
     # -------------------------------------------------------------------------

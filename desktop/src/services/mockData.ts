@@ -21,6 +21,7 @@ export const MOCK_ENTROPY_INSPECTION: WorkspaceInspection = {
       "Git commit observed 14m ago on branch 'main'",
       "Active process execution on Python 3.14.3 runtime"
     ],
+    primary_uncertainty: "Uncommitted changes are detected, but Entropy cannot determine whether they are intentional code changes or generated residue.",
   },
   connections: {
     git: {
@@ -40,6 +41,11 @@ export const MOCK_ENTROPY_INSPECTION: WorkspaceInspection = {
       repo_size_bytes: 217254,
       is_worktree: false,
       worktree_parent_repo: null,
+      dirty_files: [
+        { status: "modified", path: "desktop/src/components/WorkspaceView.tsx" },
+        { status: "modified", path: "report/inspect.py" },
+        { status: "untracked", path: "desktop/src/components/EvidencePanel.tsx" },
+      ],
     },
     processes: [
       {
@@ -123,8 +129,12 @@ export const MOCK_ENTROPY_INSPECTION: WorkspaceInspection = {
         size_bytes: 84192000,
         entry_count: 38,
         last_modified: Date.now() / 1000 - 3600,
+        is_shared: true,
+        scope: "shared_system",
+        scope_explanation: "Shared across projects on this machine. (Not isolated to this workspace)",
       }
     ],
+    process_groups: [],
   },
   entities: [
     {
@@ -242,6 +252,7 @@ export const MOCK_ENTROPY_INSPECTION: WorkspaceInspection = {
       verified: true,
     },
   ],
+  primary_uncertainty: "Uncommitted changes are detected, but Entropy cannot determine whether they are intentional code changes or generated residue.",
   uncertainties: [
     "Local modifications exist, but Entropy cannot determine whether they represent valuable human work or generated artifacts.",
     "Process execution confirms running code, but Entropy cannot determine if it is an active developer session or an unattended background service."
@@ -398,9 +409,9 @@ export const MOCK_AFTERSALES_INSPECTION: WorkspaceInspection = {
     runtime_version_hint: "20.x",
   },
   state: {
-    label: "Paused / Intermittent Project",
+    label: "Inactive / Clean Codebase",
     summary: "Uncommitted changes exist on feature branch, but workspace has had no execution for 45 days.",
-    category: "paused",
+    category: "inactive",
     why_factors: [
       "Branch 'main' has modified files not yet committed",
       "Last commit was observed 4 months ago",
@@ -456,6 +467,9 @@ export const MOCK_AFTERSALES_INSPECTION: WorkspaceInspection = {
         size_bytes: 245000000,
         entry_count: 340,
         last_modified: 1787000000,
+        is_shared: true,
+        scope: "shared_system",
+        scope_explanation: "Shared across projects on this machine. (Not isolated to this workspace)",
       }
     ],
   },
@@ -538,7 +552,8 @@ export const MOCK_ENVIRONMENT_OVERVIEW: EnvironmentOverview = {
     total_workspaces: 3,
     active_count: 1,
     attention_count: 1,
-    dormant_count: 1,
+    dormant_count: 0,
+    inactive_count: 1,
     paused_count: 0,
     neutral_count: 0,
     total_processes: 12,
@@ -554,8 +569,8 @@ export const MOCK_ENVIRONMENT_OVERVIEW: EnvironmentOverview = {
       project_type: "node",
       total_size_bytes: 142000000,
       last_modified: 1787000000,
-      state_label: "Paused / Intermittent Project",
-      state_category: "paused",
+      state_label: "Inactive / Clean Codebase",
+      state_category: "inactive",
       git_branch: "main",
       git_remote: "github.com/company/AfterSalesManagement",
       last_commit_timestamp: 1787000000,

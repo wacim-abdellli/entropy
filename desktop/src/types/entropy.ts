@@ -1,6 +1,11 @@
-export type StateCategory = 'active' | 'attention' | 'dormant' | 'paused' | 'neutral';
+export type StateCategory = 'active' | 'attention' | 'dormant' | 'inactive' | 'paused' | 'neutral';
 
 export type ObservabilityLevel = 'directly_observable' | 'strongly_inferable' | 'probabilistic';
+
+export interface GitDirtyFile {
+  status: 'modified' | 'deleted' | 'untracked' | 'added' | 'renamed' | string;
+  path: string;
+}
 
 export interface WorkspaceSummary {
   id: string;
@@ -34,6 +39,7 @@ export interface WorkspaceState {
   summary: string;
   category: StateCategory;
   why_factors: string[];
+  primary_uncertainty?: string | null;
 }
 
 export interface GitConnection {
@@ -53,6 +59,7 @@ export interface GitConnection {
   repo_size_bytes: number | null;
   is_worktree: boolean;
   worktree_parent_repo: string | null;
+  dirty_files?: GitDirtyFile[];
 }
 
 export interface ProcessConnection {
@@ -107,11 +114,25 @@ export interface CacheConnection {
   size_bytes: number | null;
   entry_count: number | null;
   last_modified: number | null;
+  is_shared?: boolean;
+  scope?: string;
+  scope_explanation?: string;
+}
+
+export interface ProcessGroup {
+  name: string;
+  label: string;
+  parent_pid: number;
+  count: number;
+  pids: number[];
+  total_memory_bytes: number;
+  processes: ProcessConnection[];
 }
 
 export interface WorkspaceConnections {
   git: GitConnection | null;
   processes: ProcessConnection[];
+  process_groups?: ProcessGroup[];
   runtimes: RuntimeConnection[];
   docker: DockerConnection[];
   dependencies: DependencyConnection[];
@@ -166,6 +187,7 @@ export interface WorkspaceInspection {
   workspace: WorkspaceDetails;
   state: WorkspaceState;
   connections: WorkspaceConnections;
+  primary_uncertainty?: string | null;
   entities: Record<string, any>[];
   relationships: RelationshipItem[];
   findings: FindingItem[];
@@ -180,6 +202,7 @@ export interface EnvironmentSummary {
   active_count: number;
   attention_count: number;
   dormant_count: number;
+  inactive_count?: number;
   paused_count: number;
   neutral_count: number;
   total_processes: number;

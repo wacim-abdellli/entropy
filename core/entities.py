@@ -116,6 +116,7 @@ class GitRepository(Entity):
     repo_size_bytes: Optional[int] = None        # Size of .git/ directory or worktree pointer
     is_worktree: bool = False                    # True if .git is a worktree pointer file
     worktree_parent_repo: Optional[str] = None   # Path to parent git repository if worktree
+    dirty_files: list[dict[str, str]] = field(default_factory=list)  # Top uncommitted file paths and statuses
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +209,9 @@ class CacheDirectory(Entity):
     size_bytes: Optional[int] = None
     category: str = "unknown"            # "npm", "pip", "nuget", "gradle", etc.
     description: Optional[str] = None
+    is_shared: bool = True               # Shared across projects on this machine
+    scope: str = "shared_system"         # "shared_system" vs "project_isolated"
+    scope_explanation: str = "Shared across projects on this machine."
 
 
 # ---------------------------------------------------------------------------

@@ -203,6 +203,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 <span className="font-mono text-zinc-500">{summary.dormant_count}</span>
               </button>
+
+              <button
+                onClick={() => {
+                  onSelectNav('workspaces');
+                  onSelectFilter('inactive');
+                }}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
+                  activeNav === 'workspaces' && (selectedFilter === 'inactive' || selectedFilter === 'paused')
+                    ? 'bg-slate-700/20 text-slate-300 font-medium'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 rounded-full bg-slate-400" />
+                  <span>Inactive</span>
+                </div>
+                <span className="font-mono text-zinc-500">{summary.inactive_count ?? summary.paused_count ?? 0}</span>
+              </button>
             </nav>
           </div>
         )}

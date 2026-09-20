@@ -282,6 +282,11 @@ export const SystemView: React.FC<SystemViewProps> = ({
                 <div className="flex items-center space-x-2">
                   <Database className="w-4 h-4 text-teal-400" />
                   <span className="font-bold text-zinc-100 uppercase text-sm">{cache.category} Cache</span>
+                  {cache.is_shared && (
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-950/60 border border-sky-800/40 text-sky-400 font-semibold uppercase">
+                      Shared System Cache
+                    </span>
+                  )}
                 </div>
                 <span className="font-mono text-xs text-teal-300 font-bold">
                   {formatSize(cache.size_bytes)}
@@ -296,6 +301,11 @@ export const SystemView: React.FC<SystemViewProps> = ({
                 {cache.entry_count !== null && (
                   <div className="text-zinc-500">
                     Entries: {cache.entry_count} packages cached
+                  </div>
+                )}
+                {cache.is_shared && (
+                  <div className="text-zinc-400 text-[11px] italic font-sans">
+                    {cache.scope_explanation || 'Shared across projects on this machine. (Not isolated to this workspace)'}
                   </div>
                 )}
               </div>

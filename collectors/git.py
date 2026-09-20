@@ -146,7 +146,26 @@ def collect_git_repository(repo_path: str) -> Optional[GitRepository]:
     # 7. Uncommitted changes (porcelain status)
     status_out = _run_git_command(repo_path, ["status", "--porcelain"])
     if status_out is not None:
-        repo.has_uncommitted_changes = len(status_out.strip()) > 0
+        lines = [l for l in status_out.splitlines() if l.strip()]
+        repo.has_uncommitted_changes = len(lines) > 0
+        dirty: list[dict[str, str]] = []
+        for line in lines[:10]:
+            parts = line.split(None, 1)
+            if len(parts) != 2:
+                continue
+            code, path_str = parts[0], parts[1].strip().strip('"')
+            if "??" in code:
+                status_type = "untracked"
+            elif "D" in code:
+                status_type = "deleted"
+            elif "A" in code:
+                status_type = "added"
+            elif "R" in code:
+                status_type = "renamed"
+            else:
+                status_type = "modified"
+            dirty.append({"status": status_type, "path": path_str})
+        repo.dirty_files = dirty
 
     # 8. Remotes - extract hostname only for privacy
     remotes_out = _run_git_command(repo_path, ["remote"])

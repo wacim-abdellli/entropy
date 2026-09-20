@@ -62,7 +62,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   const filteredWorkspaces = workspaces.filter((w) => {
     const matchesFilter =
-      selectedFilter === 'all' || w.state_category === selectedFilter;
+      selectedFilter === 'all' ||
+      w.state_category === selectedFilter ||
+      (selectedFilter === 'inactive' && (w.state_category as string) === 'paused') ||
+      (selectedFilter === 'paused' && (w.state_category as string) === 'inactive');
     const query = searchQuery.toLowerCase();
     const matchesSearch =
       w.name.toLowerCase().includes(query) ||
@@ -92,6 +95,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800/70 text-zinc-400 border border-zinc-700/60">
             <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 mr-1.5" />
+            {label}
+          </span>
+        );
+      case 'inactive':
+      case 'paused':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-900/70 text-slate-300 border border-slate-700/60">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mr-1.5" />
             {label}
           </span>
         );
@@ -160,12 +171,18 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <div className="text-2xl font-bold font-mono text-zinc-100">
             {summary.total_workspaces}
           </div>
-          <div className="flex items-center space-x-2 text-[11px] pt-1">
+          <div className="flex items-center space-x-2 text-[11px] pt-1 flex-wrap">
             <span className="text-emerald-400 font-medium">{summary.active_count} active</span>
             <span className="text-zinc-600">•</span>
             <span className="text-amber-400 font-medium">{summary.attention_count} attention</span>
             <span className="text-zinc-600">•</span>
             <span className="text-zinc-400">{summary.dormant_count} dormant</span>
+            {((summary.inactive_count ?? summary.paused_count ?? 0) > 0) && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <span className="text-slate-400 font-medium">{summary.inactive_count ?? summary.paused_count} inactive</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -303,6 +320,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               }`}
             >
               Dormant ({summary.dormant_count})
+            </button>
+            <button
+              onClick={() => onSelectFilter('inactive')}
+              className={`px-3 py-1 rounded transition-colors ${
+                selectedFilter === 'inactive' || selectedFilter === 'paused'
+                  ? 'bg-slate-800 text-slate-300 font-medium shadow-sm border border-slate-700/40'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              Inactive ({summary.inactive_count ?? summary.paused_count ?? 0})
             </button>
           </div>
 

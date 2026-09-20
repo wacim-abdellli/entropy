@@ -271,9 +271,16 @@ export const RelationshipGraphView: React.FC<RelationshipGraphViewProps> = ({
         data: {
           label: (
             <div className="p-2 bg-[#0e1a17] border border-teal-500/60 rounded-lg shadow-md text-left min-w-[160px]">
-              <div className="flex items-center space-x-1 text-teal-400 text-[11px] font-semibold">
-                <Database className="w-3.5 h-3.5" />
-                <span>CACHE: {cache.category}</span>
+              <div className="flex items-center justify-between text-teal-400 text-[11px] font-semibold">
+                <div className="flex items-center space-x-1">
+                  <Database className="w-3.5 h-3.5" />
+                  <span>CACHE: {cache.category}</span>
+                </div>
+                {cache.is_shared && (
+                  <span className="text-[9px] px-1 rounded bg-sky-950/80 border border-sky-800/40 text-sky-400 font-mono">
+                    SHARED
+                  </span>
+                )}
               </div>
               <div className="text-zinc-200 text-xs font-mono font-bold mt-0.5">
                 {cache.size_bytes ? `${(cache.size_bytes / (1024 * 1024)).toFixed(1)} MB` : '—'}
@@ -289,6 +296,8 @@ export const RelationshipGraphView: React.FC<RelationshipGraphViewProps> = ({
             category: 'cache',
             metadata: {
               category: cache.category,
+              scope: cache.scope || (cache.is_shared ? 'shared_system' : 'isolated'),
+              scope_explanation: cache.scope_explanation || (cache.is_shared ? 'Shared across projects on this machine.' : undefined),
               path: cache.path,
               size: cache.size_bytes,
               entries: cache.entry_count,

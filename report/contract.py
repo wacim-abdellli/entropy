@@ -162,9 +162,9 @@ def get_workspace_state_and_category(
         category = "dormant"
 
     elif target_project.activity == ActivityLevel.INACTIVE:
-        state_title = "Paused / Intermittent Project"
+        state_title = "Inactive / Clean Codebase"
         state_desc = "No activity in the last 30–180 days; normal development pause with clean working state."
-        category = "paused"
+        category = "inactive"
         why_factors.append(f"No commits or activity for {_format_time_ago(git_repo.last_commit_timestamp, now) if git_repo else '30–180 days'}")
         why_factors.append("Clean working tree with zero background tasks")
 
@@ -336,6 +336,50 @@ def serialize_workspace_inspection(
     if not uncertainties:
         uncertainties.append("No conflicting signals detected; developer intent cannot be inferred from static filesystem state alone.")
 
+    # Primary uncertainty statement directly affecting workspace state interpretation
+    primary_uncertainty = None
+    if git_repo and git_repo.has_uncommitted_changes:
+        primary_uncertainty = "Uncommitted changes are detected, but Entropy cannot determine whether they are intentional code changes or generated residue."
+    elif [p for p in procs if not p.is_shell]:
+        primary_uncertainty = "Process execution confirms running code, but Entropy cannot determine if it is an active developer session or an unattended background service."
+    elif [p for p in procs if p.is_shell] and not [p for p in procs if not p.is_shell]:
+        primary_uncertainty = "An open shell terminal indicates a navigation point, but absence of child processes indicates no build or compiler task is executing."
+    elif not git_repo:
+        primary_uncertainty = "In the absence of Git metadata, commit recency, author identity, and development intent cannot be independently verified."
+    elif git_repo and not git_repo.has_uncommitted_changes and target_project.activity in (ActivityLevel.INACTIVE, ActivityLevel.STALE, ActivityLevel.DORMANT):
+        primary_uncertainty = "Absence of recent Git activity does not indicate abandonment; completed or stable reference code naturally remains static."
+
+    # Group interactive shells sharing the same parent_pid
+    shells_by_parent: dict[int, list[Process]] = {}
+    for p in procs:
+        if p.is_shell and p.parent_pid is not None:
+            shells_by_parent.setdefault(p.parent_pid, []).append(p)
+
+    process_groups = []
+    for parent_pid, shells in shells_by_parent.items():
+        if len(shells) > 1:
+            total_rss = sum(s.memory_bytes or 0 for s in shells)
+            shell_name = shells[0].name
+            group_pids = [s.pid for s in shells]
+            process_groups.append({
+                "name": shell_name,
+                "label": f"{len(shells)} Interactive Shell Sessions",
+                "parent_pid": parent_pid,
+                "count": len(shells),
+                "pids": group_pids,
+                "total_memory_bytes": total_rss,
+                "processes": [asdict(s) for s in shells],
+            })
+
+    # Caches with explicit shared system scope
+    serialized_caches = []
+    for c in matching_caches:
+        cdict = asdict(c)
+        cdict["is_shared"] = getattr(c, "is_shared", True)
+        cdict["scope"] = getattr(c, "scope", "shared_system")
+        cdict["scope_explanation"] = getattr(c, "scope_explanation", "Shared across projects on this machine.")
+        serialized_caches.append(cdict)
+
     # Action boundary recommendations
     action_steps: List[str] = []
     if has_severed_docker:
@@ -403,15 +447,18 @@ def serialize_workspace_inspection(
             "summary": state_desc,
             "category": category,
             "why_factors": why_factors,
+            "primary_uncertainty": primary_uncertainty,
         },
         "connections": {
             "git": asdict(git_repo) if git_repo else None,
             "processes": [asdict(p) for p in procs],
+            "process_groups": process_groups,
             "runtimes": [asdict(r) for r in runtimes],
             "docker": [asdict(c) for c in containers],
             "dependencies": [asdict(d) for d in deps],
-            "caches": [asdict(c) for c in matching_caches],
+            "caches": serialized_caches,
         },
+        "primary_uncertainty": primary_uncertainty,
         "entities": relevant_entities,
         "relationships": relevant_relationships,
         "findings": relevant_findings,
@@ -460,6 +507,7 @@ def serialize_environment_overview(
         "active": 0,
         "attention": 0,
         "dormant": 0,
+        "inactive": 0,
         "paused": 0,
         "neutral": 0,
     }
@@ -469,6 +517,8 @@ def serialize_environment_overview(
             p, graph, findings, now=now
         )
         category_counts[category] = category_counts.get(category, 0) + 1
+        if category == "inactive":
+            category_counts["paused"] = category_counts.get("paused", 0) + 1
 
         # Git branch / commit info if linked
         git_rels = [
@@ -500,9 +550,19 @@ def serialize_environment_overview(
             "process_count": len(proc_rels),
         })
 
-    # Sort workspaces: attention first, then active, then paused, then dormant
-    priority = {"attention": 0, "active": 1, "paused": 2, "neutral": 3, "dormant": 4}
+    # Sort workspaces: attention first, then active, then inactive/paused, then dormant
+    priority = {"attention": 0, "active": 1, "inactive": 2, "paused": 2, "neutral": 3, "dormant": 4}
     workspace_cards.sort(key=lambda w: (priority.get(w["state_category"], 5), -(w["last_modified"] or 0)))
+
+    serialized_caches = [
+        {
+            **asdict(c),
+            "is_shared": getattr(c, "is_shared", True),
+            "scope": getattr(c, "scope", "shared_system"),
+            "scope_explanation": getattr(c, "scope_explanation", "Shared across projects on this machine."),
+        }
+        for c in caches
+    ]
 
     return {
         "summary": {
@@ -510,6 +570,7 @@ def serialize_environment_overview(
             "active_count": category_counts["active"],
             "attention_count": category_counts["attention"],
             "dormant_count": category_counts["dormant"],
+            "inactive_count": category_counts["inactive"],
             "paused_count": category_counts["paused"],
             "neutral_count": category_counts["neutral"],
             "total_processes": len(processes),
@@ -522,7 +583,7 @@ def serialize_environment_overview(
             "runtimes": [asdict(r) for r in runtimes],
             "processes": [asdict(pr) for pr in processes],
             "containers": [asdict(c) for c in containers],
-            "caches": [asdict(c) for c in caches],
+            "caches": serialized_caches,
         },
         "findings": [asdict(f) for f in findings],
         "metadata": {

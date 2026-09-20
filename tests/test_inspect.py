@@ -251,6 +251,141 @@ class TestAdversarialInspectionScenarios(unittest.TestCase):
         # 3. Must NEVER report as duplicate clone
         self.assertNotIn("Duplicate project clones detected", report)
 
+    # -------------------------------------------------------------------------
+    # Phase 10.1: Evidence-Driven UX Fixes Validation
+    # -------------------------------------------------------------------------
+    def test_phase_10_1_ux_fixes(self):
+        """Verify all 5 Phase 10.1 UX fixes in inspection and contract serialization."""
+        from core.entities import CacheDirectory
+        from report.contract import serialize_workspace_inspection
+
+        # 1. FIX 1: Dirty Git File Visibility
+        # 3. FIX 3: Rename "Paused" to "Inactive / Clean Codebase"
+        p = Project(
+            entity_id="project:c:/dev/inactive-clean",
+            path="c:/dev/inactive-clean",
+            project_type=ProjectType.DOTNET,
+            activity=ActivityLevel.INACTIVE, # 30-180 days inactive
+        )
+        g = GitRepository(
+            entity_id="git:c:/dev/inactive-clean",
+            path="c:/dev/inactive-clean",
+            current_branch="main",
+            last_commit_timestamp=self.now - (60 * self.day), # 2 mo ago
+            has_uncommitted_changes=True,
+            dirty_files=[
+                {"status": "modified", "path": "src/Program.cs"},
+                {"status": "untracked", "path": "test/Debug.cs"},
+            ],
+        )
+
+        # 4. FIX 4: Group repetitive interactive shells sharing parent_pid
+        proc1 = Process(
+            entity_id="proc:101",
+            pid=101,
+            name="powershell.exe",
+            cwd="c:/dev/inactive-clean",
+            parent_pid=5000,
+            is_shell=True,
+            memory_bytes=40 * 1024 * 1024,
+        )
+        proc2 = Process(
+            entity_id="proc:102",
+            pid=102,
+            name="powershell.exe",
+            cwd="c:/dev/inactive-clean",
+            parent_pid=5000,
+            is_shell=True,
+            memory_bytes=45 * 1024 * 1024,
+        )
+        # Worker process with different parent - must NOT be grouped
+        proc3 = Process(
+            entity_id="proc:103",
+            pid=103,
+            name="dotnet.exe",
+            cwd="c:/dev/inactive-clean",
+            parent_pid=9999,
+            is_shell=False,
+            memory_bytes=80 * 1024 * 1024,
+        )
+
+        # 2. FIX 2: Shared System Cache Clarity
+        cache = CacheDirectory(
+            entity_id="cache:c:/users/dev/.nuget/packages",
+            path="c:/users/dev/.nuget/packages",
+            size_bytes=1024 * 1024 * 1024, # 1 GB
+            category="nuget",
+            description="NuGet package cache",
+            is_shared=True,
+            scope="shared_system",
+            scope_explanation="Shared across projects on this machine.",
+        )
+
+        scan = ScanResult(
+            scan_timestamp=self.now,
+            scan_root="c:/dev/inactive-clean",
+            projects=[p],
+            git_repos=[g],
+            processes=[proc1, proc2, proc3],
+            caches=[cache],
+        )
+        graph = build_environment_graph(scan)
+        findings = analyze_graph(graph)
+
+        report = format_inspect_report(p, graph, findings)
+
+        # Verification 1: Dirty files shown in report
+        self.assertIn("Uncommitted Changes", report)
+        self.assertIn("[Modified] src/Program.cs", report)
+        self.assertIn("[Untracked] test/Debug.cs", report)
+
+        # Verification 2: Shared system cache clearly annotated
+        self.assertIn("[SHARED SYSTEM CACHE]", report)
+        self.assertIn("Shared across projects on this machine", report)
+
+        # Verification 4: Grouped interactive shells
+        self.assertIn("2 Interactive Shell Sessions [powershell.exe] (Terminal Host PID 5000", report)
+        self.assertIn("dotnet.exe (PID 103", report)
+
+        # Verification 5: Primary uncertainty surfaced
+        self.assertIn("Boundary:", report)
+        self.assertIn("Entropy cannot determine whether they are intentional code changes or generated residue", report)
+
+        # Verification for JSON contract
+        contract_data = serialize_workspace_inspection(p, graph, findings)
+        self.assertIn("primary_uncertainty", contract_data)
+        self.assertIsNotNone(contract_data["primary_uncertainty"])
+        self.assertIn("process_groups", contract_data["connections"])
+        self.assertEqual(len(contract_data["connections"]["process_groups"]), 1)
+        self.assertEqual(contract_data["connections"]["process_groups"][0]["count"], 2)
+        self.assertEqual(contract_data["connections"]["process_groups"][0]["parent_pid"], 5000)
+        self.assertEqual(contract_data["connections"]["caches"][0]["scope"], "shared_system")
+        self.assertEqual(contract_data["connections"]["caches"][0]["is_shared"], True)
+
+        # Verification 3: Check clean inactive workspace naming
+        p_clean = Project(
+            entity_id="project:c:/dev/clean-inactive",
+            path="c:/dev/clean-inactive",
+            activity=ActivityLevel.INACTIVE,
+        )
+        g_clean = GitRepository(
+            entity_id="git:c:/dev/clean-inactive",
+            path="c:/dev/clean-inactive",
+            has_uncommitted_changes=False,
+            last_commit_timestamp=self.now - (60 * self.day),
+        )
+        scan_clean = ScanResult(
+            scan_timestamp=self.now,
+            scan_root="c:/dev/clean-inactive",
+            projects=[p_clean],
+            git_repos=[g_clean],
+        )
+        graph_clean = build_environment_graph(scan_clean)
+        report_clean = format_inspect_report(p_clean, graph_clean, [])
+
+        self.assertIn("Inactive / Clean Codebase", report_clean)
+        self.assertNotIn("Paused", report_clean)
+
 
 if __name__ == "__main__":
     unittest.main()

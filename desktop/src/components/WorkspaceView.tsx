@@ -87,6 +87,13 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
           dot: 'bg-zinc-500',
           whyBorder: 'border-zinc-800 bg-zinc-900/40',
         };
+      case 'inactive':
+      case 'paused':
+        return {
+          banner: 'bg-slate-900/60 border-slate-700/60 text-slate-300',
+          dot: 'bg-slate-400',
+          whyBorder: 'border-slate-800 bg-slate-900/40',
+        };
       default:
         return {
           banner: 'bg-blue-950/40 border-blue-800/60 text-blue-400',
@@ -207,6 +214,18 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             ))}
           </ul>
         </div>
+
+        {/* Primary Uncertainty / BOUNDARY Callout (FIX 5) */}
+        {(state.primary_uncertainty || inspection.primary_uncertainty) && (
+          <div className="flex items-start space-x-2.5 text-xs text-amber-200/90 bg-amber-950/25 border border-amber-800/40 rounded-lg p-3 font-mono">
+            <span className="font-bold uppercase tracking-wider text-[10px] px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-300 border border-amber-700/50 shrink-0">
+              BOUNDARY
+            </span>
+            <span className="leading-relaxed pt-0.5">
+              {state.primary_uncertainty || inspection.primary_uncertainty}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Tab Navigation */}
@@ -282,31 +301,70 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             </div>
 
             {connections.git ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                <div className="p-2.5 rounded bg-[#131826] border border-[#23293a]">
-                  <div className="text-[10px] text-zinc-500 uppercase">Current Branch</div>
-                  <div className="font-mono font-bold text-zinc-100 mt-0.5">
-                    {connections.git.current_branch || 'HEAD (detached)'}
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div className="p-2.5 rounded bg-[#131826] border border-[#23293a]">
+                    <div className="text-[10px] text-zinc-500 uppercase">Current Branch</div>
+                    <div className="font-mono font-bold text-zinc-100 mt-0.5">
+                      {connections.git.current_branch || 'HEAD (detached)'}
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded bg-[#131826] border border-[#23293a]">
+                    <div className="text-[10px] text-zinc-500 uppercase">Working Tree State</div>
+                    <div className="font-mono mt-0.5">
+                      {connections.git.has_uncommitted_changes ? (
+                        <span className="text-amber-400 font-bold">Uncommitted changes</span>
+                      ) : (
+                        <span className="text-emerald-400 font-bold">Clean</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded bg-[#131826] border border-[#23293a]">
+                    <div className="text-[10px] text-zinc-500 uppercase">Remote Repository</div>
+                    <div className="font-mono text-zinc-200 mt-0.5 truncate">
+                      {connections.git.remote_repo_id || 'Local only'}
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-2.5 rounded bg-[#131826] border border-[#23293a]">
-                  <div className="text-[10px] text-zinc-500 uppercase">Working Tree State</div>
-                  <div className="font-mono mt-0.5">
-                    {connections.git.has_uncommitted_changes ? (
-                      <span className="text-amber-400 font-bold">Uncommitted changes</span>
-                    ) : (
-                      <span className="text-emerald-400 font-bold">Clean</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-2.5 rounded bg-[#131826] border border-[#23293a]">
-                  <div className="text-[10px] text-zinc-500 uppercase">Remote Repository</div>
-                  <div className="font-mono text-zinc-200 mt-0.5 truncate">
-                    {connections.git.remote_repo_id || 'Local only'}
-                  </div>
-                </div>
+                {/* Top Dirty Git Files (FIX 1) */}
+                {connections.git.has_uncommitted_changes &&
+                  connections.git.dirty_files &&
+                  connections.git.dirty_files.length > 0 && (
+                    <div className="p-3 bg-[#131826] border border-[#23293a] rounded text-xs space-y-2">
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
+                        <span>Uncommitted / Untracked Paths ({connections.git.dirty_files.length} observed)</span>
+                        <span className="text-[10px] text-zinc-500 font-mono">Metadata only • Zero content read</span>
+                      </div>
+                      <div className="space-y-1 font-mono text-[11px]">
+                        {connections.git.dirty_files.slice(0, 5).map((df, idx) => {
+                          const statusColor =
+                            df.status === 'modified'
+                              ? 'text-amber-400 bg-amber-950/40 border-amber-800/40'
+                              : df.status === 'untracked'
+                              ? 'text-blue-400 bg-blue-950/40 border-blue-800/40'
+                              : df.status === 'deleted'
+                              ? 'text-rose-400 bg-rose-950/40 border-rose-800/40'
+                              : 'text-zinc-400 bg-zinc-800 border-zinc-700';
+                          return (
+                            <div key={idx} className="flex items-center space-x-2 py-0.5">
+                              <span className={`px-1.5 py-0.2 rounded border text-[10px] uppercase font-bold shrink-0 ${statusColor}`}>
+                                {df.status}
+                              </span>
+                              <span className="text-zinc-300 truncate">{df.path}</span>
+                            </div>
+                          );
+                        })}
+                        {connections.git.dirty_files.length > 5 && (
+                          <div className="text-[10px] text-zinc-500 italic pt-1">
+                            + {connections.git.dirty_files.length - 5} more dirty paths
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
               </div>
             ) : (
               <div className="text-xs text-zinc-500 italic p-2">
@@ -326,36 +384,93 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
             {connections.processes.length > 0 ? (
               <div className="space-y-2">
-                {connections.processes.map((proc) => (
+                {/* Grouped Interactive Shell Sessions (FIX 4) */}
+                {(connections.process_groups || []).map((group, gIdx) => (
                   <div
-                    key={proc.entity_id}
-                    className="p-3 bg-[#131826] border border-[#23293a] rounded-lg text-xs flex items-center justify-between gap-4"
+                    key={`group-${gIdx}-${group.parent_pid}`}
+                    className="p-3 bg-[#131826] border border-sky-900/40 rounded-lg text-xs space-y-2"
                   >
-                    <div className="space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-bold font-mono text-zinc-100">
-                          {proc.name}
-                        </span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400">
-                          PID {proc.pid}
-                        </span>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded ${
-                          proc.is_shell ? 'bg-zinc-800 text-zinc-400' : 'bg-emerald-950 text-emerald-400 border border-emerald-900/60'
-                        }`}>
-                          {proc.is_shell ? 'Interactive Shell' : 'Worker'}
-                        </span>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold font-mono text-zinc-100">
+                            {group.label}
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-sky-950 text-sky-400 border border-sky-800/50">
+                            Terminal Host PID {group.parent_pid}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400">
+                            Interactive Shell Group
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-zinc-400 font-mono">
+                          PIDs: {group.pids.join(', ')}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-zinc-400 font-mono truncate max-w-[500px]">
-                        {proc.cmdline_preview || proc.exe_path}
+                      <div className="text-right text-[11px] font-mono text-zinc-400 shrink-0">
+                        <div>
+                          {(group.total_memory_bytes
+                            ? group.total_memory_bytes / (1024 * 1024)
+                            : 0
+                          ).toFixed(1)}{' '}
+                          MB RSS
+                        </div>
+                        <div>{group.count} sessions</div>
                       </div>
-                    </div>
-
-                    <div className="text-right text-[11px] font-mono text-zinc-400 shrink-0">
-                      <div>{(proc.memory_bytes ? proc.memory_bytes / (1024 * 1024) : 0).toFixed(1)} MB RSS</div>
-                      {proc.cpu_percent !== null && <div>{proc.cpu_percent}% CPU</div>}
                     </div>
                   </div>
                 ))}
+
+                {/* Individual Processes (Ungrouped) */}
+                {(() => {
+                  const groupedPids = new Set(
+                    (connections.process_groups || []).flatMap((g) => g.pids)
+                  );
+                  const ungroupedProcs = connections.processes.filter(
+                    (p) => !groupedPids.has(p.pid)
+                  );
+
+                  return ungroupedProcs.map((proc) => (
+                    <div
+                      key={proc.entity_id}
+                      className="p-3 bg-[#131826] border border-[#23293a] rounded-lg text-xs flex items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold font-mono text-zinc-100">
+                            {proc.name}
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400">
+                            PID {proc.pid}
+                          </span>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded ${
+                              proc.is_shell
+                                ? 'bg-zinc-800 text-zinc-400'
+                                : 'bg-emerald-950 text-emerald-400 border border-emerald-900/60'
+                            }`}
+                          >
+                            {proc.is_shell ? 'Interactive Shell' : 'Worker'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-zinc-400 font-mono truncate max-w-[500px]">
+                          {proc.cmdline_preview || proc.exe_path}
+                        </div>
+                      </div>
+
+                      <div className="text-right text-[11px] font-mono text-zinc-400 shrink-0">
+                        <div>
+                          {(proc.memory_bytes
+                            ? proc.memory_bytes / (1024 * 1024)
+                            : 0
+                          ).toFixed(1)}{' '}
+                          MB RSS
+                        </div>
+                        {proc.cpu_percent !== null && <div>{proc.cpu_percent}% CPU</div>}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             ) : (
               <div className="text-xs text-zinc-500 italic p-2">
@@ -398,12 +513,24 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               {connections.caches.length > 0 ? (
                 <div className="space-y-2">
                   {connections.caches.map((c) => (
-                    <div key={c.entity_id} className="p-2.5 bg-[#131826] border border-[#23293a] rounded text-xs flex justify-between">
-                      <div>
-                        <div className="font-bold text-zinc-200 uppercase">{c.category} Cache</div>
+                    <div key={c.entity_id} className="p-2.5 bg-[#131826] border border-[#23293a] rounded text-xs flex justify-between items-start">
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-zinc-200 uppercase">{c.category} Cache</span>
+                          {c.is_shared && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-950/60 border border-sky-800/40 text-sky-400 font-semibold tracking-wide uppercase">
+                              Shared System Cache
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-zinc-500 font-mono truncate max-w-[260px]">{c.path}</div>
+                        {c.is_shared && (
+                          <div className="text-[10px] text-zinc-400 italic">
+                            {c.scope_explanation || 'Shared across projects on this machine. (Not isolated to this workspace)'}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-right font-mono text-zinc-300">
+                      <div className="text-right font-mono text-zinc-300 shrink-0 pl-2">
                         {formatSize(c.size_bytes)}
                       </div>
                     </div>
