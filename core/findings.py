@@ -18,15 +18,18 @@ from typing import List, Optional
 
 from core.entities import (
     ActivityLevel,
+    CacheDirectory,
     DependencyEnvironment,
     DockerContainer,
     DockerContainerState,
     GitRepository,
     Process,
     Project,
+    ProjectType,
     RuntimeInstallation,
 )
 from core.graph import EnvironmentGraph, RelationshipType
+from linkers.relationships import _is_subpath
 
 
 class FindingSeverity(str, Enum):
@@ -93,6 +96,7 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
     runtimes = [e for e in graph.entities.values() if isinstance(e, RuntimeInstallation)]
     dep_envs = [e for e in graph.entities.values() if isinstance(e, DependencyEnvironment)]
     docker_containers = [e for e in graph.entities.values() if isinstance(e, DockerContainer)]
+    caches = [e for e in graph.entities.values() if isinstance(e, CacheDirectory)]
 
     # -------------------------------------------------------------------------
     # 1. Running Process in Stale/Inactive Project
@@ -401,5 +405,91 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
                     ],
                 )
             )
+
+    # -------------------------------------------------------------------------
+    # 6. Severed Container Infrastructure (Ghost Bind Mounts)
+    # -------------------------------------------------------------------------
+    for c in docker_containers:
+        for mount in c.bind_mounts:
+            # A mount is severed if it does not exist on disk AND is not associated with any scanned project
+            has_matching_project = any(
+                _is_subpath(mount, p.path) or _is_subpath(p.path, mount)
+                for p in projects
+            )
+            if not has_matching_project and not os.path.exists(mount):
+                findings.append(
+                    Finding(
+                        id=f"ghost_container_{c.entity_id}_{abs(hash(mount))}",
+                        title=f"Severed container infrastructure: {c.name}",
+                        severity=FindingSeverity.WARNING,
+                        category="Container Infrastructure",
+                        summary=(
+                            f"Docker container '{c.name}' (state: {c.state.value}) mounts host path "
+                            f"'{mount}' which does not exist on the filesystem."
+                        ),
+                        entities_involved=[c.entity_id],
+                        evidence=[
+                            f"Container name: {c.name} (ID: {c.container_id[:12]})",
+                            f"Container state: {c.state.value}",
+                            f"Target host mount: {mount}",
+                            "The referenced host directory does not exist on the filesystem.",
+                        ],
+                        reasoning_chain=[
+                            "1. The container configuration specifies a bind mount to a host directory.",
+                            "2. Filesystem verification confirmed the host path does not exist and no scanned project claims it.",
+                            "3. The container's environment is severed from its intended host code or data.",
+                        ],
+                        uncertainties=[
+                            "The mount path may reside on an unmounted external volume or network share.",
+                        ],
+                    )
+                )
+
+    # -------------------------------------------------------------------------
+    # 7. Obsolete Build Cache (No Matching Language Projects on Machine)
+    # -------------------------------------------------------------------------
+    cache_to_project_types = {
+        "gradle": [ProjectType.JAVA],
+        "maven": [ProjectType.JAVA],
+        "cargo": [ProjectType.RUST],
+        "composer": [ProjectType.PHP],
+        "nuget": [ProjectType.DOTNET],
+    }
+
+    project_types_present = {p.project_type for p in projects}
+
+    for c in caches:
+        expected_types = cache_to_project_types.get(c.category)
+        if expected_types:
+            has_matching_project = any(pt in project_types_present for pt in expected_types)
+            if not has_matching_project and (c.size_bytes or 0) > 50 * 1024 * 1024:
+                type_names = ", ".join(pt.value for pt in expected_types)
+                findings.append(
+                    Finding(
+                        id=f"obsolete_cache_{c.entity_id}",
+                        title=f"Potentially obsolete build cache: {c.description or c.category.capitalize()}",
+                        severity=FindingSeverity.ATTENTION,
+                        category="Storage & Tooling Lifecycle",
+                        summary=(
+                            f"{c.description or c.category.capitalize()} cache ({_format_size(c.size_bytes)}) "
+                            f"exists, but no {type_names} projects were detected."
+                        ),
+                        entities_involved=[c.entity_id],
+                        evidence=[
+                            f"Cache path: {c.path}",
+                            f"Cache size: {_format_size(c.size_bytes)}",
+                            f"Toolchain category: {c.category}",
+                            f"No projects of type {type_names} found in scan.",
+                        ],
+                        reasoning_chain=[
+                            f"1. Build cache directory exists on disk for toolchain '{c.category}'.",
+                            "2. Scanned environment contains zero projects requiring this toolchain.",
+                            "3. The cache may be leftover storage from uninstalled or finished projects.",
+                        ],
+                        uncertainties=[
+                            "Projects using this toolchain may exist outside the scanned directory scope.",
+                        ],
+                    )
+                )
 
     return findings
