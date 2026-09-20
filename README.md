@@ -197,8 +197,25 @@ entropy/
 - **Python:** 3.9 or newer
 - **Dependencies:** `psutil` (installed automatically)
 
-### Install Locally via pip
-Clone the repository and install in editable mode:
+### Option 1: Standalone Portable Distribution (No Git or Cloning Required)
+Download and extract `entropy-v0.1.0-windows-x64.zip` anywhere on your machine:
+```powershell
+# Run CLI
+.\entropy.cmd inspect C:\path\to\workspace
+
+# Run Desktop UI
+.\entropy-desktop.cmd
+```
+
+### Option 2: Install via Wheel
+```powershell
+pip install entropy_cli-0.1.0-py3-none-any.whl
+entropy inspect .
+entropy desktop
+```
+
+### Option 3: Install from Source
+Clone the repository and install:
 ```powershell
 git clone https://github.com/wacim-abdellli/entropy.git
 cd entropy
@@ -266,13 +283,13 @@ entropy desktop --dev
 
 To protect developers from false promises and dangerous side effects, Entropy maintains strict negative boundaries:
 
-- **NOT a Disk Cleaner:** Entropy will **never** delete, clean, move, or prune files. All operations are strictly read-only.
-- **NOT an AI / LLM Wrapper:** All reasoning is 100% deterministic graph traversal. No external APIs, prompts, or hallucinations.
-- **NOT a Background Daemon:** Entropy does not run background indexers, file watchers, or polling services. It runs in milliseconds and terminates immediately.
-- **NOT a Duplicate Finder:** Entropy does not perform naive hash-based duplicate scans. It models Git remotes and worktrees to understand intentional workflows.
-- **NOT a Task Manager / Process Explorer:** Entropy does not monitor CPU graphs or manage threads; it isolates process working directories (`cwd`) to understand which codebase is running.
-- **NOT a Git Client / Docker Manager:** Entropy inspects configuration to map relationships, not to manage containers or execute commits.
-- **NOT a Cloud Service:** Zero telemetry, zero analytics, zero data uploads. Everything stays on your machine.
+- **NOT a Cleaner or Optimizer:** Entropy will **never** delete, clean, move, optimize, or prune files. It is not CCleaner, CleanMyPC, or an uninstaller. All operations are strictly read-only.
+- **NOT an Antivirus / Malware Scanner:** Entropy inspects developer-environment configuration, topology, and operational state—it does not scan for viruses, signatures, or system-wide security threats.
+- **NOT a Git Client:** Entropy inspects repository state to explain operational context; it will **never** commit, rebase, branch, push, pull, or modify your Git working tree.
+- **NOT a Docker Manager:** Entropy inspects container mounts and operational states; it will **never** start, stop, kill, remove, or prune containers or volumes.
+- **NOT an AI Chatbot / LLM Wrapper:** All reasoning is 100% deterministic graph traversal and empirical rule synthesis. No cloud APIs, no generative models, no prompts, and no hallucinations.
+- **NOT a Background Daemon:** Entropy does not run background indexers, file watchers, or polling services. It runs on-demand and terminates immediately.
+- **NOT a Cloud Service:** Zero telemetry, zero analytics, zero data uploads. Everything stays local on your machine.
 
 ---
 

@@ -53,3 +53,6 @@ py-modules = ["scan"]
 
 [tool.setuptools.packages.find]
 include = ["collectors*", "core*", "linkers*", "report*", "desktop*"]
+
+[tool.setuptools.package-data]
+desktop = ["dist/**", "dist/*"]
