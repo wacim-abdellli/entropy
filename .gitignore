@@ -10,3 +10,6 @@ build/
 report.json
 .mypy_cache/
 .pytest_cache/
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/

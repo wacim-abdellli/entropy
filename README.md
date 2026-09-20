@@ -239,6 +239,29 @@ entropy scan C:\dev C:\repos C:\Users\pc\source
 
 ---
 
+## Entropy Desktop (GUI)
+
+Entropy includes a native, dark-first desktop visual application built with **React 19, TypeScript, Tailwind CSS, and React Flow (`@xyflow/react`)**, packaged with **WebView2 / Tauri 2**.
+
+```powershell
+# Launch Entropy Desktop
+entropy desktop
+
+# Or in development mode with hot-reload
+entropy desktop --dev
+```
+
+### Desktop Capabilities
+- **Overview Dashboard:** High-density KPI cards for workspaces, processes, runtimes, and caches with quick status filter tabs (`Active`, `Attention`, `Dormant`).
+- **"WHY THIS STATE?" Causal Audit:** Dedicated breakdown card presenting the exact empirical facts and multi-entity links that justify the operational state classification.
+- **Interactive Relationship Graph:** Visual topological node-link graph powered by `@xyflow/react`. Center workspace node linked to active processes, Git repositories, Docker containers, language runtimes, and package caches with distinct styling for directly observable vs inferred edges. Click any node or relationship to slide open the raw evidence and observability drawer.
+- **Empirical Evidence Panel:** Detailed list of ground-truth observations with green verification checkmarks, exact timestamps, and attributes.
+- **Cognitive Boundaries & Safety:** Explicit disclosures of machine uncertainty (distinguishing human code changes from toolchain residue) and non-destructive terminal verification commands (`git diff`, `docker inspect`, etc.) with 1-click copy.
+- **System Inventory Substrates:** Machine-wide enumeration tables for Developer Processes, Runtime Installations, Docker Containers, and Package Caches.
+- **Command Palette (`Ctrl + K`):** Instant keyboard switcher across workspaces, system substrates, and detected entropy risks.
+
+---
+
 ## What Entropy Is NOT
 
 To protect developers from false promises and dangerous side effects, Entropy maintains strict negative boundaries:

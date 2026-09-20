@@ -38,6 +38,7 @@ from core.entities import Project, ScanResult, ScopeType
 from core.findings import analyze_graph
 from core.graph import EnvironmentGraph
 from linkers.relationships import build_environment_graph
+from report.contract import serialize_environment_overview, serialize_workspace_inspection
 from report.inspect import format_inspect_report
 from report.text import format_report
 
@@ -405,6 +406,18 @@ Examples:
         help="Save JSON report to file",
     )
 
+    # 3. 'desktop' subcommand (launch GUI)
+    desktop_parser = subparsers.add_parser(
+        "desktop",
+        help="Launch the Entropy Desktop graphical user interface",
+        description="Open the Entropy interactive visual interface in a native Windows window.",
+    )
+    desktop_parser.add_argument(
+        "--dev",
+        action="store_true",
+        help="Connect to Vite dev server at localhost:5173",
+    )
+
     return parser
 
 
@@ -432,7 +445,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Ergonomic shortcut: if first arg is not a recognized command/flag,
     # treat it as a path to inspect (e.g. 'entropy .' or 'entropy C:\dev\repo')
     first_arg = raw_args[0].lower()
-    if first_arg not in ("inspect", "scan", "-h", "--help", "-v", "--verbose", "-q", "--quiet", "--version"):
+    if first_arg not in ("inspect", "scan", "desktop", "-h", "--help", "-v", "--verbose", "-q", "--quiet", "--version"):
         if not first_arg.startswith("-"):
             raw_args.insert(0, "inspect")
 
@@ -460,7 +473,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
 
         if args.json_output:
-            print(serialize_graph_and_findings(graph, findings))
+            if target_project:
+                print(json.dumps(serialize_workspace_inspection(target_project, graph, findings), indent=2, default=str))
+            else:
+                print(serialize_graph_and_findings(graph, findings))
         else:
             if target_project:
                 print(format_inspect_report(target_project, graph, findings))
@@ -489,21 +505,35 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"Error: Scan failed: {e}", file=sys.stderr)
             return 1
 
+        overview_json = json.dumps(serialize_environment_overview(graph, findings), indent=2, default=str)
         if args.json_output:
-            print(serialize_graph_and_findings(graph, findings))
+            print(overview_json)
         else:
             print(format_report(graph, findings))
 
         if args.json_file:
             try:
                 with open(args.json_file, "w", encoding="utf-8") as f:
-                    f.write(serialize_graph_and_findings(graph, findings))
+                    f.write(overview_json)
                 if not args.quiet:
                     print(f"\nJSON graph and findings saved to: {args.json_file}", file=sys.stderr)
             except OSError as e:
                 print(f"Error writing JSON file: {e}", file=sys.stderr)
                 return 1
         return 0
+
+    elif args.command == "desktop":
+        try:
+            from desktop.app import main as launch_desktop
+            launch_desktop()
+            return 0
+        except ImportError as e:
+            print(f"Error: Could not launch Entropy Desktop: {e}", file=sys.stderr)
+            print("To run Entropy Desktop, install dependencies: pip install pywebview", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Error running desktop application: {e}", file=sys.stderr)
+            return 1
 
     else:
         parser.print_help()

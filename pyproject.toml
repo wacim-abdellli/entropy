@@ -40,6 +40,11 @@ dependencies = [
     "psutil>=5.9.0",
 ]
 
+[project.optional-dependencies]
+desktop = [
+    "pywebview>=5.0",
+]
+
 [project.scripts]
 entropy = "scan:main"
 
@@ -47,4 +52,4 @@ entropy = "scan:main"
 py-modules = ["scan"]
 
 [tool.setuptools.packages.find]
-include = ["collectors*", "core*", "linkers*", "report*"]
+include = ["collectors*", "core*", "linkers*", "report*", "desktop*"]
