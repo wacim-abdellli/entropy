@@ -398,12 +398,12 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
                     findings.append(
                         Finding(
                             id=f"uncommitted_stale_{p.entity_id}",
-                            title=f"Uncommitted work in inactive project: {os.path.basename(p.path)}",
+                            title=f"Uncommitted local modifications in inactive workspace: {os.path.basename(p.path)}",
                             severity=FindingSeverity.WARNING,
                             category="Data Integrity Risk",
                             summary=(
-                                f"Project '{os.path.basename(p.path)}' has not been committed to for "
-                                f"{_format_days_ago(g.last_commit_timestamp, current_time)}, but contains uncommitted modifications."
+                                f"Workspace '{os.path.basename(p.path)}' has not received commits for "
+                                f"{_format_days_ago(g.last_commit_timestamp, current_time)}, but contains uncommitted local modifications."
                             ),
                             entities_involved=[p.entity_id, g.entity_id],
                             evidence=[
@@ -413,12 +413,12 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
                                 "Git status shows modified or untracked files.",
                             ],
                             reasoning_chain=[
-                                "1. Git status reveals uncommitted modifications.",
-                                "2. Long inactivity means this unfinished work is likely forgotten.",
-                                "3. Unlike committed code, uncommitted work cannot be restored from remote repositories.",
+                                "1. Git status reveals uncommitted or untracked file modifications in the working tree.",
+                                "2. Extended commit inactivity indicates that no recent VCS checkpoints have been established.",
+                                "3. Uncommitted modifications cannot be restored from remote repositories if deleted.",
                             ],
                             uncertainties=[
-                                "The uncommitted files could be disposable test artifacts or build residue.",
+                                "Local modifications exist, but Entropy cannot determine whether they represent valuable human work or generated artifacts.",
                             ],
                         )
                     )
