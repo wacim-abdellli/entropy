@@ -27,6 +27,7 @@ from core.entities import (
     Project,
     ProjectType,
     RuntimeInstallation,
+    ScopeType,
 )
 from core.graph import EnvironmentGraph, RelationshipType
 from linkers.relationships import _is_subpath
@@ -174,7 +175,7 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
     # 2. Inactive Project with Substantial Lingering Resources
     # -------------------------------------------------------------------------
     for p in projects:
-        if p.activity not in (ActivityLevel.STALE, ActivityLevel.DORMANT, ActivityLevel.INACTIVE):
+        if p.activity not in (ActivityLevel.STALE, ActivityLevel.DORMANT):
             continue
 
         # Ensure no process is running from it
@@ -357,54 +358,57 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
                     )
 
     # -------------------------------------------------------------------------
-    # 5. Potentially Unused Runtime Installation
+    # 5. Potentially Unused Runtime Installation (Scope-Restricted)
     # -------------------------------------------------------------------------
-    for rt in runtimes:
-        if rt.is_active:
-            continue
+    # Only evaluate machine-wide runtime obsolescence if the scan scope is broad enough
+    # to avoid the Open-World Fallacy (e.g. user home or full machine)
+    if graph.scope_type in (ScopeType.USER_ENVIRONMENT, ScopeType.MACHINE_WIDE):
+        for rt in runtimes:
+            if rt.is_active:
+                continue
 
-        # Check if any project references this runtime
-        referenced_by_project = any(
-            r.rel_type == RelationshipType.USES_RUNTIME and r.target_id == rt.entity_id
-            for r in graph.relationships
-        )
-
-        # Check if any running process runs on this runtime
-        used_by_process = any(
-            r.rel_type == RelationshipType.RUNS_ON and r.target_id == rt.entity_id
-            for r in graph.relationships
-        )
-
-        if not referenced_by_project and not used_by_process:
-            findings.append(
-                Finding(
-                    id=f"unused_runtime_{rt.entity_id}",
-                    title=f"Potentially unused runtime: {rt.runtime} {rt.version}",
-                    severity=FindingSeverity.INFO,
-                    category="Runtime Management",
-                    summary=(
-                        f"Runtime '{rt.runtime} {rt.version}' ({rt.manager or 'installed'}) "
-                        f"is not currently referenced by scanned projects or running processes."
-                    ),
-                    entities_involved=[rt.entity_id],
-                    evidence=[
-                        f"Runtime: {rt.runtime} {rt.version}",
-                        f"Installation manager: {rt.manager or 'system'}",
-                        f"Installation path: {rt.path or 'system default'}",
-                        "No scanned projects declare a requirement for this specific version.",
-                        "No currently running process is executing using this runtime.",
-                    ],
-                    reasoning_chain=[
-                        "1. Scanned project configs (.nvmrc, pyproject.toml, etc.) showed no requirement for this version.",
-                        "2. Process inspection found no running process executing from this runtime path.",
-                        "3. The runtime remains installed on the filesystem.",
-                    ],
-                    uncertainties=[
-                        "Projects located outside the scanned directories might depend on this runtime.",
-                        "The runtime might be invoked occasionally via CLI commands.",
-                    ],
-                )
+            # Check if any project references this runtime
+            referenced_by_project = any(
+                r.rel_type == RelationshipType.USES_RUNTIME and r.target_id == rt.entity_id
+                for r in graph.relationships
             )
+
+            # Check if any running process runs on this runtime
+            used_by_process = any(
+                r.rel_type == RelationshipType.RUNS_ON and r.target_id == rt.entity_id
+                for r in graph.relationships
+            )
+
+            if not referenced_by_project and not used_by_process:
+                findings.append(
+                    Finding(
+                        id=f"unused_runtime_{rt.entity_id}",
+                        title=f"Potentially unused runtime: {rt.runtime} {rt.version}",
+                        severity=FindingSeverity.INFO,
+                        category="Runtime Management",
+                        summary=(
+                            f"Runtime '{rt.runtime} {rt.version}' ({rt.manager or 'installed'}) "
+                            f"is not currently referenced by scanned projects or running processes."
+                        ),
+                        entities_involved=[rt.entity_id],
+                        evidence=[
+                            f"Runtime: {rt.runtime} {rt.version}",
+                            f"Installation manager: {rt.manager or 'system'}",
+                            f"Installation path: {rt.path or 'system default'}",
+                            "No scanned projects declare a requirement for this specific version.",
+                            "No currently running process is executing using this runtime.",
+                        ],
+                        reasoning_chain=[
+                            "1. Scanned project configs (.nvmrc, pyproject.toml, etc.) showed no requirement for this version.",
+                            "2. Process inspection found no running process executing from this runtime path.",
+                            "3. The runtime remains installed on the filesystem.",
+                        ],
+                        uncertainties=[
+                            "Projects located outside the scanned directories might depend on this runtime.",
+                            "The runtime might be invoked occasionally via CLI commands.",
+                        ],
+                    )
+                )
 
     # -------------------------------------------------------------------------
     # 6. Severed Container Infrastructure (Ghost Bind Mounts)
@@ -464,27 +468,39 @@ def analyze_graph(graph: EnvironmentGraph) -> List[Finding]:
             has_matching_project = any(pt in project_types_present for pt in expected_types)
             if not has_matching_project and (c.size_bytes or 0) > 50 * 1024 * 1024:
                 type_names = ", ".join(pt.value for pt in expected_types)
+                is_local = graph.scope_type == ScopeType.LOCAL_DIRECTORY
+                severity = FindingSeverity.INFO if is_local else FindingSeverity.ATTENTION
+                title = (
+                    f"Unreferenced build cache in scope: {c.description or c.category.capitalize()}"
+                    if is_local
+                    else f"Potentially obsolete build cache: {c.description or c.category.capitalize()}"
+                )
+                scope_note = (
+                    f"within '{graph.scan_root}'. Projects in other directories on this machine may actively use this cache."
+                    if is_local
+                    else "across the scanned environment."
+                )
                 findings.append(
                     Finding(
                         id=f"obsolete_cache_{c.entity_id}",
-                        title=f"Potentially obsolete build cache: {c.description or c.category.capitalize()}",
-                        severity=FindingSeverity.ATTENTION,
+                        title=title,
+                        severity=severity,
                         category="Storage & Tooling Lifecycle",
                         summary=(
                             f"{c.description or c.category.capitalize()} cache ({_format_size(c.size_bytes)}) "
-                            f"exists, but no {type_names} projects were detected."
+                            f"exists, but no {type_names} projects were detected {scope_note}"
                         ),
                         entities_involved=[c.entity_id],
                         evidence=[
                             f"Cache path: {c.path}",
                             f"Cache size: {_format_size(c.size_bytes)}",
                             f"Toolchain category: {c.category}",
-                            f"No projects of type {type_names} found in scan.",
+                            f"No projects of type {type_names} found in current scan scope ({graph.scope_type.value}).",
                         ],
                         reasoning_chain=[
                             f"1. Build cache directory exists on disk for toolchain '{c.category}'.",
-                            "2. Scanned environment contains zero projects requiring this toolchain.",
-                            "3. The cache may be leftover storage from uninstalled or finished projects.",
+                            f"2. Scanned scope ({graph.scan_root}) contains zero projects requiring this toolchain.",
+                            "3. If all project locations on this machine were scanned, this cache may be unneeded storage.",
                         ],
                         uncertainties=[
                             "Projects using this toolchain may exist outside the scanned directory scope.",

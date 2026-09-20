@@ -22,6 +22,7 @@ from core.entities import (
     ProjectType,
     RuntimeInstallation,
     ScanResult,
+    ScopeType,
 )
 from core.findings import FindingSeverity, analyze_graph
 from core.graph import EnvironmentGraph, Observability, RelationshipType
@@ -424,6 +425,7 @@ class TestLifecycleScenarios(unittest.TestCase):
         scan = ScanResult(
             scan_timestamp=self.now,
             scan_root="c:/dev",
+            scope_type=ScopeType.MACHINE_WIDE,
             projects=[p_node],
             caches=[cache_gradle],
         )

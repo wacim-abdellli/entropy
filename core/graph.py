@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from core.entities import Entity, ScanResult
+from core.entities import Entity, ScanResult, ScopeType
 
 
 class RelationshipType(str, Enum):
@@ -70,6 +70,7 @@ class EnvironmentGraph:
     scan_timestamp: float = 0.0
     scan_duration_seconds: float = 0.0
     scan_root: str = ""
+    scope_type: ScopeType = ScopeType.LOCAL_DIRECTORY
     hostname: Optional[str] = None
     docker_available: bool = False
     errors: list[str] = field(default_factory=list)

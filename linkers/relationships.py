@@ -72,6 +72,7 @@ def build_environment_graph(scan: ScanResult) -> EnvironmentGraph:
         scan_timestamp=scan.scan_timestamp,
         scan_duration_seconds=scan.scan_duration_seconds,
         scan_root=scan.scan_root,
+        scope_type=scan.scope_type,
         hostname=scan.hostname,
         docker_available=scan.docker_available,
         errors=list(scan.errors),

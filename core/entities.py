@@ -62,6 +62,12 @@ class DockerContainerState(str, Enum):
     UNKNOWN = "unknown"
 
 
+class ScopeType(str, Enum):
+    LOCAL_DIRECTORY = "local_directory"    # Scoped to a specific folder (e.g. Desktop, IdeaProjects)
+    USER_ENVIRONMENT = "user_environment"  # Entire user home directory
+    MACHINE_WIDE = "machine_wide"          # Machine-wide / all drives
+
+
 # ---------------------------------------------------------------------------
 # Entity base
 # ---------------------------------------------------------------------------
@@ -210,6 +216,7 @@ class ScanResult:
     scan_timestamp: float = 0.0
     scan_duration_seconds: float = 0.0
     scan_root: str = ""
+    scope_type: ScopeType = ScopeType.LOCAL_DIRECTORY
     hostname: Optional[str] = None
 
     projects: list[Project] = field(default_factory=list)

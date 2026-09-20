@@ -34,11 +34,22 @@ from collectors.git import collect_git_repository
 from collectors.processes import collect_processes
 from collectors.projects import collect_projects_and_dependencies
 from collectors.runtimes import collect_runtimes
-from core.entities import ScanResult
+from core.entities import ScanResult, ScopeType
 from core.findings import analyze_graph
 from core.graph import EnvironmentGraph
 from linkers.relationships import build_environment_graph
 from report.text import format_report
+
+
+def determine_scope(target_path: str) -> ScopeType:
+    norm_target = os.path.normcase(os.path.abspath(target_path))
+    home = os.path.normcase(os.path.expanduser("~"))
+    drive, rest = os.path.splitdrive(norm_target)
+    if rest.strip(os.sep) == "":
+        return ScopeType.MACHINE_WIDE
+    if norm_target == home:
+        return ScopeType.USER_ENVIRONMENT
+    return ScopeType.LOCAL_DIRECTORY
 
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
@@ -60,10 +71,12 @@ def run_entropy_scan(scan_root: str, max_depth: int = 4) -> tuple[EnvironmentGra
     """Execute full scanner workflow and return (graph, findings)."""
     logger = logging.getLogger("entropy")
     scan_start = time.time()
+    scope = determine_scope(scan_root)
 
     scan_result = ScanResult(
         scan_timestamp=scan_start,
         scan_root=os.path.abspath(scan_root),
+        scope_type=scope,
         hostname=socket.gethostname(),
     )
 
