@@ -107,7 +107,7 @@ const SectionCard: React.FC<{
   badge?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ icon, title, badge, children }) => (
-  <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden">
+  <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg overflow-hidden">
     <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--color-border-subtle)]">
       <div className="flex items-center gap-2.5">
         <span className="text-[var(--color-text-tertiary)]">{icon}</span>
@@ -291,22 +291,22 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[var(--color-surface-0)]">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[var(--color-surface-0)] animate-enter">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface-0)] shrink-0">
+      <div className="h-14 flex items-center justify-between px-7 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] shrink-0">
         <button
           type="button"
           onClick={onBack}
           className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          Workspaces
         </button>
         <button
           type="button"
           onClick={onReinspect}
           disabled={isLoading}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+          className="h-8 flex items-center gap-2 px-2.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           Re-scan
@@ -331,13 +331,13 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             </div>
           </div>
         )}
-        <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+        <div className="max-w-6xl mx-auto px-7 py-6 space-y-5">
 
           {/* ── Header Card ── */}
-          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl p-6">
-            <div className="flex items-start justify-between mb-4">
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg p-5">
+            <div className="flex items-start justify-between mb-3">
               <div>
-                <h1 className="text-xl font-bold text-[var(--color-text-primary)] mb-1">
+                <h1 className="text-lg font-semibold text-[var(--color-text-primary)] mb-1">
                   {workspace.name}
                 </h1>
                 <div className="flex items-center gap-2 text-sm text-[var(--color-text-tertiary)]">
@@ -356,7 +356,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             </div>
 
             {/* Status */}
-            <div className="flex items-center gap-2 mb-5">
+            <div className="flex items-center gap-2 mb-4">
               {status.icon}
               <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
             </div>
@@ -366,7 +366,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               <button
                 type="button"
                 onClick={() => EntropyApiClient.launchIde(workspace.path, 'code')}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[var(--color-accent)] text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-accent)] text-white rounded-md hover:bg-blue-500 transition-colors cursor-pointer"
               >
                 <Code2 className="w-4 h-4" />
                 Open in VS Code
@@ -374,7 +374,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               <button
                 type="button"
                 onClick={() => EntropyApiClient.openInTerminal(workspace.path)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
               >
                 <Terminal className="w-4 h-4" />
                 Terminal
@@ -382,7 +382,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               <button
                 type="button"
                 onClick={() => EntropyApiClient.openInExplorer(workspace.path)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
               >
                 <FolderOpen className="w-4 h-4" />
                 Explorer
@@ -392,7 +392,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   type="button"
                   onClick={handleStash}
                   disabled={stashLoading}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25 hover:bg-amber-500/20 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] hover:bg-amber-500/20 rounded-md transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <Shield className="w-4 h-4" />
                   {stashLoading ? 'Stashing...' : 'Stash Changes'}
@@ -403,7 +403,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   type="button"
                   onClick={handleCleanAllDeps}
                   disabled={busyAction === 'clean-all-deps'}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-rose-500/10 text-rose-300 border border-rose-500/25 hover:bg-rose-500/20 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)] hover:bg-rose-500/20 rounded-md transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" />
                   {busyAction === 'clean-all-deps'
@@ -416,7 +416,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               <button
                 type="button"
                 onClick={() => EntropyApiClient.launchIde(workspace.path, 'cursor')}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
               >
                 <Code2 className="w-4 h-4" />
                 Cursor
