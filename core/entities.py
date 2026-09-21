@@ -136,6 +136,7 @@ class Process(Entity):
     cpu_percent: Optional[float] = None
     cmdline_preview: Optional[str] = None        # Executable name only, NOT full args (privacy)
     is_shell: bool = False                       # True for interactive shells (powershell, cmd, bash, etc.)
+    ports: list[int] = field(default_factory=list)  # Listening TCP ports (e.g. 3000, 8080)
 
 
 # ---------------------------------------------------------------------------

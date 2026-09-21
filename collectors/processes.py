@@ -54,6 +54,15 @@ def collect_processes() -> List[Process]:
     """
     processes: List[Process] = []
 
+    # Map listening TCP ports by PID across the system
+    listening_ports_by_pid: dict[int, list[int]] = {}
+    try:
+        for conn in psutil.net_connections(kind="inet"):
+            if conn.status == "LISTEN" and conn.pid:
+                listening_ports_by_pid.setdefault(conn.pid, []).append(conn.laddr.port)
+    except (psutil.AccessDenied, OSError, Exception) as e:
+        logger.debug("Could not collect net connections: %s", e)
+
     for proc in psutil.process_iter(
         attrs=["pid", "name", "exe", "cmdline", "create_time", "ppid", "memory_info"]
     ):
@@ -118,6 +127,7 @@ def collect_processes() -> List[Process]:
                 cpu_percent=None,
                 cmdline_preview=cmdline_preview,
                 is_shell=name.lower() in SHELL_PROCESS_NAMES,
+                ports=sorted(list(set(listening_ports_by_pid.get(pid, [])))),
             )
             processes.append(process_entity)
 

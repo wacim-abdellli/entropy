@@ -1,20 +1,76 @@
-import React, { useEffect, useState } from 'react';
+import React, { Component, ErrorInfo, ReactNode, useCallback, useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { Sidebar, ActiveNav } from './components/Sidebar';
 import { OverviewView } from './components/OverviewView';
 import { WorkspaceView } from './components/WorkspaceView';
 import { SystemView } from './components/SystemView';
-import { FindingsView } from './components/FindingsView';
+import { CleanupView } from './components/CleanupView';
+import { SettingsView } from './components/SettingsView';
 import { CommandPalette } from './components/CommandPalette';
 import { EntropyApiClient } from './services/api';
 import {
   EnvironmentOverview,
-  StateCategory,
   WorkspaceInspection,
 } from './types/entropy';
 
+/* ───────────────────────── Error Boundary ───────────────────────── */
+
+interface ErrorBoundaryProps { children: ReactNode; }
+interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function errorDetails(err: unknown): string {
+  return err instanceof Error ? (err.stack || err.message) : String(err);
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Unhandled view render error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[var(--color-surface-0)] text-center space-y-4">
+          <div className="bg-[var(--color-surface-2)] border border-rose-500/40 rounded-xl p-6 max-w-lg w-full space-y-3 shadow-lg">
+            <h2 className="text-base font-semibold text-rose-400">Something went wrong</h2>
+            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+              An unexpected error occurred while rendering this view.
+            </p>
+            <pre className="p-3 bg-[var(--color-surface-3)] text-rose-300 font-mono text-xs rounded text-left overflow-auto max-h-40">
+              {this.state.error?.message || String(this.state.error)}
+            </pre>
+            <button
+              type="button"
+              onClick={() => this.setState({ hasError: false, error: null })}
+              className="px-4 py-2 bg-[var(--color-accent)] hover:opacity-90 text-white rounded-lg text-sm font-medium cursor-pointer transition-opacity"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/* ───────────────────────── Main App ───────────────────────── */
+
 export function App() {
-  const [activeNav, setActiveNav] = useState<ActiveNav>('overview');
-  const [selectedFilter, setSelectedFilter] = useState<StateCategory | 'all'>('all');
+  const [activeNav, setActiveNav] = useState<ActiveNav>('home');
   const [overview, setOverview] = useState<EnvironmentOverview | null>(null);
   const [inspection, setInspection] = useState<WorkspaceInspection | null>(null);
   const [selectedWorkspacePath, setSelectedWorkspacePath] = useState<string | null>(null);
@@ -27,10 +83,79 @@ export function App() {
   } | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState<boolean>(false);
 
-  // Initial load: scan environment
+  const loadEnvironment = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await EntropyApiClient.scanEnvironment();
+      setOverview(data);
+    } catch (err: unknown) {
+      console.error('Failed to load environment:', err);
+      setError({
+        title: 'Engine unavailable',
+        message: 'Could not connect to the local Entropy engine.',
+        details: errorMessage(err),
+        onRetry: () => loadEnvironment(),
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const handleSelectWorkspace = useCallback(async (path: string) => {
+    setSelectedWorkspacePath(path);
+    setActiveNav('home');
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await EntropyApiClient.inspectWorkspace(path);
+      setInspection(data);
+    } catch (err: unknown) {
+      console.error('Failed to inspect workspace:', err);
+      setError({
+        title: 'Inspection failed',
+        message: errorMessage(err) || `Could not inspect workspace at '${path}'.`,
+        details: errorDetails(err),
+        onRetry: () => handleSelectWorkspace(path),
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const refreshCurrentContext = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const [nextOverview, nextInspection] = await Promise.all([
+        EntropyApiClient.scanEnvironment(),
+        selectedWorkspacePath
+          ? EntropyApiClient.inspectWorkspace(selectedWorkspacePath)
+          : Promise.resolve(null),
+      ]);
+
+      setOverview(nextOverview);
+      if (nextInspection) {
+        setInspection(nextInspection);
+      }
+    } catch (err: unknown) {
+      console.error('Failed to refresh current context:', err);
+      setError({
+        title: 'Refresh failed',
+        message: 'The action completed, but Entropy could not refresh the latest machine state.',
+        details: errorMessage(err),
+        onRetry: () => refreshCurrentContext(),
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedWorkspacePath]);
+
+  // Initial load
   useEffect(() => {
     loadEnvironment();
-  }, []);
+  }, [loadEnvironment]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -43,45 +168,6 @@ export function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const loadEnvironment = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await EntropyApiClient.scanEnvironment();
-      setOverview(data);
-    } catch (err: any) {
-      console.error('Failed to load environment overview:', err);
-      setError({
-        title: 'Entropy engine unavailable',
-        message: 'Could not connect to the local Entropy Python reasoning engine. Check that the system environment is accessible.',
-        details: err?.message || String(err),
-        onRetry: () => loadEnvironment(),
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSelectWorkspace = async (path: string) => {
-    setSelectedWorkspacePath(path);
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await EntropyApiClient.inspectWorkspace(path);
-      setInspection(data);
-    } catch (err: any) {
-      console.error('Failed to inspect workspace:', err);
-      setError({
-        title: 'Workspace Inspection Failed',
-        message: err?.message || `Could not inspect workspace at '${path}'.`,
-        details: err?.stack || err?.message || String(err),
-        onRetry: () => handleSelectWorkspace(path),
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleInspectFolder = async () => {
     const folder = await EntropyApiClient.pickFolder();
@@ -96,125 +182,160 @@ export function App() {
     setInspection(null);
   };
 
+  /* ── Render the active view ── */
+  const renderMainContent = () => {
+    // Error state
+    if (error) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[var(--color-surface-0)]">
+          <div className="max-w-md w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl p-8 text-center space-y-4 shadow-lg">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{error.title}</h2>
+            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{error.message}</p>
+            {error.details && (
+              <details className="text-left bg-[var(--color-surface-3)] border border-[var(--color-border)] rounded-lg p-3 text-xs font-mono text-[var(--color-text-tertiary)]">
+                <summary className="cursor-pointer text-[var(--color-text-secondary)] font-semibold select-none">Details</summary>
+                <pre className="mt-2 whitespace-pre-wrap break-all text-rose-400 max-h-36 overflow-y-auto">{error.details}</pre>
+              </details>
+            )}
+            <div className="flex items-center justify-center gap-3 pt-2">
+              {error.onRetry && (
+                <button
+                  type="button"
+                  onClick={error.onRetry}
+                  className="px-5 py-2.5 bg-[var(--color-accent)] hover:opacity-90 text-white rounded-lg text-sm font-medium transition-opacity cursor-pointer"
+                >
+                  Retry
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleBackToOverview}
+                className="px-5 py-2.5 bg-[var(--color-surface-3)] hover:bg-[var(--color-surface-4)] text-[var(--color-text-primary)] rounded-lg text-sm font-medium transition-colors cursor-pointer"
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Workspace detail view (when a workspace is selected from Home)
+    if (activeNav === 'home' && selectedWorkspacePath && inspection) {
+      return (
+        <WorkspaceView
+          inspection={inspection}
+          onBack={handleBackToOverview}
+          onReinspect={() => handleSelectWorkspace(selectedWorkspacePath)}
+          isLoading={isLoading}
+          onActionComplete={refreshCurrentContext}
+        />
+      );
+    }
+
+    // Loading a workspace inspection
+    if (activeNav === 'home' && selectedWorkspacePath && isLoading) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[var(--color-surface-0)]">
+          <div className="w-10 h-10 rounded-xl bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/30 flex items-center justify-center">
+            <RefreshCw className="w-5 h-5 text-[var(--color-accent-strong)] animate-spin" />
+          </div>
+          <div className="space-y-1 text-center">
+            <div className="text-sm font-semibold text-[var(--color-text-primary)]">Inspecting Workspace</div>
+            <div className="text-sm text-[var(--color-text-secondary)]">Scanning git, processes, and dependencies…</div>
+          </div>
+        </div>
+      );
+    }
+
+    // Home — Overview
+    if (activeNav === 'home') {
+      if (overview) {
+        return (
+          <OverviewView
+            overview={overview}
+            onRefresh={loadEnvironment}
+            isLoading={isLoading}
+            onSelectWorkspace={handleSelectWorkspace}
+            onInspectFolder={handleInspectFolder}
+          />
+        );
+      }
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[var(--color-surface-0)]">
+          <div className="w-10 h-10 rounded-xl bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/30 flex items-center justify-center">
+            <RefreshCw className="w-5 h-5 text-[var(--color-accent-strong)] animate-spin" />
+          </div>
+          <div className="space-y-1 text-center">
+            <div className="text-sm font-semibold text-[var(--color-text-primary)]">Scanning Your Machine</div>
+            <div className="text-sm text-[var(--color-text-secondary)]">Looking for developer workspaces…</div>
+          </div>
+        </div>
+      );
+    }
+
+    // Cleanup page
+    if (activeNav === 'cleanup') {
+      if (overview) {
+        return <CleanupView overview={overview} onRefresh={refreshCurrentContext} />;
+      }
+      return null;
+    }
+
+    // System Details (reuses existing SystemView)
+    if (activeNav === 'details') {
+      if (overview) {
+        return (
+          <SystemView
+            initialTab="processes"
+            processes={overview.system?.processes || []}
+            runtimes={overview.system?.runtimes || []}
+            containers={overview.system?.containers || []}
+            caches={overview.system?.caches || []}
+            onActionComplete={refreshCurrentContext}
+          />
+        );
+      }
+      return null;
+    }
+
+    // Settings
+    if (activeNav === 'settings') {
+      return <SettingsView />;
+    }
+
+    return null;
+  };
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#090b10] text-zinc-300 font-sans">
-      {/* Sidebar */}
+    <div className="flex h-screen w-screen overflow-hidden bg-[var(--color-surface-0)] text-[var(--color-text-primary)] font-sans">
       <Sidebar
         activeNav={activeNav}
         onSelectNav={(nav) => {
           setActiveNav(nav);
           setError(null);
           setSelectedWorkspacePath(null);
+          setInspection(null);
         }}
-        summary={overview ? overview.summary : null}
-        selectedFilter={selectedFilter}
-        onSelectFilter={(filter) => {
-          setSelectedFilter(filter);
-          setActiveNav('workspaces');
-          setError(null);
-          setSelectedWorkspacePath(null);
-        }}
-        onInspectFolder={handleInspectFolder}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+        onRefresh={loadEnvironment}
+        isLoading={isLoading}
+        lastScanTime={overview?.metadata?.timestamp ?? null}
       />
 
-      {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {error ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0d14] text-zinc-300">
-            <div className="max-w-md w-full bg-[#0f131d] border border-red-900/50 rounded-xl p-6 text-center space-y-4 shadow-2xl">
-              <div className="w-12 h-12 rounded-full bg-red-950/70 border border-red-800/80 flex items-center justify-center mx-auto text-red-400">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-zinc-100">{error.title}</h2>
-                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{error.message}</p>
-              </div>
-              {error.details && (
-                <details className="text-left bg-[#141824] border border-[#23293a] rounded p-2.5 text-[11px] font-mono text-zinc-400">
-                  <summary className="cursor-pointer text-zinc-300 font-semibold select-none">View details</summary>
-                  <pre className="mt-2 whitespace-pre-wrap break-all text-red-300/80 max-h-36 overflow-y-auto">{error.details}</pre>
-                </details>
-              )}
-              <div className="flex items-center justify-center space-x-3 pt-2">
-                {error.onRetry && (
-                  <button
-                    onClick={error.onRetry}
-                    className="px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 rounded text-xs font-medium transition-colors"
-                  >
-                    Retry
-                  </button>
-                )}
-                <button
-                  onClick={handleBackToOverview}
-                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs font-medium transition-colors"
-                >
-                  Back to Overview
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : selectedWorkspacePath && inspection ? (
-          <WorkspaceView
-            inspection={inspection}
-            onBack={handleBackToOverview}
-            onReinspect={() => handleSelectWorkspace(selectedWorkspacePath)}
-            isLoading={isLoading}
-          />
-        ) : selectedWorkspacePath && isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 text-xs space-y-3 bg-[#0a0d14]">
-            <div className="w-8 h-8 border-2 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" />
-            <div className="font-mono text-zinc-400">Reconstructing workspace topology...</div>
-          </div>
-        ) : activeNav === 'overview' || activeNav === 'workspaces' ? (
-          overview ? (
-            <OverviewView
-              overview={overview}
-              onRefresh={loadEnvironment}
-              isLoading={isLoading}
-              selectedFilter={selectedFilter}
-              onSelectFilter={setSelectedFilter}
-              onSelectWorkspace={handleSelectWorkspace}
-              onInspectFolder={handleInspectFolder}
-            />
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-zinc-500 text-xs">
-              Loading environment data...
-            </div>
-          )
-        ) : activeNav === 'findings' ? (
-          overview ? (
-            <FindingsView
-              findings={overview.findings}
-              onSelectWorkspace={handleSelectWorkspace}
-            />
-          ) : null
-        ) : activeNav === 'processes' ||
-          activeNav === 'runtimes' ||
-          activeNav === 'containers' ||
-          activeNav === 'caches' ? (
-          overview ? (
-            <SystemView
-              initialTab={activeNav}
-              processes={overview.system.processes}
-              runtimes={overview.system.runtimes}
-              containers={overview.system.containers}
-              caches={overview.system.caches}
-            />
-          ) : null
-        ) : null}
+        <ErrorBoundary>
+          {renderMainContent()}
+        </ErrorBoundary>
       </main>
 
-      {/* Global Command Palette */}
       <CommandPalette
         isOpen={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}
         overview={overview}
         onSelectWorkspace={handleSelectWorkspace}
         onNavigate={(nav) => {
-          setActiveNav(nav);
+          setActiveNav(nav as ActiveNav);
           setSelectedWorkspacePath(null);
         }}
       />

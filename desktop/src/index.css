@@ -1,4 +1,52 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/600.css";
+
+@theme {
+  /* Surface hierarchy — calm, deep, restful slate */
+  --color-surface-0: #0d111a;
+  --color-surface-1: #121723;
+  --color-surface-2: #172030;
+  --color-surface-3: #1d273a;
+  --color-surface-4: #243048;
+
+  /* Borders — soft, non-glaring hairline contrast */
+  --color-border: #1e2738;
+  --color-border-subtle: #161d2b;
+  --color-border-strong: #2a374e;
+
+  /* Text hierarchy — comfortable reading contrast */
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+
+  /* Brand accent — refined indigo */
+  --color-accent: #6366f1;
+  --color-accent-muted: rgba(99, 102, 241, 0.12);
+  --color-accent-strong: #818cf8;
+
+  /* Semantic status colors — soft tints */
+  --color-success: #10b981;
+  --color-success-bg: rgba(16, 185, 129, 0.1);
+  --color-success-border: rgba(16, 185, 129, 0.2);
+
+  --color-warning: #f59e0b;
+  --color-warning-bg: rgba(245, 158, 11, 0.1);
+  --color-warning-border: rgba(245, 158, 11, 0.2);
+
+  --color-danger: #ef4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.1);
+  --color-danger-border: rgba(239, 68, 68, 0.2);
+
+  --color-info: #0ea5e9;
+  --color-info-bg: rgba(14, 165, 233, 0.1);
+  --color-info-border: rgba(14, 165, 233, 0.2);
+
+  /* Fonts */
+  --font-sans: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
 
 @layer base {
   :root {
@@ -6,31 +54,58 @@
   }
 
   body {
-    background-color: #090b10;
-    color: #d4d4d8;
+    background-color: var(--color-surface-0);
+    color: var(--color-text-primary);
     margin: 0;
     padding: 0;
     height: 100vh;
     width: 100vw;
     overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Custom scrollbar for dense data views */
+  /* Scrollbar — modern and clean */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #090b10;
+    background: var(--color-surface-0);
   }
   ::-webkit-scrollbar-thumb {
-    background: #27272a;
+    background: var(--color-surface-3);
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #3f3f46;
+    background: var(--color-border-strong);
+  }
+
+  /* Focus ring for keyboard navigation */
+  *:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ── Smooth page transitions ── */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }

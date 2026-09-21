@@ -74,15 +74,19 @@ export interface ProcessConnection {
   cpu_percent: number | null;
   cmdline_preview: string | null;
   is_shell: boolean;
+  ports?: number[];
 }
 
 export interface RuntimeConnection {
   entity_id: string;
-  name: string;
+  name?: string;
+  runtime?: string;
   version: string;
-  executable_path: string;
-  install_path: string | null;
-  is_system: boolean;
+  executable_path?: string;
+  path?: string | null;
+  install_path?: string | null;
+  manager?: string | null;
+  is_system?: boolean;
 }
 
 export interface DockerConnection {
@@ -103,8 +107,8 @@ export interface DependencyConnection {
   dep_type: string;
   path: string;
   size_bytes: number | null;
-  package_count: number | null;
-  is_stale: boolean;
+  package_count?: number | null;
+  is_stale?: boolean;
 }
 
 export interface CacheConnection {
@@ -188,13 +192,22 @@ export interface WorkspaceInspection {
   state: WorkspaceState;
   connections: WorkspaceConnections;
   primary_uncertainty?: string | null;
-  entities: Record<string, any>[];
+  entities: Record<string, unknown>[];
   relationships: RelationshipItem[];
   findings: FindingItem[];
   evidence: EvidenceItem[];
   uncertainties: string[];
   action_boundary: ActionBoundary;
   metadata: InspectionMetadata;
+}
+
+export interface DisposableArtifact {
+  path: string;
+  name: string;
+  category: string;
+  label: string;
+  size_bytes: number;
+  project_path: string;
 }
 
 export interface EnvironmentSummary {
@@ -209,6 +222,8 @@ export interface EnvironmentSummary {
   total_runtimes: number;
   total_containers: number;
   total_caches: number;
+  reclaimable_bytes?: number;
+  disposable_artifact_count?: number;
 }
 
 export interface EnvironmentOverview {
@@ -219,6 +234,7 @@ export interface EnvironmentOverview {
     processes: ProcessConnection[];
     containers: DockerConnection[];
     caches: CacheConnection[];
+    artifacts?: DisposableArtifact[];
   };
   findings: FindingItem[];
   metadata: {

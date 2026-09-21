@@ -159,6 +159,42 @@ class EntropyDesktopApi:
         except Exception:
             return None
 
+    def terminate_process(self, pid: int, force: bool = True) -> dict[str, Any]:
+        """Safely terminate a developer process by PID."""
+        from core.process_control import terminate_process
+        return terminate_process(pid, force=force)
+
+    def free_port(self, port: int, force: bool = True) -> dict[str, Any]:
+        """Free a listening TCP port by terminating its owner process."""
+        from core.process_control import free_port
+        return free_port(port, force=force)
+
+    def clean_artifact(self, path: str) -> dict[str, Any]:
+        """Safely delete a single whitelisted build artifact directory."""
+        from core.disk_cleaner import clean_artifact_directory
+        return clean_artifact_directory(path)
+
+    def clean_artifacts(self, paths: list[str]) -> dict[str, Any]:
+        """Safely delete multiple whitelisted build artifact directories."""
+        from core.disk_cleaner import clean_multiple_artifacts
+        return clean_multiple_artifacts(paths)
+
+    def detect_launchers(self) -> dict[str, bool]:
+        """Detect installed IDEs and terminal launchers on Windows."""
+        from core.launcher import detect_installed_launchers
+        return detect_installed_launchers()
+
+    def launch_ide(self, workspace_path: str, editor_id: str) -> dict[str, Any]:
+        """Launch a workspace path in an external code editor or terminal."""
+        from core.launcher import launch_workspace_in_editor
+        return launch_workspace_in_editor(workspace_path, editor_id)
+
+    def stash_workspace(self, workspace_path: str, message: Optional[str] = None) -> dict[str, Any]:
+        """Safely stash uncommitted changes in a workspace."""
+        from core.git_control import safe_stash_workspace
+        return safe_stash_workspace(workspace_path, message)
+
+
 
 def _run_desktop() -> None:
     import argparse

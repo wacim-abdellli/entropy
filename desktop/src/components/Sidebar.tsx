@@ -1,324 +1,130 @@
 import React from 'react';
-import {
-  Layers,
-  FolderGit2,
-  AlertTriangle,
-  Activity,
-  Cpu,
-  Boxes,
-  Database,
-  Search,
-  FolderSearch,
-  ShieldCheck,
-  Command,
-} from 'lucide-react';
-import { EnvironmentSummary, StateCategory } from '../types/entropy';
+import { Search, Home, Trash2, Monitor, Settings, RefreshCw } from 'lucide-react';
 
-export type ActiveNav =
-  | 'overview'
-  | 'workspaces'
-  | 'findings'
-  | 'processes'
-  | 'runtimes'
-  | 'containers'
-  | 'caches';
+export type ActiveNav = 'home' | 'cleanup' | 'details' | 'settings';
 
 interface SidebarProps {
   activeNav: ActiveNav;
   onSelectNav: (nav: ActiveNav) => void;
-  summary: EnvironmentSummary | null;
-  selectedFilter: StateCategory | 'all';
-  onSelectFilter: (filter: StateCategory | 'all') => void;
-  onInspectFolder: () => void;
   onOpenCommandPalette: () => void;
+  onRefresh: () => void;
+  isLoading: boolean;
+  lastScanTime?: number | null;
+}
+
+const NavItem: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  badge?: React.ReactNode;
+}> = ({ active, onClick, icon, label, badge }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-150 text-[13px] cursor-pointer ${
+      active
+        ? 'bg-[var(--color-accent)]/12 text-[var(--color-accent-strong)] font-semibold shadow-sm'
+        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)]'
+    }`}
+  >
+    <div className="flex items-center gap-3">
+      <span className={active ? 'text-[var(--color-accent-strong)]' : 'text-[var(--color-text-tertiary)]'}>
+        {icon}
+      </span>
+      <span>{label}</span>
+    </div>
+    {badge}
+  </button>
+);
+
+function formatTimeAgo(timestamp: number): string {
+  const seconds = Math.floor(Date.now() / 1000 - timestamp);
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeNav,
   onSelectNav,
-  summary,
-  selectedFilter,
-  onSelectFilter,
-  onInspectFolder,
   onOpenCommandPalette,
+  onRefresh,
+  isLoading,
+  lastScanTime,
 }) => {
   return (
-    <aside className="w-64 bg-[#0d1017] border-r border-[#1e2330] flex flex-col justify-between select-none h-screen text-xs shrink-0">
-      {/* Top Header */}
-      <div className="p-4 border-b border-[#1e2330]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            </div>
-            <div>
-              <div className="font-mono font-bold tracking-wider text-zinc-100 text-sm flex items-center space-x-1.5">
-                <span>ENTROPY</span>
-                <span className="text-[10px] px-1 py-0.2 bg-zinc-800 text-zinc-400 rounded font-normal">v0.1.0</span>
-              </div>
-            </div>
+    <aside className="w-56 bg-[var(--color-surface-1)] border-r border-[var(--color-border)] flex flex-col justify-between select-none h-screen shrink-0">
+      {/* Brand Header */}
+      <div className="p-4 space-y-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-accent)] to-indigo-400 flex items-center justify-center text-white text-xs font-bold shadow-md">
+            E
           </div>
-          <div className="flex items-center space-x-1 text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-900/50 px-1.5 py-0.5 rounded">
-            <span>local</span>
+          <div>
+            <span className="font-semibold text-[var(--color-text-primary)] text-sm tracking-tight">Entropy</span>
+            <span className="ml-1.5 text-[10px] font-mono text-[var(--color-text-tertiary)]">v0.1</span>
           </div>
         </div>
 
-        {/* Quick Switcher Button */}
+        {/* Quick Search */}
         <button
+          type="button"
           onClick={onOpenCommandPalette}
-          className="mt-3 w-full bg-[#141824] hover:bg-[#1a2030] text-zinc-400 hover:text-zinc-200 border border-[#23293a] rounded px-2.5 py-1.5 flex items-center justify-between transition-colors text-left"
+          className="w-full bg-[var(--color-surface-2)]/60 hover:bg-[var(--color-surface-3)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 flex items-center justify-between transition-colors text-left text-xs cursor-pointer"
         >
-          <div className="flex items-center space-x-2">
-            <Search className="w-3.5 h-3.5 text-zinc-500" />
-            <span className="text-zinc-400">Search or jump to...</span>
+          <div className="flex items-center gap-2">
+            <Search className="w-3.5 h-3.5" />
+            <span>Search…</span>
           </div>
-          <kbd className="bg-zinc-800/80 text-zinc-400 border border-zinc-700/60 rounded px-1 text-[10px] font-mono flex items-center space-x-0.5">
-            <Command className="w-2.5 h-2.5 mr-0.5" /> K
+          <kbd className="text-[10px] font-mono text-[var(--color-text-tertiary)] bg-[var(--color-surface-3)] px-1.5 py-0.5 rounded">
+            Ctrl+K
           </kbd>
         </button>
       </div>
 
-      {/* Navigation Sections */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-5">
-        {/* Core Views */}
-        <div>
-          <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-            Intelligence
-          </div>
-          <nav className="space-y-0.5">
-            <button
-              onClick={() => onSelectNav('overview')}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                activeNav === 'overview'
-                  ? 'bg-emerald-500/10 text-emerald-400 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Layers className="w-4 h-4" />
-                <span>Overview</span>
-              </div>
-              {summary && (
-                <span className="text-[10px] font-mono bg-zinc-800/60 text-zinc-400 px-1.5 py-0.2 rounded">
-                  {summary.total_workspaces}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => {
-                onSelectNav('workspaces');
-                onSelectFilter('all');
-              }}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                activeNav === 'workspaces' && selectedFilter === 'all'
-                  ? 'bg-emerald-500/10 text-emerald-400 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <FolderGit2 className="w-4 h-4" />
-                <span>All Workspaces</span>
-              </div>
-            </button>
-
-            <button
-              onClick={() => onSelectNav('findings')}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                activeNav === 'findings'
-                  ? 'bg-amber-500/10 text-amber-400 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="w-4 h-4" />
-                <span>Attention & Risks</span>
-              </div>
-              {summary && summary.attention_count > 0 && (
-                <span className="text-[10px] font-mono bg-amber-500/20 text-amber-400 px-1.5 py-0.2 rounded border border-amber-500/30">
-                  {summary.attention_count}
-                </span>
-              )}
-            </button>
-          </nav>
-        </div>
-
-        {/* Workspace Filters */}
-        {summary && (
-          <div>
-            <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-              Workspace States
-            </div>
-            <nav className="space-y-0.5">
-              <button
-                onClick={() => {
-                  onSelectNav('workspaces');
-                  onSelectFilter('active');
-                }}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                  activeNav === 'workspaces' && selectedFilter === 'active'
-                    ? 'bg-emerald-500/10 text-emerald-400 font-medium'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span>Active</span>
-                </div>
-                <span className="font-mono text-zinc-500">{summary.active_count}</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  onSelectNav('workspaces');
-                  onSelectFilter('attention');
-                }}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                  activeNav === 'workspaces' && selectedFilter === 'attention'
-                    ? 'bg-amber-500/10 text-amber-400 font-medium'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-400" />
-                  <span>Attention</span>
-                </div>
-                <span className="font-mono text-zinc-500">{summary.attention_count}</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  onSelectNav('workspaces');
-                  onSelectFilter('dormant');
-                }}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                  activeNav === 'workspaces' && selectedFilter === 'dormant'
-                    ? 'bg-zinc-700/20 text-zinc-300 font-medium'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 rounded-full bg-zinc-500" />
-                  <span>Dormant</span>
-                </div>
-                <span className="font-mono text-zinc-500">{summary.dormant_count}</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  onSelectNav('workspaces');
-                  onSelectFilter('inactive');
-                }}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                  activeNav === 'workspaces' && (selectedFilter === 'inactive' || selectedFilter === 'paused')
-                    ? 'bg-slate-700/20 text-slate-300 font-medium'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 rounded-full bg-slate-400" />
-                  <span>Inactive</span>
-                </div>
-                <span className="font-mono text-zinc-500">{summary.inactive_count ?? summary.paused_count ?? 0}</span>
-              </button>
-            </nav>
-          </div>
-        )}
-
-        {/* System Inventory */}
-        <div>
-          <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-            System Substrates
-          </div>
-          <nav className="space-y-0.5">
-            <button
-              onClick={() => onSelectNav('processes')}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                activeNav === 'processes'
-                  ? 'bg-emerald-500/10 text-emerald-400 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Activity className="w-4 h-4" />
-                <span>Processes</span>
-              </div>
-              {summary && (
-                <span className="font-mono text-zinc-500">{summary.total_processes}</span>
-              )}
-            </button>
-
-            <button
-              onClick={() => onSelectNav('runtimes')}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                activeNav === 'runtimes'
-                  ? 'bg-emerald-500/10 text-emerald-400 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Cpu className="w-4 h-4" />
-                <span>Runtimes & SDKs</span>
-              </div>
-              {summary && (
-                <span className="font-mono text-zinc-500">{summary.total_runtimes}</span>
-              )}
-            </button>
-
-            <button
-              onClick={() => onSelectNav('containers')}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                activeNav === 'containers'
-                  ? 'bg-emerald-500/10 text-emerald-400 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Boxes className="w-4 h-4" />
-                <span>Containers</span>
-              </div>
-              {summary && (
-                <span className="font-mono text-zinc-500">{summary.total_containers}</span>
-              )}
-            </button>
-
-            <button
-              onClick={() => onSelectNav('caches')}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors ${
-                activeNav === 'caches'
-                  ? 'bg-emerald-500/10 text-emerald-400 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#141824]'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Database className="w-4 h-4" />
-                <span>Package Caches</span>
-              </div>
-              {summary && (
-                <span className="font-mono text-zinc-500">{summary.total_caches}</span>
-              )}
-            </button>
-          </nav>
-        </div>
+      {/* Navigation */}
+      <div className="flex-1 overflow-y-auto px-3 py-1 space-y-1">
+        <NavItem
+          active={activeNav === 'home'}
+          onClick={() => onSelectNav('home')}
+          icon={<Home className="w-4 h-4" />}
+          label="Home"
+        />
+        <NavItem
+          active={activeNav === 'cleanup'}
+          onClick={() => onSelectNav('cleanup')}
+          icon={<Trash2 className="w-4 h-4" />}
+          label="Cleanup"
+        />
+        <NavItem
+          active={activeNav === 'details'}
+          onClick={() => onSelectNav('details')}
+          icon={<Monitor className="w-4 h-4" />}
+          label="System Details"
+        />
+        <NavItem
+          active={activeNav === 'settings'}
+          onClick={() => onSelectNav('settings')}
+          icon={<Settings className="w-4 h-4" />}
+          label="Settings"
+        />
       </div>
 
-      {/* Bottom Footer Actions */}
-      <div className="p-3 border-t border-[#1e2330] space-y-2 bg-[#090b10]">
+      {/* Footer — Last scan time + refresh */}
+      <div className="p-3 border-t border-[var(--color-border-subtle)]">
         <button
-          onClick={onInspectFolder}
-          className="w-full bg-[#182030] hover:bg-[#202a40] text-emerald-400 border border-emerald-500/30 rounded px-2.5 py-2 flex items-center justify-center space-x-2 font-medium transition-colors shadow-sm"
+          type="button"
+          onClick={onRefresh}
+          disabled={isLoading}
+          className="w-full flex items-center justify-between text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer disabled:opacity-50"
         >
-          <FolderSearch className="w-4 h-4" />
-          <span>Inspect Workspace...</span>
+          <span>
+            {lastScanTime ? `Scanned ${formatTimeAgo(lastScanTime)}` : 'Ready to scan'}
+          </span>
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
-
-        <div className="px-1 pt-1 flex items-center justify-between text-[10px] text-zinc-500">
-          <div className="flex items-center space-x-1">
-            <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            <span>Read-Only</span>
-          </div>
-          <span>Zero Telemetry</span>
-        </div>
       </div>
     </aside>
   );

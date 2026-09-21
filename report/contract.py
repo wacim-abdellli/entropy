@@ -564,6 +564,19 @@ def serialize_environment_overview(
         for c in caches
     ]
 
+    # Disposable build artifacts across projects
+    disposable_artifacts = []
+    total_reclaimable_bytes = 0
+    try:
+        from collectors.artifacts import collect_project_artifacts
+        for p in projects:
+            p_artifacts = collect_project_artifacts(p.path)
+            disposable_artifacts.extend(p_artifacts)
+            for a in p_artifacts:
+                total_reclaimable_bytes += (a.get("size_bytes") or 0)
+    except Exception:
+        pass
+
     return {
         "summary": {
             "total_workspaces": len(projects),
@@ -577,6 +590,8 @@ def serialize_environment_overview(
             "total_runtimes": len(runtimes),
             "total_containers": len(containers),
             "total_caches": len(caches),
+            "reclaimable_bytes": total_reclaimable_bytes,
+            "disposable_artifact_count": len(disposable_artifacts),
         },
         "workspaces": workspace_cards,
         "system": {
@@ -584,6 +599,7 @@ def serialize_environment_overview(
             "processes": [asdict(pr) for pr in processes],
             "containers": [asdict(c) for c in containers],
             "caches": serialized_caches,
+            "artifacts": disposable_artifacts,
         },
         "findings": [asdict(f) for f in findings],
         "metadata": {
