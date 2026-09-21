@@ -100,15 +100,30 @@ def run_entropy_scan(scan_roots: list[str] | str, max_depth: int = 4) -> tuple[E
     all_projects: list[Project] = []
     all_dep_envs: list[DependencyEnvironment] = []
 
-    for root in roots:
-        logger.info(f"Scanning for projects in {root} (depth={max_depth})...")
-        projects, dep_envs = collect_projects_and_dependencies(root, max_depth=max_depth)
-        for p in projects:
-            norm_p = os.path.normcase(os.path.abspath(p.path))
-            if norm_p not in seen_project_paths:
-                seen_project_paths.add(norm_p)
-                all_projects.append(p)
-        all_dep_envs.extend(dep_envs)
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _scan_root(r: str):
+        return collect_projects_and_dependencies(r, max_depth=max_depth)
+
+    if len(roots) > 1:
+        with ThreadPoolExecutor(max_workers=min(4, len(roots))) as executor:
+            for projects, dep_envs in executor.map(_scan_root, roots):
+                for p in projects:
+                    norm_p = os.path.normcase(os.path.abspath(p.path))
+                    if norm_p not in seen_project_paths:
+                        seen_project_paths.add(norm_p)
+                        all_projects.append(p)
+                all_dep_envs.extend(dep_envs)
+    else:
+        for root in roots:
+            logger.info(f"Scanning for projects in {root} (depth={max_depth})...")
+            projects, dep_envs = collect_projects_and_dependencies(root, max_depth=max_depth)
+            for p in projects:
+                norm_p = os.path.normcase(os.path.abspath(p.path))
+                if norm_p not in seen_project_paths:
+                    seen_project_paths.add(norm_p)
+                    all_projects.append(p)
+            all_dep_envs.extend(dep_envs)
 
     scan_result.projects = all_projects
     scan_result.dep_environments = all_dep_envs
@@ -118,15 +133,26 @@ def run_entropy_scan(scan_roots: list[str] | str, max_depth: int = 4) -> tuple[E
 
     # 2. Git metadata for projects
     logger.info("Extracting Git metadata for repositories...")
-    for p in all_projects:
-        git_entry = os.path.join(p.path, ".git")
-        if ".git" in p.detected_sentinels or os.path.exists(git_entry):
+
+    def _collect_git_safe(proj: Project) -> Optional[GitRepository]:
+        git_entry = os.path.join(proj.path, ".git")
+        if ".git" in proj.detected_sentinels or os.path.exists(git_entry):
             try:
-                repo = collect_git_repository(p.path)
+                return collect_git_repository(proj.path)
+            except Exception as e:
+                logger.debug(f"Git inspection error on {proj.path}: {e}")
+        return None
+
+    if len(all_projects) > 1:
+        with ThreadPoolExecutor(max_workers=min(8, len(all_projects))) as executor:
+            for repo in executor.map(_collect_git_safe, all_projects):
                 if repo:
                     scan_result.git_repos.append(repo)
-            except Exception as e:
-                logger.debug(f"Git inspection error on {p.path}: {e}")
+    else:
+        for p in all_projects:
+            repo = _collect_git_safe(p)
+            if repo:
+                scan_result.git_repos.append(repo)
 
     # 3. Processes
     logger.info("Inspecting active processes...")

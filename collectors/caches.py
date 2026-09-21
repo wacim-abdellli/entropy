@@ -72,21 +72,15 @@ def collect_caches() -> List[CacheDirectory]:
         (home / "go" / "pkg" / "mod", "go", "Go module cache"),
     ]
 
+    from concurrent.futures import ThreadPoolExecutor
+
+    to_measure = []
     for cpath, cat, desc in candidate_locations:
         if cpath.is_dir():
             norm_path = os.path.abspath(str(cpath))
             if norm_path not in seen_paths:
                 seen_paths.add(norm_path)
-                sz = _get_dir_size(norm_path)
-                caches.append(
-                    CacheDirectory(
-                        entity_id=f"cache:{norm_path}",
-                        path=norm_path,
-                        size_bytes=sz,
-                        category=cat,
-                        description=desc,
-                    )
-                )
+                to_measure.append((norm_path, cat, desc))
 
     # Inspect subdirectories in ~/.cache if it exists
     dot_cache = home / ".cache"
@@ -97,18 +91,23 @@ def collect_caches() -> List[CacheDirectory]:
                     norm_path = os.path.abspath(str(entry))
                     if norm_path not in seen_paths:
                         seen_paths.add(norm_path)
-                        sz = _get_dir_size(norm_path)
-                        caches.append(
-                            CacheDirectory(
-                                entity_id=f"cache:{norm_path}",
-                                path=norm_path,
-                                size_bytes=sz,
-                                category="general",
-                                description=f"{entry.name} cache",
-                            )
-                        )
+                        to_measure.append((norm_path, "general", f"{entry.name} cache"))
         except OSError:
             pass
+
+    if to_measure:
+        with ThreadPoolExecutor(max_workers=min(6, len(to_measure))) as executor:
+            sizes = list(executor.map(lambda item: _get_dir_size(item[0]), to_measure))
+        for (norm_path, cat, desc), sz in zip(to_measure, sizes):
+            caches.append(
+                CacheDirectory(
+                    entity_id=f"cache:{norm_path}",
+                    path=norm_path,
+                    size_bytes=sz,
+                    category=cat,
+                    description=desc,
+                )
+            )
 
     # Sort descending by size
     caches.sort(key=lambda c: c.size_bytes or 0, reverse=True)

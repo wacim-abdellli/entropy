@@ -31,6 +31,22 @@ SHELL_PROCESS_NAMES = {
 }
 
 
+WINDOWS_SYSTEM_NAMES = {
+    "svchost.exe",
+    "system",
+    "system idle process",
+    "registry",
+    "smss.exe",
+    "csrss.exe",
+    "wininit.exe",
+    "services.exe",
+    "lsass.exe",
+    "fontdrvhost.exe",
+    "dwm.exe",
+    "memory compression",
+}
+
+
 def collect_processes() -> List[Process]:
     """
     Inspects running processes accessible to the current user.
@@ -39,12 +55,13 @@ def collect_processes() -> List[Process]:
     processes: List[Process] = []
 
     for proc in psutil.process_iter(
-        attrs=["pid", "name", "exe", "cmdline", "create_time", "ppid"]
+        attrs=["pid", "name", "exe", "cmdline", "create_time", "ppid", "memory_info"]
     ):
         try:
             info = proc.info
             pid = info.get("pid") or 0
             name = info.get("name") or ""
+            name_lower = name.lower()
             exe = info.get("exe")
             exe_path = None
             if exe and os.path.isabs(exe) and os.path.isfile(exe):
@@ -55,21 +72,26 @@ def collect_processes() -> List[Process]:
 
             # Obtain working directory (cwd) if accessible and valid absolute dir
             cwd = None
-            try:
-                raw_cwd = proc.cwd()
-                if raw_cwd and os.path.isabs(raw_cwd) and os.path.isdir(raw_cwd):
-                    cwd = os.path.normpath(raw_cwd)
-            except (psutil.AccessDenied, psutil.NoSuchProcess, OSError):
-                cwd = None
+            if name_lower not in WINDOWS_SYSTEM_NAMES:
+                try:
+                    raw_cwd = proc.cwd()
+                    if raw_cwd and os.path.isabs(raw_cwd) and os.path.isdir(raw_cwd):
+                        cwd = os.path.normpath(raw_cwd)
+                except (psutil.AccessDenied, psutil.NoSuchProcess, OSError):
+                    cwd = None
 
             # Memory information
             memory_bytes = None
-            try:
-                mem_info = proc.memory_info()
-                if mem_info:
-                    memory_bytes = mem_info.rss
-            except (psutil.AccessDenied, psutil.NoSuchProcess, OSError):
-                memory_bytes = None
+            mem_info = info.get("memory_info")
+            if mem_info and hasattr(mem_info, "rss"):
+                memory_bytes = mem_info.rss
+            else:
+                try:
+                    m = proc.memory_info()
+                    if m:
+                        memory_bytes = m.rss
+                except (psutil.AccessDenied, psutil.NoSuchProcess, OSError):
+                    memory_bytes = None
 
             # Safe commandline preview: only executable name, NEVER full argument string with possible secrets
             cmdline_preview = None

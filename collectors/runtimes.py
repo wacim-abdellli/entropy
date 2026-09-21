@@ -30,6 +30,7 @@ CMD_TIMEOUT = 3.0
 def _run_cmd(cmd: List[str]) -> Tuple[bool, str]:
     """Execute command safely and return (success, stdout)."""
     try:
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         res = subprocess.run(
             cmd,
             capture_output=True,
@@ -37,6 +38,7 @@ def _run_cmd(cmd: List[str]) -> Tuple[bool, str]:
             timeout=CMD_TIMEOUT,
             check=False,
             shell=True if os.name == "nt" else False,
+            creationflags=creationflags,
         )
         if res.returncode == 0:
             return True, res.stdout.strip()

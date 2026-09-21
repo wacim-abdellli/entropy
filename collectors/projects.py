@@ -48,21 +48,28 @@ RUNTIME_HINT_FILES = {
 }
 
 
-def _get_dir_size(path: str) -> int:
-    """Calculate directory size in bytes without following symlinks."""
+def _get_dir_size(path: str, timeout_seconds: float = 0.75) -> int:
+    """Calculate directory size in bytes iteratively without following symlinks, capped by timeout."""
     total_size = 0
-    try:
-        with os.scandir(path) as it:
-            for entry in it:
-                try:
-                    if entry.is_file(follow_symlinks=False):
-                        total_size += entry.stat(follow_symlinks=False).st_size
-                    elif entry.is_dir(follow_symlinks=False):
-                        total_size += _get_dir_size(entry.path)
-                except OSError:
-                    pass
-    except OSError:
-        pass
+    start_time = time.time()
+    stack = [path]
+    while stack:
+        if (time.time() - start_time) > timeout_seconds:
+            break
+        cur = stack.pop()
+        try:
+            with os.scandir(cur) as it:
+                for entry in it:
+                    try:
+                        if entry.is_file(follow_symlinks=False):
+                            total_size += entry.stat(follow_symlinks=False).st_size
+                        elif entry.is_dir(follow_symlinks=False):
+                            if entry.name not in SKIP_DIRS:
+                                stack.append(entry.path)
+                    except OSError:
+                        pass
+        except OSError:
+            pass
     return total_size
 
 

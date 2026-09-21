@@ -63,15 +63,24 @@ def _parse_docker_timestamp(time_str: str) -> Optional[float]:
     return None
 
 
-def collect_docker() -> Tuple[
-    bool,
-    Optional[str],
-    List[DockerContainer],
-    List[DockerImage],
-    List[DockerVolume],
-]:
+def _run_docker_cmd(cmd: List[str], timeout: int = 8) -> subprocess.CompletedProcess:
+    """Execute a docker CLI command safely with CREATE_NO_WINDOW on Windows."""
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+        shell=True if os.name == "nt" else False,
+        creationflags=creationflags,
+    )
+
+
+def collect_docker() -> Tuple[bool, Optional[str], List[DockerContainer], List[DockerImage], List[DockerVolume]]:
     """
-    Inspects Docker state.
+    Collects Docker container, image, and volume states via read-only docker CLI commands.
+    Gracefully degrades if Docker daemon is not running or CLI is absent.
     Returns (available, error_message, containers, images, volumes).
     """
     containers: List[DockerContainer] = []
@@ -81,14 +90,7 @@ def collect_docker() -> Tuple[
     # 1. Quick availability check
     try:
         # Probe CLI presence (50ms)
-        probe = subprocess.run(
-            ["docker", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-            shell=True if os.name == "nt" else False,
-        )
+        probe = _run_docker_cmd(["docker", "--version"], timeout=2)
         if probe.returncode != 0:
             return False, "Docker CLI not functional", containers, images, volumes
 
@@ -96,14 +98,7 @@ def collect_docker() -> Tuple[
         if os.name == "nt" and "DOCKER_HOST" not in os.environ and not os.path.exists(r"\\.\pipe\docker_engine"):
             return False, "Docker daemon not running", containers, images, volumes
 
-        res = subprocess.run(
-            ["docker", "info"],
-            capture_output=True,
-            text=True,
-            timeout=4,
-            check=False,
-            shell=True if os.name == "nt" else False,
-        )
+        res = _run_docker_cmd(["docker", "info"], timeout=4)
         if res.returncode != 0:
             err = res.stderr.strip()
             if "daemon is not running" in err.lower() or "connect" in err.lower():
@@ -118,14 +113,7 @@ def collect_docker() -> Tuple[
 
     # 2. Containers
     try:
-        res = subprocess.run(
-            ["docker", "ps", "-a", "--format", "{{json .}}"],
-            capture_output=True,
-            text=True,
-            timeout=8,
-            check=False,
-            shell=True if os.name == "nt" else False,
-        )
+        res = _run_docker_cmd(["docker", "ps", "-a", "--format", "{{json .}}"], timeout=8)
         if res.returncode == 0 and res.stdout:
             for line in res.stdout.splitlines():
                 line = line.strip()
@@ -148,13 +136,9 @@ def collect_docker() -> Tuple[
                     # Inspect container mounts
                     bind_mounts: List[str] = []
                     try:
-                        insp = subprocess.run(
+                        insp = _run_docker_cmd(
                             ["docker", "inspect", cid, "--format", "{{json .Mounts}}"],
-                            capture_output=True,
-                            text=True,
                             timeout=4,
-                            check=False,
-                            shell=True if os.name == "nt" else False,
                         )
                         if insp.returncode == 0 and insp.stdout.strip():
                             mount_data = json.loads(insp.stdout.strip())
@@ -183,14 +167,7 @@ def collect_docker() -> Tuple[
 
     # 3. Images
     try:
-        res = subprocess.run(
-            ["docker", "images", "--format", "{{json .}}"],
-            capture_output=True,
-            text=True,
-            timeout=8,
-            check=False,
-            shell=True if os.name == "nt" else False,
-        )
+        res = _run_docker_cmd(["docker", "images", "--format", "{{json .}}"], timeout=8)
         if res.returncode == 0 and res.stdout:
             for line in res.stdout.splitlines():
                 line = line.strip()
@@ -221,14 +198,7 @@ def collect_docker() -> Tuple[
 
     # 4. Volumes
     try:
-        res = subprocess.run(
-            ["docker", "volume", "ls", "--format", "{{json .}}"],
-            capture_output=True,
-            text=True,
-            timeout=8,
-            check=False,
-            shell=True if os.name == "nt" else False,
-        )
+        res = _run_docker_cmd(["docker", "volume", "ls", "--format", "{{json .}}"], timeout=8)
         if res.returncode == 0 and res.stdout:
             for line in res.stdout.splitlines():
                 line = line.strip()

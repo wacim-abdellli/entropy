@@ -39,6 +39,7 @@ def _get_dir_size(path: str) -> int:
 def _run_git_command(repo_path: str, args: List[str], timeout: int = 5) -> Optional[str]:
     """Run a git command in the repository path and return stripped stdout."""
     try:
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         result = subprocess.run(
             ["git"] + args,
             cwd=repo_path,
@@ -46,6 +47,7 @@ def _run_git_command(repo_path: str, args: List[str], timeout: int = 5) -> Optio
             text=True,
             timeout=timeout,
             check=False,
+            creationflags=creationflags,
         )
         if result.returncode == 0:
             return result.stdout.strip()

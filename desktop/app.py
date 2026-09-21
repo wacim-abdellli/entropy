@@ -25,6 +25,8 @@ else:
     if str(PROJECT_ROOT) not in sys.path:
         sys.path.insert(0, str(PROJECT_ROOT))
 
+import concurrent.futures
+
 from core.graph import EnvironmentGraph
 from report.contract import serialize_environment_overview, serialize_workspace_inspection
 from scan import run_entropy_inspect, run_entropy_scan
@@ -32,6 +34,11 @@ from scan import run_entropy_inspect, run_entropy_scan
 
 class EntropyDesktopApi:
     """Native Python API exposed to the JavaScript frontend via WebView2."""
+
+    def __init__(self) -> None:
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        # Pre-warm environment scan in background while native WebView2 window boots
+        self._prewarm_future = self._executor.submit(self._do_scan_environment)
 
     def inspect_workspace(self, path: str) -> dict[str, Any]:
         """Inspect a single workspace and return the structured JSON payload."""
@@ -59,8 +66,8 @@ class EntropyDesktopApi:
         except Exception as e:
             return {"error": str(e), "workspace": None}
 
-    def scan_environment(self, roots: Optional[List[str]] = None, depth: int = 2) -> dict[str, Any]:
-        """Scan environment across specified root directories."""
+    def _do_scan_environment(self, roots: Optional[List[str]] = None, depth: int = 2) -> dict[str, Any]:
+        """Core environment scan implementation across candidate developer roots."""
         if not roots:
             user_home = os.path.expanduser("~")
             candidate_roots = [
@@ -81,6 +88,18 @@ class EntropyDesktopApi:
             return serialize_environment_overview(graph, findings)
         except Exception as e:
             return {"error": str(e), "summary": None, "workspaces": []}
+
+    def scan_environment(self, roots: Optional[List[str]] = None, depth: int = 2) -> dict[str, Any]:
+        """Scan environment across specified root directories (uses prewarmed cache if ready)."""
+        if not roots and self._prewarm_future:
+            try:
+                res = self._prewarm_future.result(timeout=45)
+                self._prewarm_future = None
+                return res
+            except Exception:
+                self._prewarm_future = None
+
+        return self._do_scan_environment(roots=roots, depth=depth)
 
     def open_in_explorer(self, path: str) -> bool:
         """Open the specified folder in native Windows Explorer."""
@@ -127,11 +146,13 @@ class EntropyDesktopApi:
                 "$f.Description = 'Select Workspace Folder to Inspect with Entropy'; "
                 "if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $f.SelectedPath }"
             )
+            creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
             result = subprocess.run(
                 ["powershell.exe", "-NoProfile", "-Command", ps_script],
                 capture_output=True,
                 text=True,
                 timeout=60,
+                creationflags=creationflags,
             )
             selected = result.stdout.strip()
             return selected if selected and os.path.isdir(selected) else None
