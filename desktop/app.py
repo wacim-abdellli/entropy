@@ -14,10 +14,16 @@ import sys
 from pathlib import Path
 from typing import Any, List, Optional
 
-# Add project root to sys.path
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# Add project root to sys.path (support both source tree and PyInstaller frozen bundle)
+if getattr(sys, "frozen", False):
+    bundle_dir = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)).resolve()
+    PROJECT_ROOT = bundle_dir
+    if str(bundle_dir) not in sys.path:
+        sys.path.insert(0, str(bundle_dir))
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.graph import EnvironmentGraph
 from report.contract import serialize_environment_overview, serialize_workspace_inspection
@@ -133,18 +139,57 @@ class EntropyDesktopApi:
             return None
 
 
-def main() -> None:
+def _run_desktop() -> None:
     import argparse
-    import webview
 
     parser = argparse.ArgumentParser(description="Entropy Desktop Application")
     parser.add_argument("--dev", action="store_true", help="Connect to Vite dev server at localhost:5173")
     parser.add_argument("--url", type=str, default=None, help="Custom frontend URL")
-    args = parser.parse_args()
+    parser.add_argument("--inspect", type=str, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--scan", action="store_true", help=argparse.SUPPRESS)
+    args, _ = parser.parse_known_args()
 
     api = EntropyDesktopApi()
 
-    dist_index = Path(__file__).resolve().parent / "dist" / "index.html"
+    if args.inspect:
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.kernel32.AttachConsole(-1)
+                sys.stdout = open("CONOUT$", "w", encoding="utf-8")
+                sys.stderr = open("CONOUT$", "w", encoding="utf-8")
+            except Exception:
+                pass
+        res = api.inspect_workspace(args.inspect)
+        print(json.dumps(res, indent=2))
+        sys.exit(0 if not res.get("error") else 1)
+
+    if args.scan:
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.kernel32.AttachConsole(-1)
+                sys.stdout = open("CONOUT$", "w", encoding="utf-8")
+                sys.stderr = open("CONOUT$", "w", encoding="utf-8")
+            except Exception:
+                pass
+        res = api.scan_environment()
+        print(json.dumps(res, indent=2))
+        sys.exit(0 if not res.get("error") else 1)
+
+    import webview
+
+    if getattr(sys, "frozen", False):
+        bundle_dir = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)).resolve()
+        candidate_paths = [
+            bundle_dir / "desktop" / "dist" / "index.html",
+            bundle_dir / "dist" / "index.html",
+            Path(sys.executable).resolve().parent / "desktop" / "dist" / "index.html",
+            Path(sys.executable).resolve().parent / "dist" / "index.html",
+        ]
+        dist_index = next((p for p in candidate_paths if p.exists()), candidate_paths[0])
+    else:
+        dist_index = Path(__file__).resolve().parent / "dist" / "index.html"
 
     if args.url:
         target_url = args.url
@@ -167,6 +212,37 @@ def main() -> None:
     )
 
     webview.start(debug=args.dev, gui="edgechromium")
+
+
+def main() -> None:
+    # Ensure stdio streams are valid under --noconsole / windowed execution
+    if sys.stdout is None:
+        try:
+            sys.stdout = open(os.devnull, "w")
+        except Exception:
+            pass
+    if sys.stderr is None:
+        try:
+            sys.stderr = open(os.devnull, "w")
+        except Exception:
+            pass
+
+    try:
+        _run_desktop()
+    except Exception as e:
+        import traceback
+        err_msg = traceback.format_exc()
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                f"Entropy Desktop encountered a startup error:\n\n{err_msg}",
+                "Entropy Startup Error",
+                0x10,
+            )
+        except Exception:
+            pass
+        sys.exit(1)
 
 
 if __name__ == "__main__":
