@@ -37,7 +37,6 @@ class EntropyDesktopApi:
 
     def __init__(self) -> None:
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        self._window: Any = None
         # Pre-warm environment scan in background while native WebView2 window boots
         self._prewarm_future = self._executor.submit(self._do_scan_environment)
 
@@ -195,27 +194,6 @@ class EntropyDesktopApi:
         from core.git_control import safe_stash_workspace
         return safe_stash_workspace(workspace_path, message)
 
-    def minimize_window(self) -> bool:
-        if self._window is None:
-            return False
-        self._window.minimize()
-        return True
-
-    def toggle_maximize_window(self) -> bool:
-        if self._window is None:
-            return False
-        if self._window.maximized:
-            self._window.restore()
-        else:
-            self._window.maximize()
-        return True
-
-    def close_window(self) -> bool:
-        if self._window is None:
-            return False
-        self._window.destroy()
-        return True
-
 
 
 def _run_desktop() -> None:
@@ -288,9 +266,7 @@ def _run_desktop() -> None:
         min_size=(960, 600),
         background_color="#090b10",
         text_select=True,
-        frameless=True,
     )
-    api._window = window
 
     webview.start(debug=args.dev, gui="edgechromium")
 

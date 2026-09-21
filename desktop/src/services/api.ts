@@ -35,9 +35,6 @@ interface PyWebViewApi {
   detect_launchers(): Promise<Record<string, boolean> | string>;
   launch_ide(workspacePath: string, editorId: string): Promise<ActionResult | string>;
   stash_workspace(workspacePath: string, message?: string): Promise<ActionResult | string>;
-  minimize_window(): Promise<boolean>;
-  toggle_maximize_window(): Promise<boolean>;
-  close_window(): Promise<boolean>;
 }
 
 interface EntropyWindow extends Window {
@@ -348,15 +345,4 @@ export class EntropyApiClient {
     return { success: true, message: 'Safely stashed working tree.' };
   }
 
-  static async minimizeWindow(): Promise<void> {
-    if (isPyWebView()) await bridgeWindow()!.pywebview!.api!.minimize_window();
-  }
-
-  static async toggleMaximizeWindow(): Promise<void> {
-    if (isPyWebView()) await bridgeWindow()!.pywebview!.api!.toggle_maximize_window();
-  }
-
-  static async closeWindow(): Promise<void> {
-    if (isPyWebView()) await bridgeWindow()!.pywebview!.api!.close_window();
-  }
 }

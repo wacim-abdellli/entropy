@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode, useCallback, useEffect, useState } from 'react';
-import { Maximize2, Minimize2, RefreshCw, X } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { Sidebar, ActiveNav } from './components/Sidebar';
 import { OverviewView } from './components/OverviewView';
 import { WorkspaceView } from './components/WorkspaceView';
@@ -308,17 +308,7 @@ export function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--color-surface-0)] text-[var(--color-text-primary)] font-sans">
-      <div className="app-drag-region h-8 shrink-0 px-3 flex items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-0)]">
-        <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Entropy</span>
-        <span className="ml-2 text-[10px] text-[var(--color-text-tertiary)]">Developer workspace hub</span>
-        <div className="ml-auto h-full flex items-center app-drag-region">
-          <button type="button" title="Minimize" onClick={() => EntropyApiClient.minimizeWindow()} className="h-full w-10 text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] flex items-center justify-center"><Minimize2 className="w-3.5 h-3.5" /></button>
-          <button type="button" title="Maximize" onClick={() => EntropyApiClient.toggleMaximizeWindow()} className="h-full w-10 text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)] flex items-center justify-center"><Maximize2 className="w-3.5 h-3.5" /></button>
-          <button type="button" title="Close" onClick={() => EntropyApiClient.closeWindow()} className="h-full w-10 text-[var(--color-text-tertiary)] hover:bg-rose-500 hover:text-white flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
-        </div>
-      </div>
-      <div className="flex flex-1 min-h-0">
+    <div className="flex h-screen w-screen overflow-hidden bg-[var(--color-surface-0)] text-[var(--color-text-primary)] font-sans">
       <Sidebar
         activeNav={activeNav}
         onSelectNav={(nav) => {
@@ -349,7 +339,6 @@ export function App() {
           setSelectedWorkspacePath(null);
         }}
       />
-      </div>
     </div>
   );
 }
