@@ -30,6 +30,7 @@ interface WorkspaceViewProps {
   onReinspect: () => void;
   isLoading: boolean;
   onActionComplete?: () => Promise<void> | void;
+  onOpenFolder?: () => void;
 }
 
 /* ───────────────────────── Helpers ───────────────────────── */
@@ -44,7 +45,8 @@ function formatSize(bytes: number | null | undefined): string {
 
 function formatTimeAgo(timestamp: number | null | undefined): string {
   if (!timestamp) return 'unknown';
-  const seconds = Math.floor(Date.now() / 1000 - timestamp);
+  const ts = timestamp > 1e11 ? timestamp / 1000 : timestamp;
+  const seconds = Math.floor(Date.now() / 1000 - ts);
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -145,6 +147,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   onReinspect,
   isLoading,
   onActionComplete,
+  onOpenFolder,
 }) => {
   const [stashLoading, setStashLoading] = useState(false);
   const [cleaningPaths, setCleaningPaths] = useState<Set<string>>(new Set());
@@ -208,6 +211,24 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         next.delete(dep.path);
         return next;
       });
+      setTimeout(() => setActionResult(null), 4500);
+    }
+  };
+
+  const handleLaunchEditor = async (editorId: string) => {
+    const key = `editor-${editorId}`;
+    setBusyAction(key);
+    setActionResult(null);
+    try {
+      const res = await EntropyApiClient.launchIde(workspace.path, editorId);
+      setActionResult({
+        type: res.success ? 'success' : 'error',
+        text: res.success ? (res.message || `Opened in ${editorId}.`) : (res.error || `Could not open in ${editorId}.`),
+      });
+    } catch (err: unknown) {
+      setActionResult({ type: 'error', text: errorMessage(err) });
+    } finally {
+      setBusyAction(null);
       setTimeout(() => setActionResult(null), 4500);
     }
   };
@@ -302,15 +323,28 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
           <ArrowLeft className="w-4 h-4" />
           Workspaces
         </button>
-        <button
-          type="button"
-          onClick={onReinspect}
-          disabled={isLoading}
-          className="h-8 flex items-center gap-2 px-2.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Re-scan
-        </button>
+        <div className="flex items-center gap-2">
+          {onOpenFolder && (
+            <button
+              type="button"
+              onClick={onOpenFolder}
+              className="h-8 flex items-center gap-2 px-2.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] rounded-md transition-colors cursor-pointer"
+              title="Open another folder in File Explorer"
+            >
+              <FolderOpen className="w-4 h-4" />
+              Open folder…
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onReinspect}
+            disabled={isLoading}
+            className="h-8 flex items-center gap-2 px-2.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Re-scan
+          </button>
+        </div>
       </div>
 
       {/* Scrollable content */}

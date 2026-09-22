@@ -109,11 +109,12 @@ function getSavedScanRoots(): string[] | undefined {
   return undefined;
 }
 
-  const loadEnvironment = useCallback(async () => {
+  const loadEnvironment = useCallback(async (customRoots?: string[]) => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await EntropyApiClient.scanEnvironment(getSavedScanRoots());
+      const rootsToScan = customRoots !== undefined ? customRoots : getSavedScanRoots();
+      const data = await EntropyApiClient.scanEnvironment(rootsToScan);
       setOverview(data);
       try {
         localStorage.setItem('entropy_cached_overview', JSON.stringify(data));
@@ -124,7 +125,7 @@ function getSavedScanRoots(): string[] | undefined {
         title: 'Engine unavailable',
         message: 'Could not connect to the local Entropy engine.',
         details: errorMessage(err),
-        onRetry: () => loadEnvironment(),
+        onRetry: () => loadEnvironment(customRoots),
       });
     } finally {
       setIsLoading(false);
@@ -261,6 +262,7 @@ function getSavedScanRoots(): string[] | undefined {
           onReinspect={() => handleSelectWorkspace(selectedWorkspacePath)}
           isLoading={isLoading}
           onActionComplete={refreshCurrentContext}
+          onOpenFolder={handleInspectFolder}
         />
       );
     }
@@ -333,7 +335,16 @@ function getSavedScanRoots(): string[] | undefined {
 
     // Settings
     if (activeNav === 'settings') {
-      return <SettingsView />;
+      return (
+        <SettingsView
+          onScanRootsChange={(newRoots) => {
+            loadEnvironment(newRoots);
+          }}
+          onOpenWorkspace={(path) => {
+            handleSelectWorkspace(path);
+          }}
+        />
+      );
     }
 
     return null;

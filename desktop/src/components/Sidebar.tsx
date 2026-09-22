@@ -14,7 +14,8 @@ interface SidebarProps {
 }
 
 const formatTimeAgo = (ts: number) => {
-  const seconds = Math.floor((Date.now() - ts) / 1000);
+  const tsMs = ts < 1e11 ? ts * 1000 : ts;
+  const seconds = Math.floor((Date.now() - tsMs) / 1000);
   if (seconds < 30) return 'just now';
   if (seconds < 60) return `${seconds}s ago`;
   const mins = Math.floor(seconds / 60);

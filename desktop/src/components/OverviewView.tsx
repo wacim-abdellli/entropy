@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, ArrowUpRight, CircleDot, FolderPlus, GitBranch, HardDrive, Play, RefreshCw, Terminal } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CircleDot, FolderOpen, GitBranch, HardDrive, RefreshCw, Terminal } from 'lucide-react';
 import { EnvironmentOverview, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
@@ -54,7 +54,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ overview, onRefresh,
     <div className="flex-1 h-full overflow-y-auto bg-[var(--color-surface-0)] animate-enter">
       <header className="sticky top-0 z-10 h-14 px-7 flex items-center justify-between border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-0)]/95 backdrop-blur">
         <div><h1 className="text-sm font-semibold">Workspaces</h1><p className="text-[11px] text-[var(--color-text-tertiary)]">Your local developer working set</p></div>
-        <div className="flex items-center gap-2"><button type="button" onClick={onInspectFolder} className="h-8 px-2.5 rounded-md text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] flex items-center gap-1.5"><FolderPlus className="w-3.5 h-3.5" />Add folder</button><button type="button" title="Refresh workspaces" onClick={onRefresh} disabled={isLoading} className="w-8 h-8 rounded-md hover:bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] flex items-center justify-center disabled:opacity-50"><RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /></button></div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onInspectFolder} className="h-8 px-2.5 rounded-md text-xs bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-[var(--color-text-primary)] flex items-center gap-1.5 cursor-pointer" title="Open folder in File Explorer">
+            <FolderOpen className="w-3.5 h-3.5 text-[var(--color-accent)]" />Open folder…
+          </button>
+          <button type="button" title="Refresh workspaces" onClick={onRefresh} disabled={isLoading} className="w-8 h-8 rounded-md hover:bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] flex items-center justify-center disabled:opacity-50">
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </header>
       <div className="max-w-6xl mx-auto px-7 py-7 space-y-7">
         <section className="grid grid-cols-[1.45fr_1fr] gap-5">

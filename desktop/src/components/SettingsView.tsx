@@ -3,18 +3,26 @@ import {
   Settings, 
   FolderSearch, 
   Info, 
-  X, 
   GitBranch, 
   Monitor,
-  FolderOpen
+  FolderOpen,
+  ArrowUpRight,
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { EntropyApiClient } from '../services/api';
 
 interface SettingsViewProps {
   scanRoots?: string[];
+  onScanRootsChange?: (roots: string[]) => void;
+  onOpenWorkspace?: (path: string) => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ scanRoots = ['C:\\Users\\pc\\Desktop'] }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ 
+  scanRoots = ['C:\\Users\\pc\\Desktop'],
+  onScanRootsChange,
+  onOpenWorkspace,
+}) => {
   const [directories, setDirectories] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('entropy_scan_roots');
@@ -24,12 +32,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ scanRoots = ['C:\\Us
     }
   });
 
-  const handleRemoveDir = (dirToRemove: string) => {
-    const updated = directories.filter(dir => dir !== dirToRemove);
+  const saveAndNotify = (updated: string[]) => {
     setDirectories(updated);
     try {
       localStorage.setItem('entropy_scan_roots', JSON.stringify(updated));
     } catch {}
+    onScanRootsChange?.(updated);
+  };
+
+  const handleRemoveDir = (dirToRemove: string) => {
+    const updated = directories.filter(dir => dir !== dirToRemove);
+    saveAndNotify(updated);
   };
 
   const handleAddDir = async () => {
@@ -37,13 +50,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ scanRoots = ['C:\\Us
       const selected = await EntropyApiClient.pickFolder();
       if (selected && !directories.includes(selected)) {
         const updated = [...directories, selected];
-        setDirectories(updated);
-        try {
-          localStorage.setItem('entropy_scan_roots', JSON.stringify(updated));
-        } catch {}
+        saveAndNotify(updated);
       }
     } catch (err) {
       console.error('Failed to open folder picker:', err);
+    }
+  };
+
+  const handleChangeDir = async (oldDir: string) => {
+    try {
+      const selected = await EntropyApiClient.pickFolder();
+      if (selected && selected !== oldDir) {
+        const updated = directories.map(dir => dir === oldDir ? selected : dir);
+        saveAndNotify(updated);
+      }
+    } catch (err) {
+      console.error('Failed to change directory:', err);
     }
   };
 
@@ -56,7 +78,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ scanRoots = ['C:\\Us
           <h1 className="text-3xl font-semibold">Settings</h1>
         </div>
         <p className="text-[var(--color-text-secondary)] text-sm">
-          Configure workspace scanning and app preferences.
+          Configure workspace scanning directories and app preferences.
         </p>
       </div>
 
@@ -65,43 +87,85 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ scanRoots = ['C:\\Us
         
         {/* Scan Directories Section */}
         <section className="max-w-3xl">
-          <div className="flex items-center gap-2 mb-6">
-            <FolderSearch size={22} className="text-[var(--color-text-secondary)]" />
-            <h2 className="text-xl font-medium">Scan Directories</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FolderSearch size={22} className="text-[var(--color-text-secondary)]" />
+              <h2 className="text-xl font-medium">Scan Directories</h2>
+            </div>
+            <button 
+              type="button"
+              onClick={handleAddDir}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium transition-opacity cursor-pointer shadow-sm"
+            >
+              <FolderOpen size={14} />
+              <span>Add Directory</span>
+            </button>
           </div>
-          <p className="text-[var(--color-text-secondary)] text-sm mb-6">
-            Entropy will automatically discover and monitor workspaces within these directories.
+
+          <p className="text-[var(--color-text-secondary)] text-sm mb-4">
+            Entropy automatically discovers and monitors projects located inside these directories.
           </p>
 
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden">
             {directories.length === 0 ? (
-              <div className="p-6 text-center text-[var(--color-text-secondary)]">
-                No directories configured for scanning.
+              <div className="p-8 text-center text-[var(--color-text-secondary)] text-sm space-y-3">
+                <p>No directories configured for scanning.</p>
+                <button 
+                  type="button"
+                  onClick={handleAddDir}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-primary)] cursor-pointer"
+                >
+                  <FolderOpen size={14} className="text-[var(--color-accent)]" />
+                  <span>Choose Folder in File Explorer</span>
+                </button>
               </div>
             ) : (
               <ul className="divide-y divide-[var(--color-border)]">
                 {directories.map((dir) => (
                   <li key={dir} className="flex items-center justify-between p-4 hover:bg-[var(--color-surface-2)] transition-colors group">
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0 pr-4">
                       <FolderSearch size={18} className="text-[var(--color-text-tertiary)] shrink-0" />
-                      <span className="font-mono text-sm truncate select-all">{dir}</span>
+                      <span className="font-mono text-sm truncate select-all text-[var(--color-text-primary)]">{dir}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {onOpenWorkspace && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenWorkspace(dir)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent-muted)] rounded-md transition-colors cursor-pointer mr-1"
+                          title="Inspect this workspace directly in Entropy"
+                        >
+                          <ArrowUpRight size={14} />
+                          <span>Inspect</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => EntropyApiClient.openInExplorer(dir)}
                         className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-md transition-colors cursor-pointer"
-                        title="Open in File Explorer"
+                        title="Open in Windows File Explorer"
                       >
                         <FolderOpen size={16} />
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleChangeDir(dir)}
+                        className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-md transition-colors cursor-pointer"
+                        title="Change folder in File Explorer"
+                      >
+                        <RefreshCw size={15} />
+                      </button>
+
                       <button 
                         type="button"
                         onClick={() => handleRemoveDir(dir)}
                         className="p-1.5 text-[var(--color-text-tertiary)] hover:text-red-400 hover:bg-red-400/10 rounded-md transition-colors cursor-pointer"
                         title="Remove directory"
                       >
-                        <X size={16} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </li>
@@ -120,6 +184,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ scanRoots = ['C:\\Us
               </button>
               <span className="text-xs text-[var(--color-text-tertiary)]">Opens native Windows folder picker</span>
             </div>
+          </div>
+
+          <div className="mt-3 px-1 text-xs text-[var(--color-text-tertiary)] flex items-center gap-2">
+            <span className="font-semibold text-[var(--color-text-secondary)]">Tip:</span>
+            <span>If you only want Entropy to monitor a specific workspace, remove parent folders (like Desktop) and keep only your target directory.</span>
           </div>
         </section>
 
