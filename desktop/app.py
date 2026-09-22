@@ -284,10 +284,32 @@ def _run_desktop() -> None:
                     # DWMWA_CAPTION_COLOR = 35 -> #0b0f17 (RGB 11, 15, 23 -> 0x00170F0B COLORREF)
                     color = ctypes.c_int(0x00170F0B)
                     ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(color), ctypes.sizeof(color))
+
+                    # Set custom window titlebar & taskbar icon
+                    icon_candidates = [
+                        PROJECT_ROOT / "desktop" / "src-tauri" / "icons" / "icon.ico",
+                        Path(__file__).resolve().parent / "src-tauri" / "icons" / "icon.ico",
+                    ]
+                    icon_path = next((p for p in icon_candidates if p.exists()), None)
+                    if icon_path:
+                        IMAGE_ICON = 1
+                        LR_LOADFROMFILE = 0x00000010
+                        WM_SETICON = 0x0080
+                        ICON_SMALL = 0
+                        ICON_BIG = 1
+                        hicon_small = ctypes.windll.user32.LoadImageW(
+                            0, str(icon_path), IMAGE_ICON, 16, 16, LR_LOADFROMFILE
+                        )
+                        hicon_big = ctypes.windll.user32.LoadImageW(
+                            0, str(icon_path), IMAGE_ICON, 32, 32, LR_LOADFROMFILE
+                        )
+                        if hicon_small:
+                            ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
+                        if hicon_big:
+                            ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
             except Exception:
                 pass
 
-        # Trigger initial scan payload to JS if needed
         pass
 
     window.events.loaded += _on_loaded
