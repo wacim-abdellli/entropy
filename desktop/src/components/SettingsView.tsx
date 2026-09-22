@@ -4,27 +4,46 @@ import {
   FolderSearch, 
   Info, 
   X, 
-  Plus,
-  GitBranch,
-  Monitor
+  GitBranch, 
+  Monitor,
+  FolderOpen
 } from 'lucide-react';
+import { EntropyApiClient } from '../services/api';
 
 interface SettingsViewProps {
   scanRoots?: string[];
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ scanRoots = ['C:\\Users\\pc\\Desktop'] }) => {
-  const [directories, setDirectories] = useState<string[]>(scanRoots);
+  const [directories, setDirectories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('entropy_scan_roots');
+      return saved ? JSON.parse(saved) : scanRoots;
+    } catch {
+      return scanRoots;
+    }
+  });
 
   const handleRemoveDir = (dirToRemove: string) => {
-    setDirectories(directories.filter(dir => dir !== dirToRemove));
+    const updated = directories.filter(dir => dir !== dirToRemove);
+    setDirectories(updated);
+    try {
+      localStorage.setItem('entropy_scan_roots', JSON.stringify(updated));
+    } catch {}
   };
 
-  const handleAddDir = () => {
-    // In a real app, this would open a directory picker dialog
-    const newDir = prompt("Enter directory path to scan:");
-    if (newDir && !directories.includes(newDir)) {
-      setDirectories([...directories, newDir]);
+  const handleAddDir = async () => {
+    try {
+      const selected = await EntropyApiClient.pickFolder();
+      if (selected && !directories.includes(selected)) {
+        const updated = [...directories, selected];
+        setDirectories(updated);
+        try {
+          localStorage.setItem('entropy_scan_roots', JSON.stringify(updated));
+        } catch {}
+      }
+    } catch (err) {
+      console.error('Failed to open folder picker:', err);
     }
   };
 
@@ -63,30 +82,43 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ scanRoots = ['C:\\Us
               <ul className="divide-y divide-[var(--color-border)]">
                 {directories.map((dir) => (
                   <li key={dir} className="flex items-center justify-between p-4 hover:bg-[var(--color-surface-2)] transition-colors group">
-                    <div className="flex items-center gap-3">
-                      <FolderSearch size={18} className="text-[var(--color-text-tertiary)]" />
-                      <span className="font-mono text-sm">{dir}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <FolderSearch size={18} className="text-[var(--color-text-tertiary)] shrink-0" />
+                      <span className="font-mono text-sm truncate select-all">{dir}</span>
                     </div>
-                    <button 
-                      onClick={() => handleRemoveDir(dir)}
-                      className="p-1.5 text-[var(--color-text-tertiary)] hover:text-red-400 hover:bg-red-400/10 rounded-md opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                      title="Remove directory"
-                    >
-                      <X size={16} />
-                    </button>
+                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => EntropyApiClient.openInExplorer(dir)}
+                        className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-md transition-colors cursor-pointer"
+                        title="Open in File Explorer"
+                      >
+                        <FolderOpen size={16} />
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleRemoveDir(dir)}
+                        className="p-1.5 text-[var(--color-text-tertiary)] hover:text-red-400 hover:bg-red-400/10 rounded-md transition-colors cursor-pointer"
+                        title="Remove directory"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
             )}
             
-            <div className="p-4 bg-[var(--color-surface-1)] border-t border-[var(--color-border)]">
+            <div className="p-4 bg-[var(--color-surface-1)] border-t border-[var(--color-border)] flex items-center justify-between">
               <button 
+                type="button"
                 onClick={handleAddDir}
-                className="flex items-center gap-2 text-sm font-medium text-[var(--color-accent)] hover:text-opacity-80 transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-sm font-medium text-[var(--color-text-primary)] transition-colors cursor-pointer"
               >
-                <Plus size={16} />
-                Add Directory
+                <FolderOpen size={16} className="text-[var(--color-accent)]" />
+                <span>Browse Folder in File Explorer…</span>
               </button>
+              <span className="text-xs text-[var(--color-text-tertiary)]">Opens native Windows folder picker</span>
             </div>
           </div>
         </section>

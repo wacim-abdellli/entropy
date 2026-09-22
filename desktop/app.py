@@ -39,6 +39,7 @@ class EntropyDesktopApi:
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         # Pre-warm environment scan in background while native WebView2 window boots
         self._prewarm_future = self._executor.submit(self._do_scan_environment)
+        self._window: Optional[Any] = None
 
     def inspect_workspace(self, path: str) -> dict[str, Any]:
         """Inspect a single workspace and return the structured JSON payload."""
@@ -139,6 +140,29 @@ class EntropyDesktopApi:
 
     def pick_folder(self) -> Optional[str]:
         """Open native Windows folder picker dialog."""
+        # Try native pywebview window file dialog first (modern Windows Common Item Dialog)
+        target_win = self._window
+        if not target_win:
+            try:
+                import webview
+                target_win = webview.active_window()
+            except Exception:
+                target_win = None
+
+        if target_win is not None:
+            try:
+                import webview
+                dialog_type = getattr(webview.FileDialog, "FOLDER", getattr(webview, "FOLDER_DIALOG", 20))
+                result = target_win.create_file_dialog(dialog_type)
+                if result:
+                    if isinstance(result, (tuple, list)):
+                        return result[0] if result else None
+                    return str(result)
+                return None
+            except Exception:
+                pass
+
+        # Fallback to PowerShell FolderBrowserDialog
         try:
             ps_script = (
                 "Add-Type -AssemblyName System.Windows.Forms; "
@@ -267,6 +291,7 @@ def _run_desktop() -> None:
         background_color="#090b10",
         text_select=True,
     )
+    api._window = window
 
     def _on_loaded():
         if sys.platform == "win32":

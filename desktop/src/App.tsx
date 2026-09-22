@@ -96,11 +96,24 @@ export function App() {
   } | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState<boolean>(false);
 
+function getSavedScanRoots(): string[] | undefined {
+  try {
+    const saved = localStorage.getItem('entropy_scan_roots');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return undefined;
+}
+
   const loadEnvironment = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await EntropyApiClient.scanEnvironment();
+      const data = await EntropyApiClient.scanEnvironment(getSavedScanRoots());
       setOverview(data);
       try {
         localStorage.setItem('entropy_cached_overview', JSON.stringify(data));
@@ -145,7 +158,7 @@ export function App() {
 
     try {
       const [nextOverview, nextInspection] = await Promise.all([
-        EntropyApiClient.scanEnvironment(),
+        EntropyApiClient.scanEnvironment(getSavedScanRoots()),
         selectedWorkspacePath
           ? EntropyApiClient.inspectWorkspace(selectedWorkspacePath)
           : Promise.resolve(null),
