@@ -26,7 +26,6 @@ const formatBytes = (bytes: number) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
-
 export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh }) => {
   const artifacts = overview?.system?.artifacts || [];
   const caches = overview?.system?.caches || [];
@@ -34,7 +33,6 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh })
   const [isCleaning, setIsCleaning] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
-
   const totalArtifactBytes = useMemo(() => 
     artifacts.reduce((acc, a) => acc + (a.size_bytes || 0), 0), 
   [artifacts]);

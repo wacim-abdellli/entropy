@@ -268,6 +268,29 @@ def _run_desktop() -> None:
         text_select=True,
     )
 
+    def _on_loaded():
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                import time
+
+                time.sleep(0.15)
+                hwnd = ctypes.windll.user32.FindWindowW(None, "Entropy")
+                if hwnd:
+                    val = ctypes.c_int(1)
+                    # DWMWA_USE_IMMERSIVE_DARK_MODE
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(val), ctypes.sizeof(val))
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(val), ctypes.sizeof(val))
+                    # DWMWA_CAPTION_COLOR = 35 -> #0b0f17 (RGB 11, 15, 23 -> 0x00170F0B COLORREF)
+                    color = ctypes.c_int(0x00170F0B)
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(color), ctypes.sizeof(color))
+            except Exception:
+                pass
+
+        # Trigger initial scan payload to JS if needed
+        pass
+
+    window.events.loaded += _on_loaded
     webview.start(debug=args.dev, gui="edgechromium")
 
 
