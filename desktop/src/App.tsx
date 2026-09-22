@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode, useCallback, useEffect, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Sidebar, ActiveNav } from './components/Sidebar';
 import { OverviewView } from './components/OverviewView';
 import { WorkspaceView } from './components/WorkspaceView';
@@ -11,6 +11,7 @@ import { EntropyApiClient } from './services/api';
 import {
   EnvironmentOverview,
   WorkspaceInspection,
+  WorkspaceSummary,
 } from './types/entropy';
 
 /* ───────────────────────── Error Boundary ───────────────────────── */
@@ -95,6 +96,14 @@ export function App() {
     onRetry?: () => void;
   } | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState<boolean>(false);
+  const [toast, setToast] = useState<{ message: string; type?: 'info' | 'success' } | null>(null);
+
+  const showToast = useCallback((message: string, type: 'info' | 'success' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast((prev) => (prev?.message === message ? null : prev));
+    }, 3500);
+  }, []);
 
 function getSavedScanRoots(): string[] | undefined {
   try {
@@ -206,6 +215,81 @@ function getSavedScanRoots(): string[] | undefined {
     const folder = await EntropyApiClient.pickFolder();
     if (!folder) return;
 
+    const folderNorm = folder.toLowerCase().replace(/[\\/]+$/, '');
+    const name = folder.split(/[\\/]/).filter(Boolean).pop() || folder;
+
+    // 1. Instant Real-Time UI update: immediately add to overview list
+    setOverview((prev) => {
+      const currentList = prev?.workspaces || [];
+      const alreadyInList = currentList.some(
+        (w) => w.path.toLowerCase().replace(/[\\/]+$/, '') === folderNorm
+      );
+      if (alreadyInList) return prev;
+
+      const optimistic: WorkspaceSummary = {
+        id: `workspace:${folder}`,
+        name,
+        path: folder,
+        project_type: 'detecting...',
+        total_size_bytes: 0,
+        last_modified: Date.now() / 1000,
+        state_label: 'Ready',
+        state_category: 'neutral',
+        git_branch: null,
+        git_remote: null,
+        last_commit_timestamp: null,
+        has_uncommitted_changes: false,
+        process_count: 0,
+      };
+
+      const nextWorkspaces = [optimistic, ...currentList];
+      if (!prev) {
+        return {
+          summary: {
+            total_workspaces: 1,
+            active_count: 0,
+            attention_count: 0,
+            dormant_count: 0,
+            paused_count: 0,
+            neutral_count: 1,
+            total_processes: 0,
+            total_runtimes: 0,
+            total_containers: 0,
+            total_caches: 0,
+          },
+          workspaces: [optimistic],
+          system: {
+            runtimes: [],
+            processes: [],
+            containers: [],
+            caches: [],
+            artifacts: [],
+          },
+          findings: [],
+          metadata: {
+            scan_duration_ms: 0,
+            engine_version: '0.1.0',
+            timestamp: Date.now() / 1000,
+            hostname: '',
+            scan_roots: [folder],
+          },
+        };
+      }
+
+      return {
+        ...prev,
+        summary: {
+          ...prev.summary,
+          total_workspaces: nextWorkspaces.length,
+          neutral_count: (prev.summary.neutral_count || 0) + 1,
+        },
+        workspaces: nextWorkspaces,
+      };
+    });
+
+    showToast(`Added workspace "${name}"`);
+
+    // 2. Persist to scan roots in localStorage
     try {
       const saved = localStorage.getItem('entropy_scan_roots');
       let currentRoots: string[] = [];
@@ -218,21 +302,25 @@ function getSavedScanRoots(): string[] | undefined {
         currentRoots = ['C:\\Users\\pc\\Desktop'];
       }
 
-      const folderNorm = folder.toLowerCase().replace(/[\\/]+$/, '');
       const alreadyExists = currentRoots.some(
-        r => r.toLowerCase().replace(/[\\/]+$/, '') === folderNorm
+        (r) => r.toLowerCase().replace(/[\\/]+$/, '') === folderNorm
       );
 
+      const updated = alreadyExists ? currentRoots : [...currentRoots, folder];
       if (!alreadyExists) {
-        const updated = [...currentRoots, folder];
         localStorage.setItem('entropy_scan_roots', JSON.stringify(updated));
-        await loadEnvironment(updated);
       }
+
+      // Background scan to populate real metrics (git branch, process count, size)
+      loadEnvironment(updated);
     } catch (err) {
       console.warn('Failed to save scan root:', err);
     }
 
-    await handleSelectWorkspace(folder);
+    // If user was already inspecting a workspace and clicked "Open folder…", switch inspection
+    if (selectedWorkspacePath) {
+      await handleSelectWorkspace(folder);
+    }
   };
 
   const handleBackToOverview = () => {
@@ -411,6 +499,14 @@ function getSavedScanRoots(): string[] | undefined {
           setSelectedWorkspacePath(null);
         }}
       />
+
+      {/* Floating Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] shadow-2xl text-xs font-medium text-[var(--color-text-primary)] animate-in fade-in slide-in-from-bottom-2">
+          <CheckCircle2 className="w-4 h-4 text-[var(--color-success)] shrink-0" />
+          <span>{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 }

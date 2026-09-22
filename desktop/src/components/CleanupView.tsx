@@ -31,6 +31,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh })
   const caches = overview?.system?.caches || [];
   const [selectedArtifacts, setSelectedArtifacts] = useState<Set<string>>(new Set());
   const [isCleaning, setIsCleaning] = useState(false);
+  const [confirmCleanOpen, setConfirmCleanOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const totalArtifactBytes = useMemo(() => 
@@ -301,9 +302,9 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh })
           </button>
           <button
             type="button"
-            onClick={handleCleanSelected}
+            onClick={() => setConfirmCleanOpen(true)}
             disabled={totalSelectedCount === 0 || isCleaning}
-            className="px-6 py-2.5 rounded-lg bg-[var(--color-accent)] hover:bg-opacity-90 text-white font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="px-6 py-2.5 rounded-lg bg-[var(--color-accent)] hover:bg-opacity-90 text-white font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
           >
             {isCleaning ? (
               <>
@@ -319,6 +320,49 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh })
           </button>
         </div>
       </div>
+
+      {/* Clean Selected Confirmation Modal */}
+      {confirmCleanOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-full bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/30 flex items-center justify-center shrink-0">
+                <Trash2 size={20} className="text-[var(--color-accent)]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                  Clean Selected Artifacts?
+                </h3>
+                <p className="text-xs text-[var(--color-text-secondary)] mt-1.5 leading-relaxed">
+                  Are you sure you want to clean <span className="font-semibold text-[var(--color-text-primary)]">{totalSelectedCount} selected artifact{totalSelectedCount === 1 ? '' : 's'}</span> ({formatBytes(totalSelectedBytes)})?
+                </p>
+                <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2">
+                  This frees up disk space by deleting generated build targets (like node_modules, target, etc.). You can regenerate them at any time by running install or build commands.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--color-border-subtle)]">
+              <button
+                type="button"
+                onClick={() => setConfirmCleanOpen(false)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmCleanOpen(false);
+                  handleCleanSelected();
+                }}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-accent)] hover:opacity-90 text-white transition-opacity cursor-pointer shadow-sm"
+              >
+                Clean Artifacts
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

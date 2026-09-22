@@ -33,6 +33,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     } catch {}
     return scanRoots ?? ['C:\\Users\\pc\\Desktop'];
   });
+  const [dirToDelete, setDirToDelete] = useState<string | null>(null);
 
   const saveAndNotify = (updated: string[]) => {
     setDirectories(updated);
@@ -169,7 +170,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                       <button 
                         type="button"
-                        onClick={() => handleRemoveDir(dir)}
+                        onClick={() => setDirToDelete(dir)}
                         className="p-1.5 text-[var(--color-text-tertiary)] hover:text-red-400 hover:bg-red-400/10 rounded-md transition-colors cursor-pointer"
                         title="Remove directory"
                       >
@@ -241,6 +242,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </section>
 
       </div>
+
+      {/* Remove Directory Confirmation Modal */}
+      {dirToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                <Trash2 size={20} className="text-red-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                  Remove Scan Directory?
+                </h3>
+                <p className="text-xs text-[var(--color-text-secondary)] mt-1.5 leading-relaxed">
+                  Are you sure you want to remove this folder from scan directories?
+                </p>
+                <div className="mt-2 p-2 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs font-mono text-[var(--color-text-primary)] break-all select-all">
+                  {dirToDelete}
+                </div>
+                <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2">
+                  This only stops Entropy from monitoring this directory. No project files will be deleted from your disk.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--color-border-subtle)]">
+              <button
+                type="button"
+                onClick={() => setDirToDelete(null)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = dirToDelete;
+                  setDirToDelete(null);
+                  handleRemoveDir(target);
+                }}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer shadow-sm"
+              >
+                Remove Directory
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   GitBranch,
@@ -163,6 +163,15 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const dependencies = connections.dependencies || [];
   const dirtyFiles = git?.dirty_files || [];
 
+  useEffect(() => {
+    if (workspace?.name) {
+      document.title = `${workspace.name} — Entropy`;
+    }
+    return () => {
+      document.title = 'Entropy';
+    };
+  }, [workspace?.name]);
+
   const status = statusEmoji(
     state.category,
     git?.has_uncommitted_changes || false,
@@ -314,16 +323,30 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-[var(--color-surface-0)] animate-enter">
       {/* Top bar */}
-      <div className="h-14 flex items-center justify-between px-7 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] shrink-0">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Workspaces
-        </button>
-        <div className="flex items-center gap-2">
+      <div className="h-14 flex items-center justify-between px-7 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] shrink-0 gap-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] px-2 py-1 rounded transition-colors cursor-pointer shrink-0"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Workspaces
+          </button>
+          <span className="text-[var(--color-text-tertiary)] text-xs select-none">/</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+              {workspace.name}
+            </span>
+            <span
+              className="text-xs font-mono text-[var(--color-text-tertiary)] truncate hidden md:inline max-w-xs lg:max-w-md"
+              title={workspace.path}
+            >
+              {workspace.path}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           {onOpenFolder && (
             <button
               type="button"
