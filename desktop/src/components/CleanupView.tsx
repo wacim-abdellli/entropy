@@ -30,7 +30,6 @@ const formatBytes = (bytes: number) => {
 export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh }) => {
   const artifacts = overview?.system?.artifacts || [];
   const caches = overview?.system?.caches || [];
-
   const [selectedArtifacts, setSelectedArtifacts] = useState<Set<string>>(new Set());
   const [isCleaning, setIsCleaning] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);

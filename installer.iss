@@ -2,7 +2,7 @@
 ; Read-only, per-user Windows application installer
 
 #define MyAppName "Entropy"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.1.1"
 #define MyAppPublisher "Entropy"
 #define MyAppURL "https://github.com/wacim-abdellli/entropy"
 #define MyAppExeName "Entropy.exe"
@@ -20,7 +20,7 @@ DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputBaseFilename=Entropy-Setup-0.1.0
+OutputBaseFilename=Entropy-Setup-0.1.1
 OutputDir=dist
 Compression=lzma2/max
 SolidCompression=yes
