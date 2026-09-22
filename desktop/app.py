@@ -69,7 +69,12 @@ class EntropyDesktopApi:
 
     def _do_scan_environment(self, roots: Optional[List[str]] = None, depth: int = 2) -> dict[str, Any]:
         """Core environment scan implementation across candidate developer roots."""
-        if not roots:
+        if roots is not None and len(roots) == 0:
+            # User explicitly configured 0 directories to scan
+            return serialize_environment_overview(EnvironmentGraph(), [])
+
+        if roots is None:
+            # First boot / unconfigured: auto-detect standard dev roots
             user_home = os.path.expanduser("~")
             candidate_roots = [
                 os.path.join(user_home, "Desktop"),
@@ -82,7 +87,9 @@ class EntropyDesktopApi:
             if not roots:
                 roots = [os.path.abspath(user_home)]
         else:
-            roots = [os.path.abspath(r) for r in roots]
+            roots = [os.path.abspath(r) for r in roots if os.path.isdir(r)]
+            if not roots:
+                return serialize_environment_overview(EnvironmentGraph(), [])
 
         try:
             graph, findings = run_entropy_scan(roots, max_depth=depth)
@@ -91,8 +98,8 @@ class EntropyDesktopApi:
             return {"error": str(e), "summary": None, "workspaces": []}
 
     def scan_environment(self, roots: Optional[List[str]] = None, depth: int = 2) -> dict[str, Any]:
-        """Scan environment across specified root directories (uses prewarmed cache if ready)."""
-        if not roots and self._prewarm_future:
+        """Scan environment across specified root directories (uses prewarmed cache only if unconfigured)."""
+        if roots is None and self._prewarm_future:
             try:
                 res = self._prewarm_future.result(timeout=45)
                 self._prewarm_future = None

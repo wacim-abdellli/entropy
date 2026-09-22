@@ -99,9 +99,9 @@ export function App() {
 function getSavedScanRoots(): string[] | undefined {
   try {
     const saved = localStorage.getItem('entropy_scan_roots');
-    if (saved) {
+    if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -337,6 +337,7 @@ function getSavedScanRoots(): string[] | undefined {
     if (activeNav === 'settings') {
       return (
         <SettingsView
+          scanRoots={getSavedScanRoots()}
           onScanRootsChange={(newRoots) => {
             loadEnvironment(newRoots);
           }}

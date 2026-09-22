@@ -137,7 +137,8 @@ export class EntropyApiClient {
     }
 
     if (await waitForPyWebView()) {
-      const res = await bridgeWindow()!.pywebview!.api!.scan_environment(roots || [], depth);
+      const rootsArg = roots !== undefined ? roots : null;
+      const res = await bridgeWindow()!.pywebview!.api!.scan_environment(rootsArg as any, depth);
       const parsed = parseBridgeResponse<EnvironmentOverview & { error?: string }>(res as EnvironmentOverview | string);
       if (parsed?.error) {
         throw new Error(parsed.error);
