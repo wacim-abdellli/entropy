@@ -143,55 +143,53 @@ def run_entropy_scan(scan_roots: list[str] | str, max_depth: int = 4) -> tuple[E
                 logger.debug(f"Git inspection error on {proj.path}: {e}")
         return None
 
-    if len(all_projects) > 1:
-        with ThreadPoolExecutor(max_workers=min(8, len(all_projects))) as executor:
+    # 2. Concurrently collect Git, Processes, Runtimes, Docker, and Caches
+    logger.info("Concurrently inspecting Git, Processes, Runtimes, Docker, and Caches...")
+    
+    with ThreadPoolExecutor(max_workers=min(12, max(4, len(all_projects) + 4))) as executor:
+        # Submit system background collectors in parallel
+        f_processes = executor.submit(collect_processes)
+        f_runtimes = executor.submit(collect_runtimes)
+        f_docker = executor.submit(collect_docker)
+        f_caches = executor.submit(collect_caches)
+
+        # Collect Git repositories in parallel
+        if all_projects:
             for repo in executor.map(_collect_git_safe, all_projects):
                 if repo:
                     scan_result.git_repos.append(repo)
-    else:
-        for p in all_projects:
-            repo = _collect_git_safe(p)
-            if repo:
-                scan_result.git_repos.append(repo)
 
-    # 3. Processes
-    logger.info("Inspecting active processes...")
-    try:
-        scan_result.processes = collect_processes()
-        logger.info(f"Observed {len(scan_result.processes)} accessible processes.")
-    except Exception as e:
-        logger.warning(f"Process inspection failed: {e}")
-        scan_result.errors.append(f"Process inspection: {e}")
+        # Retrieve background collector results
+        try:
+            scan_result.processes = f_processes.result()
+            logger.info(f"Observed {len(scan_result.processes)} accessible processes.")
+        except Exception as e:
+            logger.warning(f"Process inspection failed: {e}")
+            scan_result.errors.append(f"Process inspection: {e}")
 
-    # 4. Runtimes
-    logger.info("Detecting installed runtimes and SDKs...")
-    try:
-        scan_result.runtimes = collect_runtimes()
-        logger.info(f"Found {len(scan_result.runtimes)} runtime installations.")
-    except Exception as e:
-        logger.warning(f"Runtime inspection failed: {e}")
-        scan_result.errors.append(f"Runtime inspection: {e}")
+        try:
+            scan_result.runtimes = f_runtimes.result()
+            logger.info(f"Found {len(scan_result.runtimes)} runtime installations.")
+        except Exception as e:
+            logger.warning(f"Runtime inspection failed: {e}")
+            scan_result.errors.append(f"Runtime inspection: {e}")
 
-    # 5. Docker
-    logger.info("Inspecting Docker resources...")
-    try:
-        docker_ok, docker_err, containers, images, volumes = collect_docker()
-        scan_result.docker_available = docker_ok
-        scan_result.docker_error = docker_err
-        scan_result.docker_containers = containers
-        scan_result.docker_images = images
-        scan_result.docker_volumes = volumes
-    except Exception as e:
-        logger.debug(f"Docker inspection error: {e}")
-        scan_result.docker_available = False
-        scan_result.docker_error = str(e)
+        try:
+            docker_ok, docker_err, containers, images, volumes = f_docker.result()
+            scan_result.docker_available = docker_ok
+            scan_result.docker_error = docker_err
+            scan_result.docker_containers = containers
+            scan_result.docker_images = images
+            scan_result.docker_volumes = volumes
+        except Exception as e:
+            logger.debug(f"Docker inspection error: {e}")
+            scan_result.docker_available = False
+            scan_result.docker_error = str(e)
 
-    # 6. Caches
-    logger.info("Inventorying caches...")
-    try:
-        scan_result.caches = collect_caches()
-    except Exception as e:
-        logger.debug(f"Cache inspection error: {e}")
+        try:
+            scan_result.caches = f_caches.result()
+        except Exception as e:
+            logger.debug(f"Cache inspection error: {e}")
 
     scan_result.scan_duration_seconds = time.time() - scan_start
 

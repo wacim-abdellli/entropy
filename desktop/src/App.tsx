@@ -71,10 +71,23 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
 export function App() {
   const [activeNav, setActiveNav] = useState<ActiveNav>('home');
-  const [overview, setOverview] = useState<EnvironmentOverview | null>(null);
+  const [overview, setOverview] = useState<EnvironmentOverview | null>(() => {
+    try {
+      const cached = localStorage.getItem('entropy_cached_overview');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [inspection, setInspection] = useState<WorkspaceInspection | null>(null);
   const [selectedWorkspacePath, setSelectedWorkspacePath] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    try {
+      return !localStorage.getItem('entropy_cached_overview');
+    } catch {
+      return true;
+    }
+  });
   const [error, setError] = useState<{
     title: string;
     message: string;
@@ -89,6 +102,9 @@ export function App() {
     try {
       const data = await EntropyApiClient.scanEnvironment();
       setOverview(data);
+      try {
+        localStorage.setItem('entropy_cached_overview', JSON.stringify(data));
+      } catch {}
     } catch (err: unknown) {
       console.error('Failed to load environment:', err);
       setError({
@@ -136,6 +152,9 @@ export function App() {
       ]);
 
       setOverview(nextOverview);
+      try {
+        localStorage.setItem('entropy_cached_overview', JSON.stringify(nextOverview));
+      } catch {}
       if (nextInspection) {
         setInspection(nextInspection);
       }

@@ -43,20 +43,29 @@ DISPOSABLE_FOLDER_NAMES = {
 }
 
 
-def _get_dir_size(path: str) -> int:
-    """Calculate total size of directory in bytes iteratively."""
+import time
+
+def _get_dir_size(path: str, timeout_seconds: float = 0.5) -> int:
+    """Calculate total size of directory in bytes quickly using os.scandir, capped by timeout."""
     total = 0
-    try:
-        for root, _, files in os.walk(path):
-            for f in files:
-                try:
-                    fp = os.path.join(root, f)
-                    if not os.path.islink(fp):
-                        total += os.path.getsize(fp)
-                except (OSError, IOError):
-                    pass
-    except Exception as e:
-        logger.debug("Failed to calculate dir size for %s: %s", path, e)
+    start_time = time.time()
+    stack = [path]
+    while stack:
+        if (time.time() - start_time) > timeout_seconds:
+            break
+        cur = stack.pop()
+        try:
+            with os.scandir(cur) as it:
+                for entry in it:
+                    try:
+                        if entry.is_file(follow_symlinks=False):
+                            total += entry.stat(follow_symlinks=False).st_size
+                        elif entry.is_dir(follow_symlinks=False):
+                            stack.append(entry.path)
+                    except OSError:
+                        pass
+        except OSError:
+            pass
     return total
 
 

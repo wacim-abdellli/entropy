@@ -569,8 +569,16 @@ def serialize_environment_overview(
     total_reclaimable_bytes = 0
     try:
         from collectors.artifacts import collect_project_artifacts
-        for p in projects:
-            p_artifacts = collect_project_artifacts(p.path)
+        from concurrent.futures import ThreadPoolExecutor
+
+        if len(projects) > 1:
+            with ThreadPoolExecutor(max_workers=min(8, len(projects))) as executor:
+                for p_artifacts in executor.map(lambda p: collect_project_artifacts(p.path), projects):
+                    disposable_artifacts.extend(p_artifacts)
+                    for a in p_artifacts:
+                        total_reclaimable_bytes += (a.get("size_bytes") or 0)
+        elif projects:
+            p_artifacts = collect_project_artifacts(projects[0].path)
             disposable_artifacts.extend(p_artifacts)
             for a in p_artifacts:
                 total_reclaimable_bytes += (a.get("size_bytes") or 0)
