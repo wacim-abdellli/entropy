@@ -162,9 +162,9 @@ class EntropyDesktopApi:
                 dialog_type = getattr(webview.FileDialog, "FOLDER", getattr(webview, "FOLDER_DIALOG", 20))
                 result = target_win.create_file_dialog(dialog_type)
                 if result:
-                    if isinstance(result, (tuple, list)):
-                        return result[0] if result else None
-                    return str(result)
+                    res = result[0] if isinstance(result, (tuple, list)) else str(result)
+                    if res and os.path.isdir(res):
+                        return os.path.abspath(res)
                 return None
             except Exception:
                 pass

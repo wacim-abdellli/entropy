@@ -19,17 +19,19 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
-  scanRoots = ['C:\\Users\\pc\\Desktop'],
+  scanRoots,
   onScanRootsChange,
   onOpenWorkspace,
 }) => {
   const [directories, setDirectories] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('entropy_scan_roots');
-      return saved ? JSON.parse(saved) : scanRoots;
-    } catch {
-      return scanRoots;
-    }
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return scanRoots ?? ['C:\\Users\\pc\\Desktop'];
   });
 
   const saveAndNotify = (updated: string[]) => {
@@ -41,16 +43,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleRemoveDir = (dirToRemove: string) => {
-    const updated = directories.filter(dir => dir !== dirToRemove);
+    const normToRemove = dirToRemove.toLowerCase().replace(/[\\/]+$/, '');
+    const updated = directories.filter(
+      dir => dir.toLowerCase().replace(/[\\/]+$/, '') !== normToRemove
+    );
     saveAndNotify(updated);
   };
 
   const handleAddDir = async () => {
     try {
       const selected = await EntropyApiClient.pickFolder();
-      if (selected && !directories.includes(selected)) {
-        const updated = [...directories, selected];
-        saveAndNotify(updated);
+      if (selected) {
+        const selNorm = selected.toLowerCase().replace(/[\\/]+$/, '');
+        if (!directories.some(d => d.toLowerCase().replace(/[\\/]+$/, '') === selNorm)) {
+          const updated = [...directories, selected];
+          saveAndNotify(updated);
+        }
       }
     } catch (err) {
       console.error('Failed to open folder picker:', err);

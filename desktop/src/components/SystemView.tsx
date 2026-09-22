@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderOpen, Terminal, X, XCircle, Zap } from 'lucide-react';
+import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderOpen, Terminal, X, XCircle } from 'lucide-react';
 import { CacheConnection, DockerConnection, ProcessConnection, RuntimeConnection } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 

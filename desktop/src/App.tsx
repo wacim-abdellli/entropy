@@ -204,9 +204,35 @@ function getSavedScanRoots(): string[] | undefined {
 
   const handleInspectFolder = async () => {
     const folder = await EntropyApiClient.pickFolder();
-    if (folder) {
-      handleSelectWorkspace(folder);
+    if (!folder) return;
+
+    try {
+      const saved = localStorage.getItem('entropy_scan_roots');
+      let currentRoots: string[] = [];
+      if (saved !== null) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) currentRoots = parsed;
+        } catch {}
+      } else {
+        currentRoots = ['C:\\Users\\pc\\Desktop'];
+      }
+
+      const folderNorm = folder.toLowerCase().replace(/[\\/]+$/, '');
+      const alreadyExists = currentRoots.some(
+        r => r.toLowerCase().replace(/[\\/]+$/, '') === folderNorm
+      );
+
+      if (!alreadyExists) {
+        const updated = [...currentRoots, folder];
+        localStorage.setItem('entropy_scan_roots', JSON.stringify(updated));
+        await loadEnvironment(updated);
+      }
+    } catch (err) {
+      console.warn('Failed to save scan root:', err);
     }
+
+    await handleSelectWorkspace(folder);
   };
 
   const handleBackToOverview = () => {
@@ -335,9 +361,11 @@ function getSavedScanRoots(): string[] | undefined {
 
     // Settings
     if (activeNav === 'settings') {
+      const savedRoots = getSavedScanRoots();
       return (
         <SettingsView
-          scanRoots={getSavedScanRoots()}
+          key={JSON.stringify(savedRoots)}
+          scanRoots={savedRoots}
           onScanRootsChange={(newRoots) => {
             loadEnvironment(newRoots);
           }}
