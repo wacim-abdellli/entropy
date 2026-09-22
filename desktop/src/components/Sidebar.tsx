@@ -1,37 +1,39 @@
 import React from 'react';
 import { Search, Home, Trash2, Monitor, Settings, RefreshCw, Command } from 'lucide-react';
+import { EntropyLogo } from './EntropyLogo';
 
 export type ActiveNav = 'home' | 'cleanup' | 'details' | 'settings';
 
 interface SidebarProps {
   activeNav: ActiveNav;
   onSelectNav: (nav: ActiveNav) => void;
-  onOpenCommandPalette: () => void;
   onRefresh: () => void;
   isLoading: boolean;
-  lastScanTime?: number | null;
+  lastScanTime: number | null;
+  onOpenCommandPalette: () => void;
 }
 
-function formatTimeAgo(timestamp: number): string {
-  const seconds = Math.max(0, Math.floor(Date.now() / 1000 - timestamp));
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
+const formatTimeAgo = (ts: number) => {
+  const seconds = Math.floor((Date.now() - ts) / 1000);
+  if (seconds < 30) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const mins = Math.floor(seconds / 60);
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ago`;
+};
 
-const nav = [
-  { id: 'home' as const, label: 'Workspaces', icon: Home },
-  { id: 'cleanup' as const, label: 'Cleanup', icon: Trash2 },
-  { id: 'details' as const, label: 'Processes', icon: Monitor },
+const nav: { id: ActiveNav; label: string; icon: React.FC<any> }[] = [
+  { id: 'home', label: 'Workspaces', icon: Home },
+  { id: 'cleanup', label: 'System Cleanup', icon: Trash2 },
+  { id: 'details', label: 'System Details', icon: Monitor },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav, onOpenCommandPalette, onRefresh, isLoading, lastScanTime }) => (
+export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav, onRefresh, isLoading, lastScanTime, onOpenCommandPalette }) => (
   <aside className="w-60 bg-[var(--color-surface-1)] border-r border-[var(--color-border-subtle)] flex flex-col h-screen shrink-0 select-none">
-    <div className="h-14 px-4 flex items-center border-b border-[var(--color-border-subtle)]">
-      <div className="w-6 h-6 rounded-md bg-[var(--color-accent)] text-white text-xs font-bold flex items-center justify-center shadow-[0_0_18px_rgba(59,130,246,.25)]">E</div>
-      <span className="ml-2.5 text-sm font-semibold">Entropy</span>
-      <span className="ml-auto text-[10px] font-mono text-[var(--color-text-tertiary)]">LOCAL</span>
+    <div className="h-14 px-4 flex items-center border-b border-[var(--color-border-subtle)] gap-2.5">
+      <EntropyLogo size={28} className="drop-shadow-[0_0_12px_rgba(56,189,248,0.4)] transition-transform hover:scale-105" />
+      <span className="text-sm font-semibold tracking-tight text-[var(--color-text-primary)]">Entropy</span>
+      <span className="ml-auto text-[10px] font-mono text-[var(--color-text-tertiary)] bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded border border-[var(--color-border-subtle)]">v0.1</span>
     </div>
     <div className="px-3 pt-4">
       <button type="button" onClick={onOpenCommandPalette} className="w-full h-9 px-2.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-0)] hover:bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] transition-colors flex items-center gap-2 text-left">
