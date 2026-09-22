@@ -350,18 +350,34 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
         {actionResult && (
-          <div className="sticky top-0 z-10 px-6 pt-4">
+          <div className="sticky top-0 z-20 px-6 pt-3 pb-1">
             <div
-              className={`max-w-3xl mx-auto flex items-center gap-2 rounded-lg border px-3 py-2 text-sm shadow-lg ${
+              className={`max-w-4xl mx-auto flex items-start justify-between gap-3 rounded-lg border p-3 text-xs shadow-lg backdrop-blur-md transition-all ${
                 actionResult.type === 'success'
-                  ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
-                  : 'bg-rose-500/10 border-rose-500/25 text-rose-300'
+                  ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200'
+                  : 'bg-rose-950/90 border-rose-500/30 text-rose-200'
               }`}
             >
-              {actionResult.type === 'success'
-                ? <CheckCircle2 className="w-4 h-4 shrink-0" />
-                : <AlertTriangle className="w-4 h-4 shrink-0" />}
-              <span>{actionResult.text}</span>
+              <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                {actionResult.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                )}
+                <div className="min-w-0 max-h-36 overflow-y-auto pr-2 flex-1">
+                  <p className="font-medium whitespace-pre-wrap leading-relaxed select-text font-mono text-[11px]">
+                    {actionResult.text}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActionResult(null)}
+                className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer shrink-0"
+                title="Dismiss"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
@@ -399,11 +415,21 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => EntropyApiClient.launchIde(workspace.path, 'code')}
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-accent)] text-white rounded-md hover:bg-blue-500 transition-colors cursor-pointer"
+                onClick={() => handleLaunchEditor('code')}
+                disabled={busyAction === 'editor-code'}
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-accent)] text-white rounded-md hover:bg-blue-500 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <Code2 className="w-4 h-4" />
-                Open in VS Code
+                {busyAction === 'editor-code' ? 'Opening...' : 'Open in VS Code'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLaunchEditor('cursor')}
+                disabled={busyAction === 'editor-cursor'}
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Code2 className="w-4 h-4" />
+                {busyAction === 'editor-cursor' ? 'Opening...' : 'Cursor'}
               </button>
               <button
                 type="button"
@@ -447,14 +473,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     : 'Clean Dependencies'}
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => EntropyApiClient.launchIde(workspace.path, 'cursor')}
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
-              >
-                <Code2 className="w-4 h-4" />
-                Cursor
-              </button>
             </div>
           </div>
 
