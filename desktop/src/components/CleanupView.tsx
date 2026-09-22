@@ -9,14 +9,16 @@ import {
   Check,
   Copy,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  FolderGit2
 } from 'lucide-react';
-import { EnvironmentOverview } from '../types/entropy';
+import { EnvironmentOverview, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
 interface CleanupViewProps {
   overview: EnvironmentOverview;
   onRefresh: () => Promise<void> | void;
+  currentWorkspace?: WorkspaceSummary | null;
 }
 
 const formatBytes = (bytes: number) => {
@@ -26,7 +28,7 @@ const formatBytes = (bytes: number) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
-export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh }) => {
+export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, currentWorkspace }) => {
   const artifacts = overview?.system?.artifacts || [];
   const caches = overview?.system?.caches || [];
   const [selectedArtifacts, setSelectedArtifacts] = useState<Set<string>>(new Set());
@@ -117,7 +119,18 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh })
       <div className="p-8 border-b border-[var(--color-border)] bg-[var(--color-surface-1)]">
         <div className="flex items-center gap-3 mb-2">
           <Trash2 size={28} className="text-[var(--color-accent)]" />
-          <h1 className="text-3xl font-semibold">Cleanup</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-3xl font-semibold">Cleanup</h1>
+            {currentWorkspace && (
+              <>
+                <span className="text-[var(--color-text-tertiary)] text-2xl font-light">/</span>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm font-medium text-[var(--color-accent-strong)]">
+                  <FolderGit2 className="w-4 h-4 text-[var(--color-accent)]" />
+                  <span>{currentWorkspace.name}</span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
         <p className="text-[var(--color-text-secondary)] text-sm">
           Reclaim disk space by safely removing disposable project folders. Shared caches are shown for awareness.

@@ -125,6 +125,31 @@ def run_entropy_scan(scan_roots: list[str] | str, max_depth: int = 4) -> tuple[E
                     all_projects.append(p)
             all_dep_envs.extend(dep_envs)
 
+    # Ensure any explicitly specified scan root directory is retained as a workspace
+    for root in roots:
+        norm_r = os.path.normcase(os.path.abspath(root))
+        if norm_r not in seen_project_paths and os.path.isdir(root):
+            has_child_project = any(p.startswith(norm_r + os.sep) for p in seen_project_paths)
+            if not has_child_project:
+                stat_info = None
+                try:
+                    stat_info = os.stat(root)
+                except OSError:
+                    pass
+                created_ts = stat_info.st_ctime if stat_info else None
+                mtime_ts = stat_info.st_mtime if stat_info else None
+                from collectors.projects import _get_dir_size
+                total_size = _get_dir_size(root)
+                root_proj = Project(
+                    entity_id=f"project:{os.path.abspath(root)}",
+                    path=os.path.abspath(root),
+                    total_size_bytes=total_size,
+                    created=created_ts,
+                    last_modified=mtime_ts,
+                )
+                seen_project_paths.add(norm_r)
+                all_projects.append(root_proj)
+
     scan_result.projects = all_projects
     scan_result.dep_environments = all_dep_envs
     logger.info(

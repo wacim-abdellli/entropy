@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode, useCallback, useEffect, useState } from 'react';
+import React, { Component, ErrorInfo, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Sidebar, ActiveNav } from './components/Sidebar';
 import { OverviewView } from './components/OverviewView';
@@ -82,6 +82,23 @@ export function App() {
   });
   const [inspection, setInspection] = useState<WorkspaceInspection | null>(null);
   const [selectedWorkspacePath, setSelectedWorkspacePath] = useState<string | null>(null);
+  const [currentWorkspacePath, setCurrentWorkspacePath] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('entropy_current_workspace');
+    } catch {
+      return null;
+    }
+  });
+  const [scanRoots, setScanRoots] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('entropy_scan_roots');
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return ['C:\\Users\\pc\\Desktop'];
+  });
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     try {
       return !localStorage.getItem('entropy_cached_overview');
@@ -105,24 +122,41 @@ export function App() {
     }, 3500);
   }, []);
 
-function getSavedScanRoots(): string[] | undefined {
-  try {
-    const saved = localStorage.getItem('entropy_scan_roots');
-    if (saved !== null) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
+  const currentWorkspace = useMemo<WorkspaceSummary | null>(() => {
+    const list = overview?.workspaces || [];
+    if (!list.length && !currentWorkspacePath) return null;
+
+    if (currentWorkspacePath) {
+      const norm = currentWorkspacePath.toLowerCase().replace(/[\\/]+$/, '');
+      const found = list.find((w) => w.path.toLowerCase().replace(/[\\/]+$/, '') === norm);
+      if (found) return found;
+
+      const name = currentWorkspacePath.split(/[\\/]/).filter(Boolean).pop() || currentWorkspacePath;
+      return {
+        id: `workspace:${currentWorkspacePath}`,
+        name,
+        path: currentWorkspacePath,
+        project_type: 'custom',
+        total_size_bytes: null,
+        last_modified: null,
+        state_label: 'Selected',
+        state_category: 'neutral',
+        git_branch: null,
+        git_remote: null,
+        last_commit_timestamp: null,
+        has_uncommitted_changes: false,
+        process_count: 0,
+      };
     }
-  } catch {}
-  return undefined;
-}
+
+    return list[0] || null;
+  }, [overview?.workspaces, currentWorkspacePath]);
 
   const loadEnvironment = useCallback(async (customRoots?: string[]) => {
     setIsLoading(true);
     setError(null);
     try {
-      const rootsToScan = customRoots !== undefined ? customRoots : getSavedScanRoots();
+      const rootsToScan = customRoots !== undefined ? customRoots : scanRoots;
       const data = await EntropyApiClient.scanEnvironment(rootsToScan);
       setOverview(data);
       try {
@@ -139,10 +173,14 @@ function getSavedScanRoots(): string[] | undefined {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [scanRoots]);
 
   const handleSelectWorkspace = useCallback(async (path: string) => {
     setSelectedWorkspacePath(path);
+    setCurrentWorkspacePath(path);
+    try {
+      localStorage.setItem('entropy_current_workspace', path);
+    } catch {}
     setActiveNav('home');
     setIsLoading(true);
     setError(null);
@@ -168,7 +206,7 @@ function getSavedScanRoots(): string[] | undefined {
 
     try {
       const [nextOverview, nextInspection] = await Promise.all([
-        EntropyApiClient.scanEnvironment(getSavedScanRoots()),
+        EntropyApiClient.scanEnvironment(scanRoots),
         selectedWorkspacePath
           ? EntropyApiClient.inspectWorkspace(selectedWorkspacePath)
           : Promise.resolve(null),
@@ -192,7 +230,7 @@ function getSavedScanRoots(): string[] | undefined {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedWorkspacePath]);
+  }, [selectedWorkspacePath, scanRoots]);
 
   // Initial load
   useEffect(() => {
@@ -218,31 +256,36 @@ function getSavedScanRoots(): string[] | undefined {
     const folderNorm = folder.toLowerCase().replace(/[\\/]+$/, '');
     const name = folder.split(/[\\/]/).filter(Boolean).pop() || folder;
 
-    // 1. Instant Real-Time UI update: immediately add to overview list
+    // 1. Immediately set active project state & persist
+    setCurrentWorkspacePath(folder);
+    try {
+      localStorage.setItem('entropy_current_workspace', folder);
+    } catch {}
+
+    // 2. Real-time optimistic insertion into overview list
+    const optimistic: WorkspaceSummary = {
+      id: `workspace:${folder}`,
+      name,
+      path: folder,
+      project_type: 'detecting...',
+      total_size_bytes: 0,
+      last_modified: Date.now() / 1000,
+      state_label: 'Ready',
+      state_category: 'neutral',
+      git_branch: null,
+      git_remote: null,
+      last_commit_timestamp: null,
+      has_uncommitted_changes: false,
+      process_count: 0,
+    };
+
     setOverview((prev) => {
       const currentList = prev?.workspaces || [];
       const alreadyInList = currentList.some(
         (w) => w.path.toLowerCase().replace(/[\\/]+$/, '') === folderNorm
       );
-      if (alreadyInList) return prev;
+      const nextWorkspaces = alreadyInList ? currentList : [optimistic, ...currentList];
 
-      const optimistic: WorkspaceSummary = {
-        id: `workspace:${folder}`,
-        name,
-        path: folder,
-        project_type: 'detecting...',
-        total_size_bytes: 0,
-        last_modified: Date.now() / 1000,
-        state_label: 'Ready',
-        state_category: 'neutral',
-        git_branch: null,
-        git_remote: null,
-        last_commit_timestamp: null,
-        has_uncommitted_changes: false,
-        process_count: 0,
-      };
-
-      const nextWorkspaces = [optimistic, ...currentList];
       if (!prev) {
         return {
           summary: {
@@ -281,7 +324,7 @@ function getSavedScanRoots(): string[] | undefined {
         summary: {
           ...prev.summary,
           total_workspaces: nextWorkspaces.length,
-          neutral_count: (prev.summary.neutral_count || 0) + 1,
+          neutral_count: (prev.summary.neutral_count || 0) + (alreadyInList ? 0 : 1),
         },
         workspaces: nextWorkspaces,
       };
@@ -289,35 +332,20 @@ function getSavedScanRoots(): string[] | undefined {
 
     showToast(`Added workspace "${name}"`);
 
-    // 2. Persist to scan roots in localStorage
+    // 3. Update scan roots state and localStorage
+    const alreadyExistsInRoots = scanRoots.some(
+      (r) => r.toLowerCase().replace(/[\\/]+$/, '') === folderNorm
+    );
+    const updatedRoots = alreadyExistsInRoots ? scanRoots : [...scanRoots, folder];
+    setScanRoots(updatedRoots);
     try {
-      const saved = localStorage.getItem('entropy_scan_roots');
-      let currentRoots: string[] = [];
-      if (saved !== null) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) currentRoots = parsed;
-        } catch {}
-      } else {
-        currentRoots = ['C:\\Users\\pc\\Desktop'];
-      }
+      localStorage.setItem('entropy_scan_roots', JSON.stringify(updatedRoots));
+    } catch {}
 
-      const alreadyExists = currentRoots.some(
-        (r) => r.toLowerCase().replace(/[\\/]+$/, '') === folderNorm
-      );
+    // 4. Background refresh of real metrics
+    loadEnvironment(updatedRoots);
 
-      const updated = alreadyExists ? currentRoots : [...currentRoots, folder];
-      if (!alreadyExists) {
-        localStorage.setItem('entropy_scan_roots', JSON.stringify(updated));
-      }
-
-      // Background scan to populate real metrics (git branch, process count, size)
-      loadEnvironment(updated);
-    } catch (err) {
-      console.warn('Failed to save scan root:', err);
-    }
-
-    // If user was already inspecting a workspace and clicked "Open folder…", switch inspection
+    // If user was already inspecting a workspace or clicked "Open folder…", switch inspection
     if (selectedWorkspacePath) {
       await handleSelectWorkspace(folder);
     }
@@ -402,10 +430,11 @@ function getSavedScanRoots(): string[] | undefined {
         return (
           <OverviewView
             overview={overview}
-            onRefresh={loadEnvironment}
+            onRefresh={() => loadEnvironment(scanRoots)}
             isLoading={isLoading}
             onSelectWorkspace={handleSelectWorkspace}
             onInspectFolder={handleInspectFolder}
+            currentWorkspace={currentWorkspace}
           />
         );
       }
@@ -425,7 +454,13 @@ function getSavedScanRoots(): string[] | undefined {
     // Cleanup page
     if (activeNav === 'cleanup') {
       if (overview) {
-        return <CleanupView overview={overview} onRefresh={refreshCurrentContext} />;
+        return (
+          <CleanupView
+            overview={overview}
+            onRefresh={refreshCurrentContext}
+            currentWorkspace={currentWorkspace}
+          />
+        );
       }
       return null;
     }
@@ -441,6 +476,7 @@ function getSavedScanRoots(): string[] | undefined {
             containers={overview.system?.containers || []}
             caches={overview.system?.caches || []}
             onActionComplete={refreshCurrentContext}
+            currentWorkspace={currentWorkspace}
           />
         );
       }
@@ -449,17 +485,20 @@ function getSavedScanRoots(): string[] | undefined {
 
     // Settings
     if (activeNav === 'settings') {
-      const savedRoots = getSavedScanRoots();
       return (
         <SettingsView
-          key={JSON.stringify(savedRoots)}
-          scanRoots={savedRoots}
+          scanRoots={scanRoots}
           onScanRootsChange={(newRoots) => {
+            setScanRoots(newRoots);
+            try {
+              localStorage.setItem('entropy_scan_roots', JSON.stringify(newRoots));
+            } catch {}
             loadEnvironment(newRoots);
           }}
           onOpenWorkspace={(path) => {
             handleSelectWorkspace(path);
           }}
+          currentWorkspace={currentWorkspace}
         />
       );
     }
@@ -478,9 +517,12 @@ function getSavedScanRoots(): string[] | undefined {
           setInspection(null);
         }}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-        onRefresh={loadEnvironment}
+        onRefresh={() => loadEnvironment(scanRoots)}
         isLoading={isLoading}
         lastScanTime={overview?.metadata?.timestamp ?? null}
+        currentWorkspace={currentWorkspace}
+        onSelectWorkspace={handleSelectWorkspace}
+        onBackToOverview={handleBackToOverview}
       />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">

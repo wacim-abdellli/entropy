@@ -8,20 +8,24 @@ import {
   FolderOpen,
   ArrowUpRight,
   RefreshCw,
-  Trash2
+  Trash2,
+  FolderGit2
 } from 'lucide-react';
 import { EntropyApiClient } from '../services/api';
+import { WorkspaceSummary } from '../types/entropy';
 
 interface SettingsViewProps {
   scanRoots?: string[];
   onScanRootsChange?: (roots: string[]) => void;
   onOpenWorkspace?: (path: string) => void;
+  currentWorkspace?: WorkspaceSummary | null;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
   scanRoots,
   onScanRootsChange,
   onOpenWorkspace,
+  currentWorkspace,
 }) => {
   const [directories, setDirectories] = useState<string[]>(() => {
     try {
@@ -84,7 +88,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div className="p-8 border-b border-[var(--color-border)] bg-[var(--color-surface-1)]">
         <div className="flex items-center gap-3 mb-2">
           <Settings size={28} className="text-[var(--color-accent)]" />
-          <h1 className="text-3xl font-semibold">Settings</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-3xl font-semibold">Settings</h1>
+            {currentWorkspace && (
+              <>
+                <span className="text-[var(--color-text-tertiary)] text-2xl font-light">/</span>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm font-medium text-[var(--color-accent-strong)]">
+                  <FolderGit2 className="w-4 h-4 text-[var(--color-accent)]" />
+                  <span>{currentWorkspace.name}</span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
         <p className="text-[var(--color-text-secondary)] text-sm">
           Configure workspace scanning directories and app preferences.
@@ -130,12 +145,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             ) : (
               <ul className="divide-y divide-[var(--color-border)]">
-                {directories.map((dir) => (
-                  <li key={dir} className="flex items-center justify-between p-4 hover:bg-[var(--color-surface-2)] transition-colors group">
-                    <div className="flex items-center gap-3 min-w-0 pr-4">
-                      <FolderSearch size={18} className="text-[var(--color-text-tertiary)] shrink-0" />
-                      <span className="font-mono text-sm truncate select-all text-[var(--color-text-primary)]">{dir}</span>
-                    </div>
+                {directories.map((dir) => {
+                  const isCurrent = currentWorkspace?.path
+                    ? dir.toLowerCase().replace(/[\\/]+$/, '') ===
+                      currentWorkspace.path.toLowerCase().replace(/[\\/]+$/, '')
+                    : false;
+                  return (
+                    <li key={dir} className="flex items-center justify-between p-4 hover:bg-[var(--color-surface-2)] transition-colors group">
+                      <div className="flex items-center gap-3 min-w-0 pr-4">
+                        <FolderSearch
+                          size={18}
+                          className={isCurrent ? "text-[var(--color-accent)] shrink-0" : "text-[var(--color-text-tertiary)] shrink-0"}
+                        />
+                        <span className="font-mono text-sm truncate select-all text-[var(--color-text-primary)]">{dir}</span>
+                        {isCurrent && (
+                          <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-accent)]/15 text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30 shrink-0">
+                            Active Project
+                          </span>
+                        )}
+                      </div>
 
                     <div className="flex items-center gap-1 shrink-0">
                       {onOpenWorkspace && (
@@ -177,8 +205,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <Trash2 size={16} />
                       </button>
                     </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
             

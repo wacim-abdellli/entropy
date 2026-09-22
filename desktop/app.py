@@ -26,6 +26,9 @@ else:
         sys.path.insert(0, str(PROJECT_ROOT))
 
 import concurrent.futures
+import logging
+
+logger = logging.getLogger("entropy.desktop")
 
 from core.graph import EnvironmentGraph
 from report.contract import serialize_environment_overview, serialize_workspace_inspection
@@ -147,47 +150,80 @@ class EntropyDesktopApi:
 
     def pick_folder(self) -> Optional[str]:
         """Open native Windows folder picker dialog."""
-        # Try native pywebview window file dialog first (modern Windows Common Item Dialog)
-        target_win = self._window
-        if not target_win:
-            try:
-                import webview
-                target_win = webview.active_window()
-            except Exception:
-                target_win = None
+        # 1. Native in-process STA Thread with modern Windows FolderBrowserDialog
+        try:
+            import clr
+            clr.AddReference("System.Windows.Forms")
+            clr.AddReference("System.Threading")
+            from System.Threading import Thread, ThreadStart, ApartmentState
+            from System.Windows.Forms import FolderBrowserDialog, DialogResult, NativeWindow
+            import System
+            import ctypes
 
-        if target_win is not None:
-            try:
-                import webview
-                dialog_type = getattr(webview.FileDialog, "FOLDER", getattr(webview, "FOLDER_DIALOG", 20))
-                result = target_win.create_file_dialog(dialog_type)
-                if result:
-                    res = result[0] if isinstance(result, (tuple, list)) else str(result)
-                    if res and os.path.isdir(res):
-                        return os.path.abspath(res)
-                return None
-            except Exception:
-                pass
+            selected_path = [None]
 
-        # Fallback to PowerShell FolderBrowserDialog
+            def _show_native():
+                try:
+                    f = FolderBrowserDialog()
+                    f.Description = "Select Workspace Folder to Inspect with Entropy"
+                    f.AutoUpgradeEnabled = True
+                    f.ShowNewFolderButton = True
+
+                    hwnd = ctypes.windll.user32.GetForegroundWindow()
+                    if hwnd:
+                        nw = NativeWindow()
+                        nw.AssignHandle(System.IntPtr(hwnd))
+                        try:
+                            res = f.ShowDialog(nw)
+                        finally:
+                            nw.ReleaseHandle()
+                    else:
+                        res = f.ShowDialog()
+
+                    if res == DialogResult.OK and f.SelectedPath and os.path.isdir(f.SelectedPath):
+                        selected_path[0] = os.path.abspath(f.SelectedPath)
+                except Exception as ex:
+                    logger.error(f"Native STA folder dialog error: {ex}")
+
+            t = Thread(ThreadStart(_show_native))
+            t.SetApartmentState(ApartmentState.STA)
+            t.Start()
+            t.Join(120000)
+            if selected_path[0]:
+                return selected_path[0]
+        except Exception as e:
+            logger.error(f"In-process STA folder picker error: {e}")
+
+        # 2. Robust fallback to PowerShell with parent window handle
         try:
             ps_script = (
                 "Add-Type -AssemblyName System.Windows.Forms; "
                 "$f = New-Object System.Windows.Forms.FolderBrowserDialog; "
+                "$f.AutoUpgradeEnabled = $true; "
                 "$f.Description = 'Select Workspace Folder to Inspect with Entropy'; "
-                "if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $f.SelectedPath }"
+                "$hwnd = [System.Diagnostics.Process]::GetCurrentProcess().MainWindowHandle; "
+                "if ($hwnd -ne 0) { "
+                "  $nw = New-Object System.Windows.Forms.NativeWindow; "
+                "  $nw.AssignHandle([System.IntPtr]$hwnd); "
+                "  $res = $f.ShowDialog($nw); "
+                "  $nw.ReleaseHandle(); "
+                "} else { "
+                "  $res = $f.ShowDialog(); "
+                "} "
+                "if ($res -eq [System.Windows.Forms.DialogResult]::OK) { $f.SelectedPath }"
             )
             creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
             result = subprocess.run(
-                ["powershell.exe", "-NoProfile", "-Command", ps_script],
+                ["powershell.exe", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps_script],
                 capture_output=True,
                 text=True,
                 timeout=60,
                 creationflags=creationflags,
             )
             selected = result.stdout.strip()
-            return selected if selected and os.path.isdir(selected) else None
-        except Exception:
+            return os.path.abspath(selected) if selected and os.path.isdir(selected) else None
+        except Exception as e:
+            logger.error(f"PowerShell folder picker error: {e}")
             return None
 
     def terminate_process(self, pid: int, force: bool = True) -> dict[str, Any]:
