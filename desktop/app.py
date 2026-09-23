@@ -324,13 +324,53 @@ def _run_desktop() -> None:
     else:
         target_url = "http://localhost:5173"
 
+    # Pre-configure WinForms BrowserForm to enforce dark title bar from frame 0 (no white flash)
+    if sys.platform == "win32":
+        try:
+            import webview.platforms.winforms as wf
+            import ctypes
+
+            icon_candidates = [
+                PROJECT_ROOT / "desktop" / "src-tauri" / "icons" / "icon.ico",
+                Path(__file__).resolve().parent / "src-tauri" / "icons" / "icon.ico",
+            ]
+            icon_path = next((p for p in icon_candidates if p.exists()), None)
+
+            def _force_dark_title_bar(form_self):
+                try:
+                    hwnd = form_self.Handle.ToInt32()
+                    val = ctypes.c_int(1)
+                    # DWMWA_USE_IMMERSIVE_DARK_MODE (20 on Win 10 20H1+, 19 on older)
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(val), ctypes.sizeof(val))
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(val), ctypes.sizeof(val))
+                    # DWMWA_CAPTION_COLOR = 35 -> #0b0f17 (0x00170F0B COLORREF)
+                    color = ctypes.c_int(0x00170F0B)
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(color), ctypes.sizeof(color))
+                    # DWMWA_TEXT_COLOR = 36 -> white text (0x00FFFFFF COLORREF)
+                    text_color = ctypes.c_int(0x00FFFFFF)
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(text_color), ctypes.sizeof(text_color))
+
+                    if icon_path:
+                        try:
+                            from System.Drawing import Icon
+                            form_self.Icon = Icon(str(icon_path))
+                        except Exception:
+                            pass
+                except Exception as e:
+                    logger.debug(f"Error in instant dark title bar hook: {e}")
+
+            wf.BrowserView.BrowserForm.update_title_bar_theme = _force_dark_title_bar
+        except Exception as ex:
+            logger.debug(f"Could not hook BrowserForm: {ex}")
+
     window = webview.create_window(
         title="Entropy",
         url=target_url,
         js_api=api,
-        width=1280,
-        height=850,
+        width=1400,
+        height=900,
         min_size=(960, 600),
+        maximized=True,
         background_color="#090b10",
         text_select=True,
     )
@@ -340,16 +380,12 @@ def _run_desktop() -> None:
         if sys.platform == "win32":
             try:
                 import ctypes
-                import time
 
-                time.sleep(0.15)
                 hwnd = ctypes.windll.user32.FindWindowW(None, "Entropy")
                 if hwnd:
                     val = ctypes.c_int(1)
-                    # DWMWA_USE_IMMERSIVE_DARK_MODE
                     ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(val), ctypes.sizeof(val))
                     ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(val), ctypes.sizeof(val))
-                    # DWMWA_CAPTION_COLOR = 35 -> #0b0f17 (RGB 11, 15, 23 -> 0x00170F0B COLORREF)
                     color = ctypes.c_int(0x00170F0B)
                     ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(color), ctypes.sizeof(color))
 
@@ -377,8 +413,6 @@ def _run_desktop() -> None:
                             ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
             except Exception:
                 pass
-
-        pass
 
     window.events.loaded += _on_loaded
     webview.start(debug=args.dev, gui="edgechromium")

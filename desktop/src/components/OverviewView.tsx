@@ -4,7 +4,7 @@ import { EnvironmentOverview, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
 interface OverviewViewProps {
-  overview: EnvironmentOverview;
+  overview?: EnvironmentOverview | null;
   onRefresh: () => void;
   isLoading: boolean;
   onSelectWorkspace: (path: string) => void;
@@ -116,19 +116,19 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onInspectFolder,
   currentWorkspace,
 }) => {
-  const artifacts = overview.system?.artifacts || [];
+  const artifacts = overview?.system?.artifacts || [];
   const reclaimable = artifacts.reduce((sum, artifact) => sum + (artifact.size_bytes || 0), 0);
-  const dirty = overview.workspaces.filter((workspace) => workspace.has_uncommitted_changes);
-  const running = overview.workspaces.filter((workspace) => workspace.process_count > 0);
+  const dirty = (overview?.workspaces || []).filter((workspace) => workspace.has_uncommitted_changes);
+  const running = (overview?.workspaces || []).filter((workspace) => workspace.process_count > 0);
   const ordered = useMemo(
     () =>
-      [...overview.workspaces].sort(
+      [...(overview?.workspaces || [])].sort(
         (a, b) =>
           Number(b.has_uncommitted_changes) - Number(a.has_uncommitted_changes) ||
           b.process_count - a.process_count ||
           (b.last_modified || 0) - (a.last_modified || 0)
       ),
-    [overview.workspaces]
+    [overview?.workspaces]
   );
   const firstAction = dirty[0] || running[0] || ordered[0];
 
@@ -234,6 +234,18 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   </button>
                 </div>
               </>
+            ) : !overview ? (
+              <div className="mt-3 flex items-start gap-3">
+                <RefreshCw className="mt-1 w-4 h-4 text-[var(--color-accent)] animate-spin shrink-0" />
+                <div>
+                  <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
+                    Discovering developer workspaces…
+                  </h2>
+                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                    Scanning configured directories for Git repositories, processes, and dependencies.
+                  </p>
+                </div>
+              </div>
             ) : (
               <p className="mt-3 text-sm text-[var(--color-text-secondary)]">
                 Add a folder to start tracking a workspace.
@@ -244,10 +256,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <button
               type="button"
               onClick={() => dirty[0] && onSelectWorkspace(dirty[0].path)}
-              className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
+              disabled={!dirty.length}
+              className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer disabled:cursor-default"
             >
               <span className="text-xl font-semibold text-[var(--color-warning)]">
-                {dirty.length}
+                {overview ? dirty.length : '—'}
               </span>
               <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
                 workspace{dirty.length === 1 ? '' : 's'} with changes
@@ -256,10 +269,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <button
               type="button"
               onClick={() => running[0] && onSelectWorkspace(running[0].path)}
-              className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
+              disabled={!running.length}
+              className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer disabled:cursor-default"
             >
               <span className="text-xl font-semibold text-[var(--color-success)]">
-                {running.length}
+                {overview ? running.length : '—'}
               </span>
               <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
                 workspace{running.length === 1 ? '' : 's'} currently running
@@ -272,7 +286,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface-2)] transition-colors disabled:cursor-default"
             >
               <span className="text-xl font-semibold text-[var(--color-accent-strong)]">
-                {formatSize(reclaimable)}
+                {overview ? formatSize(reclaimable) : '—'}
               </span>
               <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
                 safe project cleanup available
@@ -286,7 +300,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <div>
               <h2 className="text-sm font-semibold">All workspaces</h2>
               <p className="text-xs text-[var(--color-text-tertiary)]">
-                {overview.summary.total_workspaces} detected · {overview.summary.total_processes} processes on this machine
+                {overview
+                  ? `${overview.summary.total_workspaces} detected · ${overview.summary.total_processes} processes on this machine`
+                  : 'Scanning developer environment…'}
               </p>
             </div>
             <div className="flex items-center gap-3 text-xs text-[var(--color-text-tertiary)]">
@@ -311,30 +327,49 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <span>State</span>
             <span />
           </div>
-          {ordered.map((workspace) => {
-            const isRowActive = currentWorkspace?.path
-              ? workspace.path.toLowerCase().replace(/[\\/]+$/, '') ===
-                currentWorkspace.path.toLowerCase().replace(/[\\/]+$/, '')
-              : false;
-            return (
-              <WorkspaceRow
-                key={workspace.id}
-                workspace={workspace}
-                isActive={isRowActive}
-                onOpen={() => onSelectWorkspace(workspace.path)}
-              />
-            );
-          })}
-          {!ordered.length && (
-            <div className="px-5 py-12 text-center text-sm text-[var(--color-text-secondary)]">
-              No workspaces found.{' '}
-              <button
-                type="button"
-                onClick={onInspectFolder}
-                className="text-[var(--color-accent-strong)] hover:underline cursor-pointer"
-              >
-                Add a folder
-              </button>
+          {overview ? (
+            <>
+              {ordered.map((workspace) => {
+                const isRowActive = currentWorkspace?.path
+                  ? workspace.path.toLowerCase().replace(/[\\/]+$/, '') ===
+                    currentWorkspace.path.toLowerCase().replace(/[\\/]+$/, '')
+                  : false;
+                return (
+                  <WorkspaceRow
+                    key={workspace.id}
+                    workspace={workspace}
+                    isActive={isRowActive}
+                    onOpen={() => onSelectWorkspace(workspace.path)}
+                  />
+                );
+              })}
+              {!ordered.length && (
+                <div className="px-5 py-12 text-center text-sm text-[var(--color-text-secondary)]">
+                  No workspaces found.{' '}
+                  <button
+                    type="button"
+                    onClick={onInspectFolder}
+                    className="text-[var(--color-accent-strong)] hover:underline cursor-pointer"
+                  >
+                    Add a folder
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="divide-y divide-[var(--color-border-subtle)]">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-[minmax(220px,1.2fr)_minmax(180px,1.5fr)_150px_130px_94px] items-center gap-4 px-4 py-4 animate-pulse"
+                >
+                  <div className="h-4 w-32 bg-[var(--color-surface-2)] rounded" />
+                  <div className="h-3 w-48 bg-[var(--color-surface-2)] rounded font-mono" />
+                  <div className="h-3 w-20 bg-[var(--color-surface-2)] rounded" />
+                  <div className="h-3 w-24 bg-[var(--color-surface-2)] rounded" />
+                  <div className="h-6 w-12 bg-[var(--color-surface-2)] rounded ml-auto" />
+                </div>
+              ))}
             </div>
           )}
         </section>
