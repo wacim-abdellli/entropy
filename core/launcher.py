@@ -80,6 +80,8 @@ def detect_installed_launchers() -> Dict[str, bool]:
     launchers = {
         "explorer": True,  # Windows Explorer is always available
         "terminal": False,
+        "powershell": False,
+        "cmd": True,  # Command Prompt is always available on Windows
         "code": False,
         "cursor": False,
         "pycharm": False,
@@ -91,6 +93,14 @@ def detect_installed_launchers() -> Dict[str, bool]:
     # Check Windows Terminal / PowerShell
     if shutil.which("wt") or shutil.which("powershell"):
         launchers["terminal"] = True
+
+    # Check PowerShell
+    if shutil.which("powershell"):
+        launchers["powershell"] = True
+
+    # Check CMD
+    if shutil.which("cmd") or os.path.exists(r"C:\Windows\System32\cmd.exe"):
+        launchers["cmd"] = True
 
     # Check VS Code
     if _find_vscode_executable():
@@ -117,7 +127,7 @@ def launch_workspace_in_editor(workspace_path: str, editor_id: str) -> Dict[str,
     
     Parameters:
     - workspace_path: Absolute directory path to open.
-    - editor_id: One of 'code' | 'cursor' | 'terminal' | 'explorer' | 'pycharm' | 'intellij'
+    - editor_id: One of 'code' | 'cursor' | 'terminal' | 'powershell' | 'cmd' | 'explorer' | 'pycharm' | 'intellij'
     
     Returns result dict with success state and message.
     """
@@ -131,16 +141,29 @@ def launch_workspace_in_editor(workspace_path: str, editor_id: str) -> Dict[str,
     editor_id = (editor_id or "").lower().strip()
 
     try:
+        flags = subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0
+
         if editor_id == "explorer":
             os.startfile(abs_path)
             return {"success": True, "message": f"Opened '{abs_path}' in Windows Explorer."}
 
         elif editor_id == "terminal":
             if shutil.which("wt"):
-                subprocess.Popen(["wt", "-d", abs_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
+                subprocess.Popen(["wt", "-d", abs_path], cwd=abs_path, creationflags=flags)
             else:
-                subprocess.Popen(["powershell", "-NoExit", "-Command", f"Set-Location '{abs_path}'"], creationflags=subprocess.CREATE_NEW_CONSOLE)
+                ps_bin = shutil.which("powershell") or "powershell.exe"
+                subprocess.Popen([ps_bin, "-NoExit"], cwd=abs_path, creationflags=flags)
             return {"success": True, "message": f"Opened '{abs_path}' in Terminal."}
+
+        elif editor_id == "powershell":
+            ps_bin = shutil.which("powershell") or "powershell.exe"
+            subprocess.Popen([ps_bin, "-NoExit"], cwd=abs_path, creationflags=flags)
+            return {"success": True, "message": f"Opened '{abs_path}' in PowerShell."}
+
+        elif editor_id == "cmd":
+            cmd_bin = shutil.which("cmd") or "cmd.exe"
+            subprocess.Popen([cmd_bin], cwd=abs_path, creationflags=flags)
+            return {"success": True, "message": f"Opened '{abs_path}' in Command Prompt."}
 
         elif editor_id == "code":
             code_bin = _find_vscode_executable()

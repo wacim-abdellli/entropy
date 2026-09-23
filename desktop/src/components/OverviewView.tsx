@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, ArrowUpRight, CircleDot, FolderGit2, FolderOpen, GitBranch, HardDrive, RefreshCw, Terminal } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CircleDot, FolderGit2, FolderOpen, GitBranch, HardDrive, RefreshCw, Terminal, SquareTerminal } from 'lucide-react';
 import { EnvironmentOverview, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
@@ -89,11 +89,27 @@ function WorkspaceRow({
       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           type="button"
-          title="Open terminal"
+          title="Open Windows Terminal"
           onClick={() => EntropyApiClient.openInTerminal(workspace.path)}
           className="w-7 h-7 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center justify-center cursor-pointer"
         >
           <Terminal className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          title="Open in PowerShell"
+          onClick={() => EntropyApiClient.openInPowerShell(workspace.path)}
+          className="w-7 h-7 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-sky-400 flex items-center justify-center cursor-pointer"
+        >
+          <Terminal className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          title="Open in Command Prompt (CMD)"
+          onClick={() => EntropyApiClient.openInCmd(workspace.path)}
+          className="w-7 h-7 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-amber-400 flex items-center justify-center cursor-pointer"
+        >
+          <SquareTerminal className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
@@ -227,10 +243,29 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   <button
                     type="button"
                     onClick={() => EntropyApiClient.openInTerminal(firstAction.path)}
-                    className="h-8 px-3 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] text-xs flex items-center gap-1.5 cursor-pointer"
+                    title="Open in Windows Terminal"
+                    className="h-8 px-3 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <Terminal className="w-3.5 h-3.5" />
                     Terminal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => EntropyApiClient.openInPowerShell(firstAction.path)}
+                    title="Open in PowerShell"
+                    className="h-8 px-3 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Terminal className="w-3.5 h-3.5 text-sky-400" />
+                    PowerShell
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => EntropyApiClient.openInCmd(firstAction.path)}
+                    title="Open in Command Prompt (CMD)"
+                    className="h-8 px-3 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <SquareTerminal className="w-3.5 h-3.5 text-amber-400" />
+                    CMD
                   </button>
                 </div>
               </>

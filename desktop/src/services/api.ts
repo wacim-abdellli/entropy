@@ -27,6 +27,8 @@ interface PyWebViewApi {
   scan_environment(roots: string[], depth: number): Promise<EnvironmentOverview | string | { error?: string }>;
   open_in_explorer(path: string): Promise<boolean>;
   open_in_terminal(path: string): Promise<boolean>;
+  open_in_powershell?(path: string): Promise<boolean>;
+  open_in_cmd?(path: string): Promise<boolean>;
   pick_folder(): Promise<string | null>;
   terminate_process(pid: number, force: boolean): Promise<ActionResult | string>;
   free_port(port: number, force: boolean): Promise<ActionResult | string>;
@@ -212,6 +214,50 @@ export class EntropyApiClient {
   }
 
   /**
+   * Open path in native Windows PowerShell.
+   */
+  static async openInPowerShell(path: string): Promise<void> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.open_in_powershell) {
+          await bridgeWindow()!.pywebview!.api!.open_in_powershell!(path);
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to open PowerShell via direct pywebview API:', err);
+      }
+    }
+
+    try {
+      await EntropyApiClient.launchIde(path, 'powershell');
+    } catch (err) {
+      console.warn('Failed to open PowerShell via launchIde:', err);
+    }
+  }
+
+  /**
+   * Open path in native Windows Command Prompt (cmd.exe).
+   */
+  static async openInCmd(path: string): Promise<void> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.open_in_cmd) {
+          await bridgeWindow()!.pywebview!.api!.open_in_cmd!(path);
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to open CMD via direct pywebview API:', err);
+      }
+    }
+
+    try {
+      await EntropyApiClient.launchIde(path, 'cmd');
+    } catch (err) {
+      console.warn('Failed to open CMD via launchIde:', err);
+    }
+  }
+
+  /**
    * Pick folder using native Windows dialog.
    */
   static async pickFolder(): Promise<string | null> {
@@ -311,7 +357,7 @@ export class EntropyApiClient {
         console.warn('Failed to detect launchers:', err);
       }
     }
-    return { explorer: true, terminal: true, code: true, cursor: true };
+    return { explorer: true, terminal: true, powershell: true, cmd: true, code: true, cursor: true };
   }
 
   /**

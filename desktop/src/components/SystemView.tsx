@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, Terminal, X, XCircle } from 'lucide-react';
+import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, Terminal, SquareTerminal, X, XCircle } from 'lucide-react';
 import { CacheConnection, DockerConnection, ProcessConnection, RuntimeConnection, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
@@ -286,12 +286,30 @@ export const SystemView: React.FC<SystemViewProps> = ({
                   <div className="flex justify-end gap-1">
                     <button
                       type="button"
-                      title="Open terminal here"
+                      title="Open Windows Terminal here"
                       disabled={!process.cwd}
                       onClick={() => process.cwd && EntropyApiClient.openInTerminal(process.cwd)}
                       className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-white hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
                     >
                       <Terminal className="w-3.5 h-3.5 mx-auto" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Open PowerShell here"
+                      disabled={!process.cwd}
+                      onClick={() => process.cwd && EntropyApiClient.openInPowerShell(process.cwd)}
+                      className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-sky-400 hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
+                    >
+                      <Terminal className="w-3.5 h-3.5 mx-auto" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Open Command Prompt (CMD) here"
+                      disabled={!process.cwd}
+                      onClick={() => process.cwd && EntropyApiClient.openInCmd(process.cwd)}
+                      className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-amber-400 hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
+                    >
+                      <SquareTerminal className="w-3.5 h-3.5 mx-auto" />
                     </button>
                     <button
                       type="button"

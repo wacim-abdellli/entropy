@@ -4,6 +4,7 @@ import {
   GitBranch,
   Code2,
   Terminal,
+  SquareTerminal,
   FolderOpen,
   ExternalLink,
   RefreshCw,
@@ -457,10 +458,29 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               <button
                 type="button"
                 onClick={() => EntropyApiClient.openInTerminal(workspace.path)}
+                title="Open in Windows Terminal"
                 className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
               >
                 <Terminal className="w-4 h-4" />
                 Terminal
+              </button>
+              <button
+                type="button"
+                onClick={() => EntropyApiClient.openInPowerShell(workspace.path)}
+                title="Open in PowerShell"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
+              >
+                <Terminal className="w-4 h-4 text-sky-400" />
+                PowerShell
+              </button>
+              <button
+                type="button"
+                onClick={() => EntropyApiClient.openInCmd(workspace.path)}
+                title="Open in Command Prompt (CMD)"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
+              >
+                <SquareTerminal className="w-4 h-4 text-amber-400" />
+                CMD
               </button>
               <button
                 type="button"
@@ -675,10 +695,29 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                           <button
                             type="button"
                             onClick={() => EntropyApiClient.openInTerminal(proc.cwd!)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
+                            title="Open Windows Terminal in this directory"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
                           >
                             <Terminal className="w-3 h-3" />
                             Terminal Here
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => EntropyApiClient.openInPowerShell(proc.cwd!)}
+                            title="Open PowerShell in this directory"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Terminal className="w-3 h-3 text-sky-400" />
+                            PowerShell
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => EntropyApiClient.openInCmd(proc.cwd!)}
+                            title="Open Command Prompt (CMD) in this directory"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
+                          >
+                            <SquareTerminal className="w-3 h-3 text-amber-400" />
+                            CMD
                           </button>
                           <button
                             type="button"

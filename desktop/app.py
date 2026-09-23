@@ -129,23 +129,58 @@ class EntropyDesktopApi:
     def open_in_terminal(self, path: str) -> bool:
         """Open the specified folder in Windows Terminal or PowerShell."""
         abs_path = os.path.abspath(path)
+        if not os.path.isdir(abs_path):
+            abs_path = os.path.dirname(abs_path)
+        if not os.path.exists(abs_path):
+            return False
+
+        flags = subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0
         try:
             # Try Windows Terminal first (wt.exe)
-            try:
-                subprocess.Popen(["wt.exe", "-d", abs_path])
+            if shutil.which("wt"):
+                subprocess.Popen(["wt.exe", "-d", abs_path], cwd=abs_path, creationflags=flags)
                 return True
-            except FileNotFoundError:
-                pass
 
             # Fall back to PowerShell
-            subprocess.Popen([
-                "powershell.exe",
-                "-NoExit",
-                "-Command",
-                f"Set-Location -LiteralPath '{abs_path}'"
-            ])
+            ps_bin = shutil.which("powershell") or "powershell.exe"
+            subprocess.Popen([ps_bin, "-NoExit"], cwd=abs_path, creationflags=flags)
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to open in Terminal: {e}")
+            return False
+
+    def open_in_powershell(self, path: str) -> bool:
+        """Open the specified folder in native Windows PowerShell."""
+        abs_path = os.path.abspath(path)
+        if not os.path.isdir(abs_path):
+            abs_path = os.path.dirname(abs_path)
+        if not os.path.exists(abs_path):
+            return False
+
+        flags = subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0
+        try:
+            ps_bin = shutil.which("powershell") or "powershell.exe"
+            subprocess.Popen([ps_bin, "-NoExit"], cwd=abs_path, creationflags=flags)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to open in PowerShell: {e}")
+            return False
+
+    def open_in_cmd(self, path: str) -> bool:
+        """Open the specified folder in native Windows Command Prompt."""
+        abs_path = os.path.abspath(path)
+        if not os.path.isdir(abs_path):
+            abs_path = os.path.dirname(abs_path)
+        if not os.path.exists(abs_path):
+            return False
+
+        flags = subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0
+        try:
+            cmd_bin = shutil.which("cmd") or "cmd.exe"
+            subprocess.Popen([cmd_bin], cwd=abs_path, creationflags=flags)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to open in CMD: {e}")
             return False
 
     def pick_folder(self) -> Optional[str]:
