@@ -91,19 +91,75 @@ const isTauri = (): boolean => {
 };
 
 const isPyWebView = (): boolean => {
-  return Boolean(bridgeWindow()?.pywebview?.api);
+  const api = bridgeWindow()?.pywebview?.api;
+  return Boolean(api && typeof api.scan_environment === 'function');
 };
 
-const waitForPyWebView = async (timeoutMs = 1500): Promise<boolean> => {
+let pywebviewReadyPromise: Promise<boolean> | null = null;
+
+const waitForPyWebView = async (timeoutMs = 10000): Promise<boolean> => {
   const win = bridgeWindow();
   if (!win) return false;
-  if (win.pywebview?.api) return true;
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    if (win.pywebview?.api) return true;
-    await new Promise((r) => setTimeout(r, 50));
+  if (isPyWebView()) return true;
+
+  if (!pywebviewReadyPromise) {
+    pywebviewReadyPromise = new Promise<boolean>((resolve) => {
+      if (isPyWebView()) {
+        resolve(true);
+        return;
+      }
+
+      let resolved = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let interval: ReturnType<typeof setInterval> | undefined;
+
+      const done = (val: boolean) => {
+        if (!resolved) {
+          resolved = true;
+          win.removeEventListener('pywebviewready', onReady);
+          if (interval) clearInterval(interval);
+          if (timer) clearTimeout(timer);
+          resolve(val);
+        }
+      };
+
+      const onReady = () => {
+        if (isPyWebView()) {
+          done(true);
+        }
+      };
+
+      win.addEventListener('pywebviewready', onReady);
+
+      const startTime = Date.now();
+      interval = setInterval(() => {
+        if (isPyWebView()) {
+          done(true);
+          return;
+        }
+
+        // If after 1000ms there is no trace of pywebview or webview2 runtime,
+        // assume we are in a pure standalone browser and don't stall for the full 10s.
+        const elapsed = Date.now() - startTime;
+        const hasPyWebViewContainer = Boolean(win.pywebview);
+        const hasWebView2 = Boolean((win as unknown as { chrome?: { webview?: unknown } })?.chrome?.webview);
+
+        if (elapsed > 1000 && !hasPyWebViewContainer && !hasWebView2) {
+          done(false);
+        }
+      }, 40);
+
+      timer = setTimeout(() => {
+        done(isPyWebView());
+      }, timeoutMs);
+    });
   }
-  return Boolean(win.pywebview?.api);
+
+  const isReady = await pywebviewReadyPromise;
+  if (!isReady) {
+    pywebviewReadyPromise = null;
+  }
+  return isReady;
 };
 
 export class EntropyApiClient {
@@ -121,12 +177,15 @@ export class EntropyApiClient {
     }
 
     if (await waitForPyWebView()) {
-      const res = await bridgeWindow()!.pywebview!.api!.inspect_workspace(path);
-      const parsed = parseBridgeResponse<WorkspaceInspection & { error?: string }>(res as WorkspaceInspection | string);
-      if (parsed?.error) {
-        throw new Error(parsed.error);
+      const api = bridgeWindow()?.pywebview?.api;
+      if (api && typeof api.inspect_workspace === 'function') {
+        const res = await api.inspect_workspace(path);
+        const parsed = parseBridgeResponse<WorkspaceInspection & { error?: string }>(res as WorkspaceInspection | string);
+        if (parsed?.error) {
+          throw new Error(parsed.error);
+        }
+        return parsed;
       }
-      return parsed;
     }
 
     // Try local dev server API if available
@@ -166,13 +225,16 @@ export class EntropyApiClient {
     }
 
     if (await waitForPyWebView()) {
-      const rootsArg = roots !== undefined ? roots : null;
-      const res = await bridgeWindow()!.pywebview!.api!.scan_environment(rootsArg as any, depth);
-      const parsed = parseBridgeResponse<EnvironmentOverview & { error?: string }>(res as EnvironmentOverview | string);
-      if (parsed?.error) {
-        throw new Error(parsed.error);
+      const api = bridgeWindow()?.pywebview?.api;
+      if (api && typeof api.scan_environment === 'function') {
+        const rootsArg = roots !== undefined ? roots : null;
+        const res = await api.scan_environment(rootsArg as any, depth);
+        const parsed = parseBridgeResponse<EnvironmentOverview & { error?: string }>(res as EnvironmentOverview | string);
+        if (parsed?.error) {
+          throw new Error(parsed.error);
+        }
+        return parsed;
       }
-      return parsed;
     }
 
     // Try local dev server API if available

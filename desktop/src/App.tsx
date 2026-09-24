@@ -152,28 +152,38 @@ export function App() {
     return list[0] || null;
   }, [overview?.workspaces, currentWorkspacePath]);
 
-  const loadEnvironment = useCallback(async (customRoots?: string[]) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const rootsToScan = customRoots !== undefined ? customRoots : scanRoots;
-      const data = await EntropyApiClient.scanEnvironment(rootsToScan);
-      setOverview(data);
+  const loadEnvironment = useCallback(
+    async function fetchEnv(customRoots?: string[], attempt = 1): Promise<void> {
+      setIsLoading(true);
+      setError(null);
       try {
-        localStorage.setItem('entropy_cached_overview', JSON.stringify(data));
-      } catch {}
-    } catch (err: unknown) {
-      console.error('Failed to load environment:', err);
-      setError({
-        title: 'Engine unavailable',
-        message: 'Could not connect to the local Entropy engine.',
-        details: errorMessage(err),
-        onRetry: () => loadEnvironment(customRoots),
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [scanRoots]);
+        const rootsToScan = customRoots !== undefined ? customRoots : scanRoots;
+        const data = await EntropyApiClient.scanEnvironment(rootsToScan);
+        setOverview(data);
+        try {
+          localStorage.setItem('entropy_cached_overview', JSON.stringify(data));
+        } catch {}
+      } catch (err: unknown) {
+        if (attempt < 2) {
+          console.warn(`Initial environment scan attempt ${attempt} failed, retrying in 400ms...`, err);
+          await new Promise((r) => setTimeout(r, 400));
+          return fetchEnv(customRoots, attempt + 1);
+        }
+        console.error('Failed to load environment:', err);
+        setError({
+          title: 'Engine unavailable',
+          message: 'Could not connect to the local Entropy engine.',
+          details: errorMessage(err),
+          onRetry: () => {
+            void fetchEnv(customRoots);
+          },
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [scanRoots]
+  );
 
   const handleSelectWorkspace = useCallback(async (path: string) => {
     setSelectedWorkspacePath(path);
