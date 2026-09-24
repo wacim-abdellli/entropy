@@ -302,7 +302,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       </div>
 
       {/* ── Tab Content Area ── */}
-      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-8 py-6 space-y-6 w-full max-w-full min-w-0">
 
         {/* ═══ TAB 1: Project Artifacts ═══ */}
         {activeTab === 'artifacts' && (

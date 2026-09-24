@@ -167,7 +167,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-8 space-y-12">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8 space-y-12 w-full max-w-full min-w-0">
         
         {/* Scan Directories Section */}
         <section className="max-w-3xl">

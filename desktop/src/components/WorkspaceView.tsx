@@ -424,7 +424,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-full">
         {actionResult && (
           <div className="sticky top-0 z-20 px-6 pt-3 pb-1">
             <div
@@ -457,7 +457,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             </div>
           </div>
         )}
-        <div className="max-w-6xl mx-auto px-7 py-6 space-y-5">
+        <div className="w-full max-w-6xl mx-auto px-4 sm:px-7 py-6 space-y-5 min-w-0">
 
           {/* ── Header Card ── */}
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg p-5">

@@ -513,7 +513,7 @@ export function App() {
         onBackToOverview={handleBackToOverview}
       />
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
         <ErrorBoundary>
           {renderMainContent()}
         </ErrorBoundary>

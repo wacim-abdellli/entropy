@@ -132,7 +132,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
   );
 
   return (
-    <div className="flex-1 h-full overflow-y-auto bg-[var(--color-surface-0)] animate-enter">
+    <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full max-w-full bg-[var(--color-surface-0)] animate-enter">
       {notice && (
         <div className="fixed z-50 right-6 top-5 px-3 py-2 rounded-md bg-[var(--color-surface-3)] border border-[var(--color-border-strong)] text-xs text-[var(--color-text-primary)] shadow-xl animate-in fade-in">
           {notice}
