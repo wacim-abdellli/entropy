@@ -183,6 +183,21 @@ class EntropyDesktopApi:
             logger.error(f"Failed to open in CMD: {e}")
             return False
 
+    def open_url(self, url: str) -> bool:
+        """Open a URL (e.g. http://localhost:3000) in the user's default browser."""
+        import webbrowser
+        try:
+            clean_url = (url or "").strip()
+            if not clean_url:
+                return False
+            if not (clean_url.startswith("http://") or clean_url.startswith("https://")):
+                clean_url = f"http://{clean_url}"
+            webbrowser.open(clean_url)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to open URL {url}: {e}")
+            return False
+
     def pick_folder(self) -> Optional[str]:
         """Open native Windows folder picker dialog."""
         # 1. Native in-process STA Thread with modern Windows FolderBrowserDialog

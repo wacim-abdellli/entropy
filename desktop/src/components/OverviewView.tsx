@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, ArrowUpRight, CircleDot, FolderGit2, FolderOpen, GitBranch, HardDrive, RefreshCw, Terminal, SquareTerminal } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CircleDot, ExternalLink, FolderGit2, FolderOpen, GitBranch, Globe, HardDrive, RefreshCw, SquareTerminal, Terminal } from 'lucide-react';
 import { EnvironmentOverview, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
@@ -60,9 +60,30 @@ function WorkspaceRow({
             </span>
           )}
         </div>
-        <span className="ml-3.5 text-[11px] font-mono text-[var(--color-text-tertiary)]">
-          {typeName(workspace.project_type)}
-        </span>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="ml-3.5 text-[11px] font-mono text-[var(--color-text-tertiary)]">
+            {typeName(workspace.project_type)}
+          </span>
+          {workspace.ports && workspace.ports.length > 0 && (
+            <div className="flex items-center gap-1">
+              {workspace.ports.map((port) => (
+                <span
+                  key={port}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    EntropyApiClient.openUrl(`http://localhost:${port}`);
+                  }}
+                  title={`Open http://localhost:${port} in browser`}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 rounded cursor-pointer transition-colors"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  :{port}
+                  <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </button>
       <span className="truncate font-mono text-xs text-[var(--color-text-secondary)]" title={workspace.path}>
         {workspace.path}
@@ -147,6 +168,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     [overview?.workspaces]
   );
   const firstAction = dirty[0] || running[0] || ordered[0];
+
+  const devServers = useMemo(() => {
+    const list: { workspace: WorkspaceSummary; port: number }[] = [];
+    (overview?.workspaces || []).forEach((w) => {
+      (w.ports || []).forEach((port) => {
+        list.push({ workspace: w, port });
+      });
+    });
+    return list;
+  }, [overview?.workspaces]);
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-[var(--color-surface-0)] animate-enter">
@@ -267,6 +298,19 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     <SquareTerminal className="w-3.5 h-3.5 text-amber-400" />
                     CMD
                   </button>
+                  {firstAction.ports && firstAction.ports.length > 0 && firstAction.ports.map((port) => (
+                    <button
+                      key={port}
+                      type="button"
+                      onClick={() => EntropyApiClient.openUrl(`http://localhost:${port}`)}
+                      title={`Open http://localhost:${port} in default browser`}
+                      className="h-8 px-3 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 hover:bg-emerald-500/30 text-xs flex items-center gap-1.5 cursor-pointer font-medium transition-colors"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>localhost:{port}</span>
+                      <ExternalLink className="w-3 h-3 opacity-70" />
+                    </button>
+                  ))}
                 </div>
               </>
             ) : !overview ? (
@@ -329,6 +373,47 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </button>
           </div>
         </section>
+
+        {devServers.length > 0 && (
+          <section className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{devServers.length} Active Localhost Dev Server{devServers.length > 1 ? 's' : ''}:</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {devServers.map(({ workspace, port }) => (
+                <div
+                  key={`${workspace.id}-${port}`}
+                  className="flex items-center gap-2 bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] px-3 py-1.5 rounded-lg text-xs"
+                >
+                  <span className="font-semibold text-[var(--color-text-primary)]">{workspace.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => EntropyApiClient.openUrl(`http://localhost:${port}`)}
+                    title={`Open http://localhost:${port} in default browser`}
+                    className="inline-flex items-center gap-1 font-mono font-medium text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+                  >
+                    <Globe className="w-3 h-3" />
+                    :{port}
+                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                  </button>
+                  <span className="text-[var(--color-border-subtle)]">|</span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await EntropyApiClient.freePort(port);
+                      onRefresh();
+                    }}
+                    title={`Free port ${port} by terminating owner process`}
+                    className="text-amber-400 hover:text-amber-300 hover:underline cursor-pointer font-medium"
+                  >
+                    Free
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-surface-1)]">
           <div className="px-4 py-3 flex items-center justify-between border-b border-[var(--color-border-subtle)]">

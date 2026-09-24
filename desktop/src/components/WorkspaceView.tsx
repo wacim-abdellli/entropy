@@ -7,6 +7,7 @@ import {
   SquareTerminal,
   FolderOpen,
   ExternalLink,
+  Globe,
   RefreshCw,
   AlertTriangle,
   CheckCircle2,
@@ -172,6 +173,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       document.title = 'Entropy';
     };
   }, [workspace?.name]);
+
+  const activePorts = Array.from(
+    new Set(processes.flatMap((p) => p.ports || []))
+  ).sort((a, b) => a - b);
 
   const status = statusEmoji(
     state.category,
@@ -430,9 +435,32 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             </div>
 
             {/* Status */}
-            <div className="flex items-center gap-2 mb-4">
-              {status.icon}
-              <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                {status.icon}
+                <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
+              </div>
+              {activePorts.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-[var(--color-text-tertiary)] font-medium flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Localhost:
+                  </span>
+                  {activePorts.map((port) => (
+                    <button
+                      key={port}
+                      type="button"
+                      onClick={() => EntropyApiClient.openUrl(`http://localhost:${port}`)}
+                      title={`Open http://localhost:${port} in default browser`}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 rounded-md transition-colors cursor-pointer"
+                    >
+                      <Globe className="w-3 h-3 text-emerald-400" />
+                      :{port}
+                      <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Quick Actions */}
@@ -678,17 +706,28 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
                     <div className="flex flex-wrap items-center gap-2">
                       {proc.ports && proc.ports.length > 0 && proc.ports.map((port) => (
-                        <button
-                          key={port}
-                          type="button"
-                          onClick={() => handleFreePort(proc, port)}
-                          disabled={busyAction === `port-${port}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25 rounded-lg hover:bg-amber-500/20 transition-colors cursor-pointer disabled:opacity-50"
-                          title={`Stop the process listening on port ${port}`}
-                        >
-                          <Zap className="w-3 h-3" />
-                          {busyAction === `port-${port}` ? `Freeing ${port}...` : `Free Port ${port}`}
-                        </button>
+                        <div key={port} className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => EntropyApiClient.openUrl(`http://localhost:${port}`)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/25 transition-colors cursor-pointer"
+                            title={`Open http://localhost:${port} in web browser`}
+                          >
+                            <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>http://localhost:{port}</span>
+                            <ExternalLink className="w-3 h-3 opacity-70" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleFreePort(proc, port)}
+                            disabled={busyAction === `port-${port}`}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25 rounded-lg hover:bg-amber-500/20 transition-colors cursor-pointer disabled:opacity-50"
+                            title={`Stop the process listening on port ${port}`}
+                          >
+                            <Zap className="w-3 h-3" />
+                            {busyAction === `port-${port}` ? `Freeing ${port}...` : `Free Port ${port}`}
+                          </button>
+                        </div>
                       ))}
                       {proc.cwd && (
                         <>

@@ -29,6 +29,7 @@ interface PyWebViewApi {
   open_in_terminal(path: string): Promise<boolean>;
   open_in_powershell?(path: string): Promise<boolean>;
   open_in_cmd?(path: string): Promise<boolean>;
+  open_url?(url: string): Promise<boolean>;
   pick_folder(): Promise<string | null>;
   terminate_process(pid: number, force: boolean): Promise<ActionResult | string>;
   free_port(port: number, force: boolean): Promise<ActionResult | string>;
@@ -254,6 +255,28 @@ export class EntropyApiClient {
       await EntropyApiClient.launchIde(path, 'cmd');
     } catch (err) {
       console.warn('Failed to open CMD via launchIde:', err);
+    }
+  }
+
+  /**
+   * Open a URL (e.g. http://localhost:3000) in the user's default browser.
+   */
+  static async openUrl(url: string): Promise<void> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.open_url) {
+          await bridgeWindow()!.pywebview!.api!.open_url!(url);
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to open URL via pywebview:', err);
+      }
+    }
+
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.warn('Failed to open URL via window.open:', err);
     }
   }
 

@@ -534,6 +534,13 @@ def serialize_environment_overview(
             if r.rel_type == RelationshipType.RUNS_FROM
         ]
 
+        ws_ports: list[int] = []
+        for r in proc_rels:
+            proc_entity = graph.get_entity(r.source_id)
+            if isinstance(proc_entity, Process) and proc_entity.ports:
+                ws_ports.extend(proc_entity.ports)
+        ws_ports = sorted(list(set(ws_ports)))
+
         workspace_cards.append({
             "id": p.entity_id,
             "name": os.path.basename(p.path),
@@ -548,6 +555,7 @@ def serialize_environment_overview(
             "last_commit_timestamp": git_repo.last_commit_timestamp if git_repo else None,
             "has_uncommitted_changes": git_repo.has_uncommitted_changes if git_repo else False,
             "process_count": len(proc_rels),
+            "ports": ws_ports,
         })
 
     # Sort workspaces: attention first, then active, then inactive/paused, then dormant

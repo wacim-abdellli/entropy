@@ -21,6 +21,7 @@ export interface WorkspaceSummary {
   last_commit_timestamp: number | null;
   has_uncommitted_changes: boolean;
   process_count: number;
+  ports?: number[];
 }
 
 export interface WorkspaceDetails {
