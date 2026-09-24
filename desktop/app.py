@@ -321,6 +321,16 @@ class EntropyDesktopApi:
         from core.git_control import safe_stash_workspace
         return safe_stash_workspace(workspace_path, message)
 
+    def add_to_gitignore(self, workspace_path: str, pattern: str = ".env*") -> dict[str, Any]:
+        """Safely append a secret file or pattern to the repository's .gitignore file."""
+        from core.git_control import add_to_gitignore
+        return add_to_gitignore(workspace_path, pattern)
+
+    def prune_merged_branches(self, workspace_path: str, branches: Optional[list[str]] = None) -> dict[str, Any]:
+        """Safely prune local branches already merged into HEAD."""
+        from core.git_control import prune_merged_branches
+        return prune_merged_branches(workspace_path, branches)
+
 
 
 def _run_desktop() -> None:

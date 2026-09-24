@@ -20,6 +20,10 @@ export interface WorkspaceSummary {
   git_remote: string | null;
   last_commit_timestamp: number | null;
   has_uncommitted_changes: boolean;
+  dirty_count?: number;
+  oldest_dirty_timestamp?: number | null;
+  unprotected_env_files?: string[];
+  merged_branches?: string[];
   process_count: number;
   ports?: number[];
 }
@@ -61,6 +65,10 @@ export interface GitConnection {
   is_worktree: boolean;
   worktree_parent_repo: string | null;
   dirty_files?: GitDirtyFile[];
+  dirty_count?: number;
+  oldest_dirty_timestamp?: number | null;
+  unprotected_env_files?: string[];
+  merged_branches?: string[];
 }
 
 export interface ProcessConnection {

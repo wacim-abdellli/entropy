@@ -1,5 +1,22 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, ArrowUpRight, CircleDot, ExternalLink, FolderGit2, FolderOpen, GitBranch, Globe, HardDrive, RefreshCw, SquareTerminal, Terminal, Zap } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  CircleDot,
+  ExternalLink,
+  FolderGit2,
+  FolderOpen,
+  GitBranch,
+  GitMerge,
+  Globe,
+  HardDrive,
+  RefreshCw,
+  Shield,
+  ShieldAlert,
+  SquareTerminal,
+  Terminal,
+  Zap,
+} from 'lucide-react';
 import { EnvironmentOverview, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
@@ -16,6 +33,16 @@ function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function formatWipAge(timestamp: number | null | undefined): string {
+  if (!timestamp) return '';
+  const ts = timestamp > 1e11 ? timestamp / 1000 : timestamp;
+  const seconds = Math.floor(Date.now() / 1000 - ts);
+  const days = Math.floor(seconds / 86400);
+  if (days < 1) return 'today';
+  if (days === 1) return '1 day old';
+  return `${days} days old`;
 }
 
 function typeName(type: string): string {
@@ -60,10 +87,28 @@ function WorkspaceRow({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 mt-0.5">
+        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
           <span className="ml-3.5 text-[11px] font-mono text-[var(--color-text-tertiary)]">
             {typeName(workspace.project_type)}
           </span>
+          {workspace.unprotected_env_files && workspace.unprotected_env_files.length > 0 && (
+            <span
+              title={`Unprotected secrets: ${workspace.unprotected_env_files.join(', ')}`}
+              className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 rounded"
+            >
+              <ShieldAlert className="w-2.5 h-2.5 text-rose-400" />
+              .env
+            </span>
+          )}
+          {workspace.merged_branches && workspace.merged_branches.length > 0 && (
+            <span
+              title={`${workspace.merged_branches.length} merged branch(es) safe to prune`}
+              className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-semibold bg-blue-500/15 text-blue-300 border border-blue-500/30 rounded"
+            >
+              <GitMerge className="w-2.5 h-2.5 text-blue-400" />
+              {workspace.merged_branches.length} merged
+            </span>
+          )}
           {workspace.ports && workspace.ports.length > 0 && (
             <div className="flex items-center gap-1">
               {workspace.ports.map((port) => (
@@ -102,7 +147,7 @@ function WorkspaceRow({
         }`}
       >
         {dirty
-          ? 'Changes to review'
+          ? `${workspace.dirty_count || 1} unsaved file${(workspace.dirty_count || 1) === 1 ? '' : 's'}`
           : running
           ? `${workspace.process_count} process${workspace.process_count === 1 ? '' : 'es'} running`
           : 'No active process'}
@@ -182,6 +227,63 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const [confirmCleanSlate, setConfirmCleanSlate] = useState(false);
   const [cleanSlateLoading, setCleanSlateLoading] = useState(false);
   const [cleanSlateNotice, setCleanSlateNotice] = useState<string | null>(null);
+
+  const [gitNotice, setGitNotice] = useState<string | null>(null);
+  const [gitLoadingPath, setGitLoadingPath] = useState<string | null>(null);
+
+  const secretLeakWorkspaces = useMemo(() => {
+    return (overview?.workspaces || []).filter(
+      (w) => w.unprotected_env_files && w.unprotected_env_files.length > 0
+    );
+  }, [overview?.workspaces]);
+
+  const wipRadarWorkspaces = useMemo(() => {
+    const scanTs = overview?.metadata?.timestamp ? overview.metadata.timestamp / 1000 : 0;
+    return (overview?.workspaces || []).filter((w) => {
+      if (!w.has_uncommitted_changes) return false;
+      if (!w.oldest_dirty_timestamp) return true;
+      const ts = w.oldest_dirty_timestamp > 1e11 ? w.oldest_dirty_timestamp / 1000 : w.oldest_dirty_timestamp;
+      const refTs = scanTs || ts;
+      const days = Math.floor((refTs - ts) / 86400);
+      return days >= 1; // 1+ days old uncommitted changes
+    });
+  }, [overview?.workspaces, overview?.metadata?.timestamp]);
+
+  const handleQuickIgnoreEnv = async (workspacePath: string) => {
+    setGitLoadingPath(workspacePath);
+    try {
+      const res = await EntropyApiClient.addToGitignore(workspacePath, '.env*');
+      if (res.success) {
+        setGitNotice(`Protected secrets: Added .env* to .gitignore`);
+      } else {
+        setGitNotice(res.error || 'Failed to update .gitignore');
+      }
+      onRefresh();
+    } catch {
+      setGitNotice('Failed to update .gitignore');
+    } finally {
+      setGitLoadingPath(null);
+      setTimeout(() => setGitNotice(null), 5000);
+    }
+  };
+
+  const handleQuickStash = async (workspacePath: string) => {
+    setGitLoadingPath(workspacePath);
+    try {
+      const res = await EntropyApiClient.stashWorkspace(workspacePath);
+      if (res.success) {
+        setGitNotice(res.message || 'Safely stashed working tree.');
+      } else {
+        setGitNotice(res.error || 'Failed to stash workspace.');
+      }
+      onRefresh();
+    } catch {
+      setGitNotice('Failed to stash workspace.');
+    } finally {
+      setGitLoadingPath(null);
+      setTimeout(() => setGitNotice(null), 5000);
+    }
+  };
 
   const devProcesses = useMemo(() => {
     const procs = overview?.system?.processes || [];
@@ -476,6 +578,99 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </section>
         )}
 
+        {/* ── Secret Leak Watchdog Banner ── */}
+        {secretLeakWorkspaces.length > 0 && (
+          <section className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-rose-400" />
+                <h3 className="text-xs font-semibold text-rose-300">
+                  Secret Leak Watchdog: {secretLeakWorkspaces.length} workspace{secretLeakWorkspaces.length > 1 ? 's' : ''} have unprotected .env secrets
+                </h3>
+              </div>
+              <span className="text-[11px] text-rose-300/80">Never commit secrets to Git</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {secretLeakWorkspaces.map((w) => (
+                <div
+                  key={w.id}
+                  className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] text-xs"
+                >
+                  <div className="min-w-0 mr-2">
+                    <span className="font-semibold text-[var(--color-text-primary)] block truncate">{w.name}</span>
+                    <span className="font-mono text-[11px] text-rose-400 truncate block">
+                      {w.unprotected_env_files?.join(', ')}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickIgnoreEnv(w.path)}
+                    disabled={gitLoadingPath === w.path}
+                    className="shrink-0 px-2.5 py-1 text-xs font-medium bg-rose-500 hover:bg-rose-600 text-white rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {gitLoadingPath === w.path ? 'Adding...' : 'Add to .gitignore'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── WIP Radar (Work In Progress Safety Net) ── */}
+        {wipRadarWorkspaces.length > 0 && (
+          <section className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <h3 className="text-xs font-semibold text-amber-300">
+                  WIP Radar: Stale uncommitted changes in {wipRadarWorkspaces.length} workspace{wipRadarWorkspaces.length > 1 ? 's' : ''}
+                </h3>
+              </div>
+              <span className="text-[11px] text-amber-300/80">Stash or commit to prevent data loss</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {wipRadarWorkspaces.map((w) => (
+                <div
+                  key={w.id}
+                  className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] text-xs"
+                >
+                  <div className="min-w-0 mr-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-[var(--color-text-primary)] truncate">{w.name}</span>
+                      {w.oldest_dirty_timestamp && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">
+                          {formatWipAge(w.oldest_dirty_timestamp)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-mono text-[11px] text-[var(--color-text-tertiary)] truncate block">
+                      {w.dirty_count || 1} uncommitted file{(w.dirty_count || 1) === 1 ? '' : 's'} on {w.git_branch || 'HEAD'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickStash(w.path)}
+                      disabled={gitLoadingPath === w.path}
+                      title="Safely stash changes"
+                      className="px-2.5 py-1 text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/35 hover:bg-amber-500/30 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {gitLoadingPath === w.path ? 'Stashing...' : 'Safe Stash'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelectWorkspace(w.path)}
+                      className="px-2 py-1 text-xs text-[var(--color-accent-strong)] hover:underline cursor-pointer"
+                    >
+                      Open
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-surface-1)]">
           <div className="px-4 py-3 flex items-center justify-between border-b border-[var(--color-border-subtle)]">
             <div>
@@ -559,6 +754,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <div className="fixed bottom-6 right-6 z-50 bg-[var(--color-surface-2)] border border-emerald-500/30 text-emerald-300 px-4 py-3 rounded-lg shadow-xl text-xs flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
             <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{cleanSlateNotice}</span>
+          </div>
+        )}
+
+        {gitNotice && (
+          <div className="fixed bottom-6 left-6 z-50 bg-[var(--color-surface-2)] border border-[var(--color-accent)]/40 text-[var(--color-text-primary)] px-4 py-3 rounded-lg shadow-xl text-xs flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+            <Shield className="w-4 h-4 text-[var(--color-accent)] shrink-0" />
+            <span>{gitNotice}</span>
           </div>
         )}
 

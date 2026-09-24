@@ -136,3 +136,155 @@ def safe_stash_workspace(workspace_path: str, message: str | None = None) -> Dic
     except Exception as e:
         logger.error("Git stash failed for %s: %s", abs_path, e)
         return {"success": False, "workspace_path": abs_path, "error": str(e)}
+
+
+PROTECTED_BRANCHES = {"main", "master", "dev", "develop", "HEAD", "release", "staging", "production"}
+
+
+def add_to_gitignore(repo_path: str, pattern: str = ".env*") -> Dict[str, Any]:
+    """
+    Safely append a pattern (e.g. '.env*') to the repository's .gitignore file.
+    
+    If the pattern already exists in .gitignore, it is not duplicated.
+    If .gitignore does not exist, it will be created.
+    """
+    if not repo_path or not os.path.exists(repo_path):
+        return {"success": False, "error": f"Path '{repo_path}' does not exist."}
+
+    abs_path = os.path.abspath(repo_path)
+    gitignore_path = os.path.join(abs_path, ".gitignore")
+    pattern_clean = pattern.strip()
+
+    if not pattern_clean:
+        return {"success": False, "error": "Pattern cannot be empty."}
+
+    try:
+        existing_lines = []
+        if os.path.exists(gitignore_path):
+            with open(gitignore_path, "r", encoding="utf-8", errors="replace") as f:
+                existing_lines = f.readlines()
+
+        # Check if pattern or exact match is already in the file
+        for line in existing_lines:
+            stripped = line.strip()
+            if stripped == pattern_clean or stripped == pattern_clean.lstrip("/"):
+                return {
+                    "success": True,
+                    "repo_path": abs_path,
+                    "pattern": pattern_clean,
+                    "message": f"'{pattern_clean}' is already ignored in .gitignore.",
+                }
+
+        # Append pattern cleanly
+        with open(gitignore_path, "a", encoding="utf-8") as f:
+            if existing_lines and not existing_lines[-1].endswith("\n"):
+                f.write("\n")
+            f.write(f"\n# Added by Entropy Git Safety Net\n{pattern_clean}\n")
+
+        return {
+            "success": True,
+            "repo_path": abs_path,
+            "pattern": pattern_clean,
+            "message": f"Added '{pattern_clean}' to .gitignore.",
+        }
+    except Exception as e:
+        logger.error("Failed to update .gitignore for %s: %s", abs_path, e)
+        return {"success": False, "repo_path": abs_path, "error": str(e)}
+
+
+def prune_merged_branches(repo_path: str, branches: list[str] | None = None) -> Dict[str, Any]:
+    """
+    Safely prune local branches that have already been merged into HEAD.
+    
+    Enforces absolute safety:
+    - Never uses 'git branch -D' (only safe 'git branch -d')
+    - Never prunes current checked-out branch
+    - Never prunes protected branches (main, master, dev, develop, etc.)
+    """
+    if not repo_path or not os.path.exists(repo_path):
+        return {"success": False, "error": f"Path '{repo_path}' does not exist."}
+
+    abs_path = os.path.abspath(repo_path)
+    git_dir = os.path.join(abs_path, ".git")
+    if not os.path.exists(git_dir):
+        return {"success": False, "error": f"Path '{abs_path}' is not a Git repository."}
+
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    base_cmd = ["git", "-C", abs_path, "-c", "core.autocrlf=false"]
+
+    try:
+        # Determine current branch
+        curr_res = subprocess.run(
+            base_cmd + ["branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=creationflags,
+        )
+        current_branch = curr_res.stdout.strip()
+
+        target_branches: list[str] = []
+        if branches is not None:
+            for b in branches:
+                clean_b = b.strip()
+                if clean_b and clean_b not in PROTECTED_BRANCHES and clean_b != current_branch:
+                    target_branches.append(clean_b)
+        else:
+            # Query merged branches from git
+            merged_res = subprocess.run(
+                base_cmd + ["branch", "--merged"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                creationflags=creationflags,
+            )
+            if merged_res.returncode == 0:
+                for line in merged_res.stdout.splitlines():
+                    cleaned = line.strip().lstrip("*").strip()
+                    if (
+                        cleaned
+                        and cleaned not in PROTECTED_BRANCHES
+                        and cleaned != current_branch
+                        and not cleaned.startswith("(HEAD")
+                    ):
+                        target_branches.append(cleaned)
+
+        if not target_branches:
+            return {
+                "success": True,
+                "repo_path": abs_path,
+                "pruned": [],
+                "failed": [],
+                "message": "No merged branches to prune.",
+            }
+
+        pruned: list[str] = []
+        failed: list[dict[str, str]] = []
+
+        for b in target_branches:
+            del_res = subprocess.run(
+                base_cmd + ["branch", "-d", b],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                creationflags=creationflags,
+            )
+            if del_res.returncode == 0:
+                pruned.append(b)
+            else:
+                err_msg = _clean_git_error(del_res.stderr, del_res.stdout)
+                failed.append({"branch": b, "error": err_msg or "Failed to delete branch."})
+
+        return {
+            "success": len(failed) == 0,
+            "repo_path": abs_path,
+            "pruned": pruned,
+            "failed": failed,
+            "message": f"Successfully pruned {len(pruned)} merged branch(es)."
+            if not failed
+            else f"Pruned {len(pruned)} branch(es), {len(failed)} failed.",
+        }
+
+    except Exception as e:
+        logger.error("Failed to prune merged branches in %s: %s", abs_path, e)
+        return {"success": False, "repo_path": abs_path, "error": str(e)}

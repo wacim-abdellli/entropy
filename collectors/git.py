@@ -150,13 +150,23 @@ def collect_git_repository(repo_path: str) -> Optional[GitRepository]:
     if status_out is not None:
         lines = [l for l in status_out.splitlines() if l.strip()]
         repo.has_uncommitted_changes = len(lines) > 0
+        repo.dirty_count = len(lines)
         dirty: list[dict[str, str]] = []
-        for line in lines[:10]:
+        oldest_ts: Optional[float] = None
+        for line in lines[:20]:
             parts = line.split(None, 1)
             if len(parts) != 2:
                 continue
             code, path_str = parts[0], parts[1].strip().strip('"')
             path_str = path_str.replace("\\", "/")
+            full_file_path = os.path.join(repo_path, path_str.replace("/", os.sep))
+            if os.path.exists(full_file_path):
+                try:
+                    mtime = os.path.getmtime(full_file_path)
+                    if oldest_ts is None or mtime < oldest_ts:
+                        oldest_ts = mtime
+                except OSError:
+                    pass
             if "??" in code:
                 status_type = "untracked"
             elif "D" in code:
@@ -169,8 +179,33 @@ def collect_git_repository(repo_path: str) -> Optional[GitRepository]:
                 status_type = "modified"
             dirty.append({"status": status_type, "path": path_str})
         repo.dirty_files = dirty
+        repo.oldest_dirty_timestamp = oldest_ts
 
-    # 8. Remotes - extract hostname only for privacy
+    # 8. Secret leak watchdog: detect unignored .env files
+    potential_envs = [".env", ".env.local", ".env.development", ".env.production", ".env.staging"]
+    unprotected = []
+    for env_name in potential_envs:
+        env_full = os.path.join(repo_path, env_name)
+        if os.path.isfile(env_full):
+            ignored = _run_git_command(repo_path, ["check-ignore", env_name])
+            if not ignored:
+                unprotected.append(env_name)
+    repo.unprotected_env_files = unprotected
+
+    # 9. Merged local branches (safe to prune)
+    merged_out = _run_git_command(repo_path, ["branch", "--merged"])
+    if merged_out:
+        merged_list = []
+        protected_branches = {"main", "master", "dev", "develop", "HEAD"}
+        for line in merged_out.splitlines():
+            cleaned = line.strip().lstrip("*").strip()
+            if cleaned and cleaned not in protected_branches and not cleaned.startswith("(HEAD"):
+                if repo.current_branch and cleaned == repo.current_branch:
+                    continue
+                merged_list.append(cleaned)
+        repo.merged_branches = merged_list
+
+    # 10. Remotes - extract hostname only for privacy
     remotes_out = _run_git_command(repo_path, ["remote"])
     if remotes_out:
         first_remote = remotes_out.splitlines()[0].strip()

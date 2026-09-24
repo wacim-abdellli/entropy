@@ -554,6 +554,10 @@ def serialize_environment_overview(
             "git_remote": git_repo.remote_repo_id if git_repo else None,
             "last_commit_timestamp": git_repo.last_commit_timestamp if git_repo else None,
             "has_uncommitted_changes": git_repo.has_uncommitted_changes if git_repo else False,
+            "dirty_count": getattr(git_repo, "dirty_count", 0) if git_repo else 0,
+            "oldest_dirty_timestamp": getattr(git_repo, "oldest_dirty_timestamp", None) if git_repo else None,
+            "unprotected_env_files": getattr(git_repo, "unprotected_env_files", []) if git_repo else [],
+            "merged_branches": getattr(git_repo, "merged_branches", []) if git_repo else [],
             "process_count": len(proc_rels),
             "ports": ws_ports,
         })

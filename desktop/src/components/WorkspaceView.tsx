@@ -17,6 +17,8 @@ import {
   FileText,
   Zap,
   Shield,
+  ShieldAlert,
+  GitMerge,
   Copy,
   Check,
   XCircle,
@@ -244,6 +246,48 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       setActionResult({ type: 'error', text: errorMessage(err) });
     } finally {
       setBusyAction(null);
+      setTimeout(() => setActionResult(null), 4500);
+    }
+  };
+
+  const [gitActionLoading, setGitActionLoading] = useState(false);
+
+  const handleAddToGitignore = async (pattern = '.env*') => {
+    setGitActionLoading(true);
+    setActionResult(null);
+    try {
+      const res = await EntropyApiClient.addToGitignore(workspace.path, pattern);
+      setActionResult({
+        type: res.success ? 'success' : 'error',
+        text: res.success ? (res.message || `Added ${pattern} to .gitignore`) : (res.error || 'Failed to update .gitignore'),
+      });
+      if (res.success) {
+        await onActionComplete?.();
+      }
+    } catch (err: unknown) {
+      setActionResult({ type: 'error', text: errorMessage(err) });
+    } finally {
+      setGitActionLoading(false);
+      setTimeout(() => setActionResult(null), 4500);
+    }
+  };
+
+  const handlePruneMergedBranches = async (branches?: string[]) => {
+    setGitActionLoading(true);
+    setActionResult(null);
+    try {
+      const res = await EntropyApiClient.pruneMergedBranches(workspace.path, branches);
+      setActionResult({
+        type: res.success ? 'success' : 'error',
+        text: res.success ? (res.message || 'Pruned merged branches.') : (res.error || 'Failed to prune branches.'),
+      });
+      if (res.success) {
+        await onActionComplete?.();
+      }
+    } catch (err: unknown) {
+      setActionResult({ type: 'error', text: errorMessage(err) });
+    } finally {
+      setGitActionLoading(false);
       setTimeout(() => setActionResult(null), 4500);
     }
   };
@@ -590,6 +634,62 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   )}
                 </div>
 
+                {/* Secret Leak Warning */}
+                {git.unprotected_env_files && git.unprotected_env_files.length > 0 && (
+                  <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 flex items-center justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <ShieldAlert className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold text-rose-300">
+                          Secret Leak Alert: Unprotected {git.unprotected_env_files.join(', ')}
+                        </div>
+                        <div className="text-[11px] text-rose-200/80 mt-0.5">
+                          This environment file is NOT ignored by Git and could accidentally be committed to version control.
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAddToGitignore('.env*')}
+                      disabled={gitActionLoading}
+                      className="shrink-0 px-2.5 py-1 text-xs font-medium bg-rose-500 hover:bg-rose-600 text-white rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {gitActionLoading ? 'Adding...' : 'Add to .gitignore'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Merged Branches */}
+                {git.merged_branches && git.merged_branches.length > 0 && (
+                  <div className="bg-blue-500/10 border border-blue-500/25 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-blue-300">
+                        <GitMerge className="w-3.5 h-3.5 text-blue-400" />
+                        <span>{git.merged_branches.length} Merged Branch{git.merged_branches.length > 1 ? 'es' : ''} (Safe to prune)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handlePruneMergedBranches(git.merged_branches)}
+                        disabled={gitActionLoading}
+                        className="px-2.5 py-1 text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/40 hover:bg-blue-500/30 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {gitActionLoading ? 'Pruning...' : 'Prune Merged Branches'}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {git.merged_branches.map((b) => (
+                        <span
+                          key={b}
+                          className="inline-flex items-center gap-1 font-mono text-[11px] px-2 py-0.5 rounded bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)]"
+                        >
+                          <GitBranch className="w-3 h-3 text-[var(--color-text-tertiary)]" />
+                          {b}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Dirty files */}
                 {dirtyFiles.length > 0 && (
                   <div className="pt-3 border-t border-[var(--color-border-subtle)]">
@@ -597,6 +697,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                       <span className="text-sm font-medium text-amber-400 flex items-center gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5" />
                         {dirtyFiles.length} unsaved file{dirtyFiles.length > 1 ? 's' : ''}
+                        {git.oldest_dirty_timestamp && (
+                          <span className="text-xs font-normal text-amber-300/80">
+                            (oldest {formatTimeAgo(git.oldest_dirty_timestamp)})
+                          </span>
+                        )}
                       </span>
                       <button
                         type="button"

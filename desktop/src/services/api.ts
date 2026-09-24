@@ -40,6 +40,8 @@ interface PyWebViewApi {
   detect_launchers(): Promise<Record<string, boolean> | string>;
   launch_ide(workspacePath: string, editorId: string): Promise<ActionResult | string>;
   stash_workspace(workspacePath: string, message?: string): Promise<ActionResult | string>;
+  add_to_gitignore?(workspace_path: string, pattern?: string): Promise<ActionResult | string>;
+  prune_merged_branches?(workspace_path: string, branches?: string[]): Promise<ActionResult & { pruned?: string[]; failed?: { branch: string; error: string }[] } | string>;
 }
 
 interface EntropyWindow extends Window {
@@ -465,6 +467,45 @@ export class EntropyApiClient {
       ],
       errors: [],
     };
+  }
+
+  /**
+   * Safely append a secret file or pattern to the repository's .gitignore file.
+   */
+  static async addToGitignore(workspacePath: string, pattern = '.env*'): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.add_to_gitignore) {
+          const res = await bridgeWindow()!.pywebview!.api!.add_to_gitignore!(workspacePath, pattern);
+          return parseBridgeResponse<ActionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    console.log('[Dev Bridge] Adding to .gitignore:', pattern, 'for', workspacePath);
+    return { success: true, message: `Added '${pattern}' to .gitignore.` };
+  }
+
+  /**
+   * Safely prune local branches already merged into HEAD (uses safe 'git branch -d').
+   */
+  static async pruneMergedBranches(
+    workspacePath: string,
+    branches?: string[]
+  ): Promise<ActionResult & { pruned?: string[]; failed?: { branch: string; error: string }[] }> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.prune_merged_branches) {
+          const res = await bridgeWindow()!.pywebview!.api!.prune_merged_branches!(workspacePath, branches);
+          return parseBridgeResponse<ActionResult & { pruned?: string[]; failed?: { branch: string; error: string }[] }>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err), pruned: [], failed: [] };
+      }
+    }
+    console.log('[Dev Bridge] Pruning merged branches for:', workspacePath, branches);
+    return { success: true, message: 'Pruned merged branches.', pruned: branches || ['feature/old-auth'], failed: [] };
   }
 
 }

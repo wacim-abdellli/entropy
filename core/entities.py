@@ -117,6 +117,10 @@ class GitRepository(Entity):
     is_worktree: bool = False                    # True if .git is a worktree pointer file
     worktree_parent_repo: Optional[str] = None   # Path to parent git repository if worktree
     dirty_files: list[dict[str, str]] = field(default_factory=list)  # Top uncommitted file paths and statuses
+    dirty_count: int = 0                         # Total uncommitted files count
+    oldest_dirty_timestamp: Optional[float] = None  # Oldest mtime among uncommitted files
+    unprotected_env_files: list[str] = field(default_factory=list)  # .env files not ignored by git
+    merged_branches: list[str] = field(default_factory=list)  # Local branches already merged into HEAD
 
 
 # ---------------------------------------------------------------------------
