@@ -341,11 +341,11 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                     <div
                       key={artifact.path}
                       onClick={() => handleToggleArtifact(artifact.path)}
-                      className={`flex items-center justify-between p-3.5 rounded-xl border-l-4 cursor-pointer transition-all ${
+                      className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all border ${
                         isSelected
-                          ? 'bg-[var(--color-surface-2)] border-l-emerald-500'
-                          : 'bg-[var(--color-surface-1)] border-l-emerald-500/30 hover:bg-[var(--color-surface-2)]'
-                      } border border-[var(--color-border)]`}
+                          ? 'bg-[var(--color-surface-2)] border-emerald-500/50 shadow-sm'
+                          : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
+                      }`}
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div
@@ -419,11 +419,11 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                     <div
                       key={cache.path}
                       onClick={() => handleToggleCache(cache.path)}
-                      className={`flex items-center justify-between p-3.5 rounded-xl border-l-4 cursor-pointer transition-all ${
+                      className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all border ${
                         isSelected
-                          ? 'bg-[var(--color-surface-2)] border-l-blue-500'
-                          : 'bg-[var(--color-surface-1)] border-l-blue-500/30 hover:bg-[var(--color-surface-2)]'
-                      } border border-[var(--color-border)]`}
+                          ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)]/50 shadow-sm'
+                          : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
+                      }`}
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div
