@@ -331,6 +331,26 @@ class EntropyDesktopApi:
         from core.git_control import prune_merged_branches
         return prune_merged_branches(workspace_path, branches)
 
+    def get_docker_system_df(self) -> dict[str, Any]:
+        """Inspect Docker disk space usage breakdown (images, containers, build cache)."""
+        from core.docker_control import get_docker_disk_usage
+        return get_docker_disk_usage()
+
+    def prune_docker_resources(self, target: str = "builder") -> dict[str, Any]:
+        """Safely prune Docker resources ('builder', 'dangling_images', 'system')."""
+        from core.docker_control import prune_docker_resources
+        return prune_docker_resources(target=target)
+
+    def get_purgeable_caches(self) -> list[dict[str, Any]]:
+        """Get discovered global developer package caches (pip, npm, yarn, cargo, gradle, nuget)."""
+        from core.cache_cleaner import get_known_cache_targets
+        return get_known_cache_targets()
+
+    def purge_caches(self, targets: list[str]) -> dict[str, Any]:
+        """Safely purge selected global package manager caches."""
+        from core.cache_cleaner import purge_multiple_caches
+        return purge_multiple_caches(targets)
+
 
 
 def _run_desktop() -> None:

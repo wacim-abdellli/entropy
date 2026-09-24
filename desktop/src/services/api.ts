@@ -1,4 +1,13 @@
-import { CleanSlateCandidate, CleanSlateResult, EnvironmentOverview, WorkspaceInspection } from '../types/entropy';
+import {
+  CachePurgeResult,
+  CleanSlateCandidate,
+  CleanSlateResult,
+  DockerDiskUsage,
+  DockerPruneResult,
+  EnvironmentOverview,
+  GlobalCacheItem,
+  WorkspaceInspection,
+} from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
   MOCK_ENTROPY_INSPECTION,
@@ -42,6 +51,10 @@ interface PyWebViewApi {
   stash_workspace(workspacePath: string, message?: string): Promise<ActionResult | string>;
   add_to_gitignore?(workspace_path: string, pattern?: string): Promise<ActionResult | string>;
   prune_merged_branches?(workspace_path: string, branches?: string[]): Promise<ActionResult & { pruned?: string[]; failed?: { branch: string; error: string }[] } | string>;
+  get_docker_system_df?(): Promise<DockerDiskUsage | string>;
+  prune_docker_resources?(target: string): Promise<DockerPruneResult | string>;
+  get_purgeable_caches?(): Promise<GlobalCacheItem[] | string>;
+  purge_caches?(targets: string[]): Promise<CachePurgeResult | string>;
 }
 
 interface EntropyWindow extends Window {
@@ -506,6 +519,94 @@ export class EntropyApiClient {
     }
     console.log('[Dev Bridge] Pruning merged branches for:', workspacePath, branches);
     return { success: true, message: 'Pruned merged branches.', pruned: branches || ['feature/old-auth'], failed: [] };
+  }
+
+  /**
+   * Query Docker disk space breakdown (images, containers, volumes, build cache).
+   */
+  static async getDockerDiskUsage(): Promise<DockerDiskUsage> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_docker_system_df) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_docker_system_df!();
+          return parseBridgeResponse<DockerDiskUsage>(res);
+        }
+      } catch (err) {
+        console.warn('Failed to query Docker disk usage:', err);
+      }
+    }
+    return {
+      available: false,
+      message: 'Docker daemon is not running or CLI not installed.',
+      items: [],
+      total_size_bytes: 0,
+      reclaimable_bytes: 0,
+    };
+  }
+
+  /**
+   * Safely prune Docker resources ('builder', 'dangling_images', 'system').
+   */
+  static async pruneDocker(target: 'builder' | 'dangling_images' | 'system' = 'builder'): Promise<DockerPruneResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.prune_docker_resources) {
+          const res = await bridgeWindow()!.pywebview!.api!.prune_docker_resources!(target);
+          return parseBridgeResponse<DockerPruneResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    console.log('[Dev Bridge] Pruning Docker target:', target);
+    return { success: true, target, message: `Pruned Docker ${target}.` };
+  }
+
+  /**
+   * Get discovered global developer package caches (pip, npm, yarn, cargo, gradle, nuget).
+   */
+  static async getPurgeableCaches(): Promise<GlobalCacheItem[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_purgeable_caches) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_purgeable_caches!();
+          return parseBridgeResponse<GlobalCacheItem[]>(res);
+        }
+      } catch (err) {
+        console.warn('Failed to get purgeable caches:', err);
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Safely purge selected global package manager caches.
+   */
+  static async purgeCaches(targets: string[]): Promise<CachePurgeResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.purge_caches) {
+          const res = await bridgeWindow()!.pywebview!.api!.purge_caches!(targets);
+          return parseBridgeResponse<CachePurgeResult>(res);
+        }
+      } catch (err: unknown) {
+        return {
+          success: false,
+          total_freed_bytes: 0,
+          success_count: 0,
+          failed_count: targets.length,
+          results: targets.map((t) => ({ success: false, id: t, label: t, path: t, freed_bytes: 0, error: errorMessage(err) })),
+        };
+      }
+    }
+    console.log('[Dev Bridge] Purging caches:', targets);
+    return {
+      success: true,
+      total_freed_bytes: 1024 * 1024 * 450,
+      success_count: targets.length,
+      failed_count: 0,
+      results: targets.map((t) => ({ success: true, id: t, label: t, path: t, freed_bytes: 1024 * 1024 * 150 })),
+    };
   }
 
 }

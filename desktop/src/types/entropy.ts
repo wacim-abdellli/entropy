@@ -271,3 +271,54 @@ export interface CleanSlateResult {
   terminated_processes: { pid: number; name: string; memory_bytes: number }[];
   errors: { pid: number; name: string; error: string }[];
 }
+
+export interface DockerDiskItem {
+  type: string;
+  total_count: number;
+  active_count: number;
+  size_raw: string;
+  size_bytes: number;
+  reclaimable_raw: string;
+  reclaimable_bytes: number;
+}
+
+export interface DockerDiskUsage {
+  available: boolean;
+  message: string;
+  items: DockerDiskItem[];
+  total_size_bytes: number;
+  reclaimable_bytes: number;
+}
+
+export interface DockerPruneResult {
+  success: boolean;
+  target?: string;
+  freed_space?: string;
+  message?: string;
+  error?: string;
+}
+
+export interface GlobalCacheItem {
+  id: string;
+  label: string;
+  path: string;
+  description: string;
+  size_bytes: number;
+  safe_to_purge: boolean;
+}
+
+export interface CachePurgeResult {
+  success: boolean;
+  total_freed_bytes: number;
+  success_count: number;
+  failed_count: number;
+  results: {
+    success: boolean;
+    id: string;
+    label: string;
+    path: string;
+    freed_bytes: number;
+    message?: string;
+    error?: string;
+  }[];
+}
