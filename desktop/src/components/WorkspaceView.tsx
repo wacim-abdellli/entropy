@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { WorkspaceInspection, GitDirtyFile, DependencyConnection, ProcessConnection } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
+import { WorkspaceAdvisorCard } from './WorkspaceAdvisorCard';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -35,6 +36,7 @@ interface WorkspaceViewProps {
   isLoading: boolean;
   onActionComplete?: () => Promise<void> | void;
   onOpenFolder?: () => void;
+  onNavigateToSettings?: () => void;
 }
 
 /* ───────────────────────── Helpers ───────────────────────── */
@@ -152,6 +154,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   isLoading,
   onActionComplete,
   onOpenFolder,
+  onNavigateToSettings,
 }) => {
   const [stashLoading, setStashLoading] = useState(false);
   const [cleaningPaths, setCleaningPaths] = useState<Set<string>>(new Set());
@@ -590,6 +593,18 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               )}
             </div>
           </div>
+
+          {/* ── Workspace Advisor Card ── */}
+          <WorkspaceAdvisorCard
+            workspacePath={workspace.path}
+            workspaceName={workspace.name}
+            gitBranch={git?.current_branch}
+            hasUncommittedChanges={git?.has_uncommitted_changes}
+            ports={activePorts}
+            artifacts={dependencies.map((d) => d.path)}
+            onActionCompleted={onActionComplete}
+            onNavigateToSettings={onNavigateToSettings}
+          />
 
           {/* ── Git Section ── */}
           {git && (

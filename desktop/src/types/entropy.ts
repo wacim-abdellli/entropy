@@ -322,3 +322,58 @@ export interface CachePurgeResult {
     error?: string;
   }[];
 }
+
+export interface HealthTip {
+  id: string;
+  title: string;
+  description: string;
+  severity: 'info' | 'warning' | 'urgent';
+  action_label?: string | null;
+  action_type?: 'stash' | 'add_gitignore' | 'prune_branches' | 'clean_artifacts' | 'free_port' | string | null;
+  action_payload?: Record<string, any> | null;
+}
+
+export interface CleanupVerdict {
+  path: string;
+  name: string;
+  risk: 'safe' | 'review' | 'danger';
+  headline: string;
+  reasons: string[];
+  rebuild_command?: string | null;
+  warnings: string[];
+  size_bytes: number;
+  project_path: string;
+}
+
+export interface WorkspaceHealth {
+  workspace_path: string;
+  workspace_name: string;
+  health_score: number;
+  summary: string;
+  tips: HealthTip[];
+  cleanup_verdicts: CleanupVerdict[];
+}
+
+export interface AiConfig {
+  provider: 'rules' | 'groq' | 'ollama';
+  groq_api_key: string;
+  groq_model: string;
+  ollama_url: string;
+  ollama_model: string;
+}
+
+export interface AiTestResult {
+  success: boolean;
+  provider: string;
+  message?: string;
+  error?: string;
+}
+
+export interface AiResponse {
+  success: boolean;
+  answer: string;
+  provider: string;
+  model?: string;
+  error?: string;
+}
+

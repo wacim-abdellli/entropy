@@ -351,6 +351,60 @@ class EntropyDesktopApi:
         from core.cache_cleaner import purge_multiple_caches
         return purge_multiple_caches(targets)
 
+    def get_workspace_health(self, workspace_path: str) -> dict[str, Any]:
+        """Evaluate workspace health, risks, and actionable recommendations."""
+        from dataclasses import asdict
+        from core.advisor import evaluate_workspace_health
+        from collectors.git import collect_git_repository
+        from collectors.artifacts import collect_project_artifacts
+        from collectors.processes import collect_processes
+
+        abs_path = os.path.abspath(workspace_path)
+        name = os.path.basename(abs_path)
+
+        git_repo = collect_git_repository(abs_path)
+        git_info = asdict(git_repo) if git_repo else {}
+
+        all_procs = collect_processes()
+        ws_procs = []
+        proj_norm = os.path.normcase(abs_path)
+        for p in all_procs:
+            if p.cwd:
+                c_norm = os.path.normcase(os.path.abspath(p.cwd))
+                if c_norm == proj_norm or c_norm.startswith(proj_norm + os.sep):
+                    ws_procs.append(asdict(p))
+
+        artifacts = collect_project_artifacts(abs_path)
+
+        health = evaluate_workspace_health(
+            workspace_path=abs_path,
+            workspace_name=name,
+            git_info=git_info,
+            processes=ws_procs,
+            artifacts=artifacts,
+        )
+        return asdict(health)
+
+    def get_ai_config(self) -> dict[str, Any]:
+        """Get AI Advisor configuration."""
+        from core.ai_provider import get_ai_config
+        return get_ai_config()
+
+    def save_ai_config(self, updates: dict[str, Any]) -> dict[str, Any]:
+        """Save AI Advisor configuration."""
+        from core.ai_provider import save_ai_config
+        return save_ai_config(updates)
+
+    def test_ai_connection(self, provider: Optional[str] = None) -> dict[str, Any]:
+        """Test AI provider connection."""
+        from core.ai_provider import test_ai_connection
+        return test_ai_connection(provider)
+
+    def ask_ai_advisor(self, question: str, context: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+        """Ask AI Advisor a question."""
+        from core.ai_provider import ask_ai_advisor
+        return ask_ai_advisor(question, context)
+
 
 
 def _run_desktop() -> None:

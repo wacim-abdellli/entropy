@@ -405,6 +405,7 @@ export function App() {
           isLoading={isLoading}
           onActionComplete={refreshCurrentContext}
           onOpenFolder={handleInspectFolder}
+          onNavigateToSettings={() => setActiveNav('settings')}
         />
       );
     }

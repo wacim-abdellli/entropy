@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings, 
   FolderSearch, 
@@ -9,10 +9,19 @@ import {
   ArrowUpRight,
   RefreshCw,
   Trash2,
-  FolderGit2
+  FolderGit2,
+  Bot,
+  Sparkles,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  ExternalLink,
+  ShieldCheck,
+  Cpu,
 } from 'lucide-react';
 import { EntropyApiClient } from '../services/api';
-import { WorkspaceSummary } from '../types/entropy';
+import { WorkspaceSummary, AiConfig } from '../types/entropy';
 
 interface SettingsViewProps {
   scanRoots?: string[];
@@ -38,6 +47,57 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     return scanRoots ?? ['C:\\Users\\pc\\Desktop'];
   });
   const [dirToDelete, setDirToDelete] = useState<string | null>(null);
+
+  const [aiConfig, setAiConfig] = useState<AiConfig>({
+    provider: 'rules',
+    groq_api_key: '',
+    groq_model: 'llama-3.3-70b-versatile',
+    ollama_url: 'http://localhost:11434',
+    ollama_model: 'llama3.2',
+  });
+  const [showGroqKey, setShowGroqKey] = useState(false);
+  const [testingAi, setTestingAi] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
+
+  useEffect(() => {
+    EntropyApiClient.getAiConfig().then((cfg) => {
+      if (cfg) setAiConfig(cfg);
+    });
+  }, []);
+
+  const handleUpdateAiConfig = async (updates: Partial<AiConfig>) => {
+    const updated = { ...aiConfig, ...updates };
+    setAiConfig(updated);
+    setTestResult(null);
+    try {
+      await EntropyApiClient.saveAiConfig(updates);
+      setSaveSuccessNotice(true);
+      setTimeout(() => setSaveSuccessNotice(false), 2500);
+    } catch (err) {
+      console.error('Failed to save AI config:', err);
+    }
+  };
+
+  const handleTestAiConnection = async () => {
+    setTestingAi(true);
+    setTestResult(null);
+    try {
+      const res = await EntropyApiClient.testAiConnection(aiConfig.provider);
+      setTestResult({
+        success: res.success,
+        message: res.success ? (res.message || 'Connection successful.') : (res.error || 'Connection failed.'),
+      });
+    } catch (err: unknown) {
+      setTestResult({
+        success: false,
+        message: err instanceof Error ? err.message : 'Connection test failed.',
+      });
+    } finally {
+      setTestingAi(false);
+    }
+  };
+
 
   const saveAndNotify = (updated: string[]) => {
     setDirectories(updated);
@@ -227,6 +287,232 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="mt-3 px-1 text-xs text-[var(--color-text-tertiary)] flex items-center gap-2">
             <span className="font-semibold text-[var(--color-text-secondary)]">Tip:</span>
             <span>If you only want Entropy to monitor a specific workspace, remove parent folders (like Desktop) and keep only your target directory.</span>
+          </div>
+        </section>
+
+        {/* AI Workspace Advisor Section */}
+        <section className="max-w-3xl">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Bot size={22} className="text-[var(--color-accent)]" />
+              <h2 className="text-xl font-medium">AI Workspace Advisor</h2>
+            </div>
+            {saveSuccessNotice && (
+              <span className="text-xs font-medium text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md animate-in fade-in">
+                <CheckCircle2 size={13} />
+                <span>Settings Saved</span>
+              </span>
+            )}
+          </div>
+
+          <p className="text-[var(--color-text-secondary)] text-sm mb-4">
+            Configure the AI backend for intelligent workspace health scores, non-destructive safety checks, and developer Q&amp;A.
+          </p>
+
+          {/* Provider Selection Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            {/* Rules */}
+            <button
+              type="button"
+              onClick={() => handleUpdateAiConfig({ provider: 'rules' })}
+              className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
+                aiConfig.provider === 'rules'
+                  ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-sm'
+                  : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-emerald-400" />
+                  <span className="font-semibold text-sm text-[var(--color-text-primary)]">Offline Rules</span>
+                </div>
+                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  Default
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                100% offline, deterministic safety checks. Zero network traffic, zero API keys required.
+              </p>
+            </button>
+
+            {/* Groq Cloud */}
+            <button
+              type="button"
+              onClick={() => handleUpdateAiConfig({ provider: 'groq' })}
+              className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
+                aiConfig.provider === 'groq'
+                  ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-sm'
+                  : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="text-amber-400" />
+                  <span className="font-semibold text-sm text-[var(--color-text-primary)]">Groq Cloud</span>
+                </div>
+                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  Free Tier
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                Ultra-fast cloud inference with Llama 3.3 70B &amp; 8B. Requires a free Groq API key.
+              </p>
+            </button>
+
+            {/* Local Ollama */}
+            <button
+              type="button"
+              onClick={() => handleUpdateAiConfig({ provider: 'ollama' })}
+              className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
+                aiConfig.provider === 'ollama'
+                  ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-sm'
+                  : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Cpu size={18} className="text-sky-400" />
+                  <span className="font-semibold text-sm text-[var(--color-text-primary)]">Local Ollama</span>
+                </div>
+                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                  Localhost
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                100% private local LLM running on your PC (localhost:11434). Zero data leaves your device.
+              </p>
+            </button>
+          </div>
+
+          {/* Provider Specific Settings Box */}
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-5 space-y-4">
+            {aiConfig.provider === 'rules' && (
+              <div className="flex items-start gap-3">
+                <ShieldCheck size={20} className="text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">Offline Rules Engine is Active</h4>
+                  <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                    Evaluates repository cleanliness, uncommitted changes, running dev processes, and project lockfiles instantly. Safe, zero latency, and always available without internet connection.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {aiConfig.provider === 'groq' && (
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                      Groq API Key
+                    </label>
+                    <a
+                      href="https://console.groq.com/keys"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-[var(--color-accent)] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Get Free API Key</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showGroqKey ? 'text' : 'password'}
+                      value={aiConfig.groq_api_key}
+                      onChange={(e) => handleUpdateAiConfig({ groq_api_key: e.target.value })}
+                      placeholder="gsk_..."
+                      className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs font-mono text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)] pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGroqKey(!showGroqKey)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] cursor-pointer"
+                    >
+                      {showGroqKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1.5">
+                    Your key is stored locally in <code className="text-xs font-mono text-[var(--color-text-secondary)]">~/.entropy/config.json</code> and never shared.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] mb-1.5">
+                    Model
+                  </label>
+                  <select
+                    value={aiConfig.groq_model}
+                    onChange={(e) => handleUpdateAiConfig({ groq_model: e.target.value })}
+                    className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)] cursor-pointer"
+                  >
+                    <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (Recommended, deepest reasoning)</option>
+                    <option value="llama-3.1-8b-instant">llama-3.1-8b-instant (Ultra-fast, lowest latency)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {aiConfig.provider === 'ollama' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] mb-1.5">
+                    Ollama Server URL
+                  </label>
+                  <input
+                    type="text"
+                    value={aiConfig.ollama_url}
+                    onChange={(e) => handleUpdateAiConfig({ ollama_url: e.target.value })}
+                    placeholder="http://localhost:11434"
+                    className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs font-mono text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)]"
+                  />
+                  <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1.5">
+                    Ensure Ollama is running locally on your machine (<code className="text-xs font-mono">ollama serve</code>).
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] mb-1.5">
+                    Model Tag
+                  </label>
+                  <input
+                    type="text"
+                    value={aiConfig.ollama_model}
+                    onChange={(e) => handleUpdateAiConfig({ ollama_model: e.target.value })}
+                    placeholder="llama3.2"
+                    className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs font-mono text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)]"
+                  />
+                  <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1.5">
+                    e.g. <code className="text-xs font-mono">llama3.2</code>, <code className="text-xs font-mono">llama3.1</code>, <code className="text-xs font-mono">mistral</code>, or <code className="text-xs font-mono">codellama</code>.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Test Connection Footer */}
+            <div className="pt-3 border-t border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleTestAiConnection}
+                disabled={testingAi}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-primary)] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw size={13} className={testingAi ? 'animate-spin' : ''} />
+                <span>{testingAi ? 'Testing Connection...' : 'Test Connection'}</span>
+              </button>
+
+              {testResult && (
+                <div
+                  className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-md border ${
+                    testResult.success
+                      ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                      : 'bg-rose-500/10 border-rose-500/25 text-rose-300'
+                  }`}
+                >
+                  {testResult.success ? <CheckCircle2 size={13} className="shrink-0" /> : <AlertCircle size={13} className="shrink-0" />}
+                  <span className="truncate max-w-sm">{testResult.message}</span>
+                </div>
+              )}
+            </div>
           </div>
         </section>
 

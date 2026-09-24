@@ -1,4 +1,7 @@
 import {
+  AiConfig,
+  AiResponse,
+  AiTestResult,
   CachePurgeResult,
   CleanSlateCandidate,
   CleanSlateResult,
@@ -6,6 +9,7 @@ import {
   DockerPruneResult,
   EnvironmentOverview,
   GlobalCacheItem,
+  WorkspaceHealth,
   WorkspaceInspection,
 } from '../types/entropy';
 import {
@@ -55,6 +59,11 @@ interface PyWebViewApi {
   prune_docker_resources?(target: string): Promise<DockerPruneResult | string>;
   get_purgeable_caches?(): Promise<GlobalCacheItem[] | string>;
   purge_caches?(targets: string[]): Promise<CachePurgeResult | string>;
+  get_workspace_health?(workspace_path: string): Promise<WorkspaceHealth | string>;
+  get_ai_config?(): Promise<AiConfig | string>;
+  save_ai_config?(updates: Partial<AiConfig>): Promise<{ success: boolean; error?: string; config?: AiConfig } | string>;
+  test_ai_connection?(provider?: string): Promise<AiTestResult | string>;
+  ask_ai_advisor?(question: string, context?: Record<string, any>): Promise<AiResponse | string>;
 }
 
 interface EntropyWindow extends Window {
@@ -609,4 +618,128 @@ export class EntropyApiClient {
     };
   }
 
+  /**
+   * Get workspace hygiene, health score (0-100), and actionable tips.
+   */
+  static async getWorkspaceHealth(workspacePath: string): Promise<WorkspaceHealth> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_workspace_health) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_workspace_health!(workspacePath);
+          return parseBridgeResponse<WorkspaceHealth>(res);
+        }
+      } catch (err) {
+        console.warn('Failed to get workspace health:', err);
+      }
+    }
+    return {
+      workspace_path: workspacePath,
+      workspace_name: workspacePath.split(/[\\/]/).pop() || 'workspace',
+      health_score: 85,
+      summary: 'Workspace is in good shape with minor maintenance opportunities.',
+      tips: [
+        {
+          id: 'dev_preview',
+          title: 'Workspace Health Analysis',
+          description: 'Local workspace inspected. No immediate risks found.',
+          severity: 'info',
+        },
+      ],
+      cleanup_verdicts: [],
+    };
+  }
+
+  /**
+   * Get AI Advisor settings (provider, groq config, ollama config).
+   */
+  static async getAiConfig(): Promise<AiConfig> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_ai_config) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_ai_config!();
+          return parseBridgeResponse<AiConfig>(res);
+        }
+      } catch (err) {
+        console.warn('Failed to get AI config:', err);
+      }
+    }
+    return {
+      provider: 'rules',
+      groq_api_key: '',
+      groq_model: 'llama-3.3-70b-versatile',
+      ollama_url: 'http://localhost:11434',
+      ollama_model: 'llama3.2',
+    };
+  }
+
+  /**
+   * Save AI Advisor settings.
+   */
+  static async saveAiConfig(updates: Partial<AiConfig>): Promise<{ success: boolean; error?: string; config?: AiConfig }> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.save_ai_config) {
+          const res = await bridgeWindow()!.pywebview!.api!.save_ai_config!(updates);
+          return parseBridgeResponse<{ success: boolean; error?: string; config?: AiConfig }>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      config: {
+        provider: updates.provider || 'rules',
+        groq_api_key: updates.groq_api_key || '',
+        groq_model: updates.groq_model || 'llama-3.3-70b-versatile',
+        ollama_url: updates.ollama_url || 'http://localhost:11434',
+        ollama_model: updates.ollama_model || 'llama3.2',
+      },
+    };
+  }
+
+  /**
+   * Test AI Provider connectivity.
+   */
+  static async testAiConnection(provider?: string): Promise<AiTestResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.test_ai_connection) {
+          const res = await bridgeWindow()!.pywebview!.api!.test_ai_connection!(provider);
+          return parseBridgeResponse<AiTestResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, provider: provider || 'rules', error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      provider: provider || 'rules',
+      message: 'Connection successful (Simulated bridge).',
+    };
+  }
+
+  /**
+   * Ask AI Advisor a developer question with optional workspace context.
+   */
+  static async askAiAdvisor(question: string, context?: Record<string, any>): Promise<AiResponse> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.ask_ai_advisor) {
+          const res = await bridgeWindow()!.pywebview!.api!.ask_ai_advisor!(question, context);
+          return parseBridgeResponse<AiResponse>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, answer: errorMessage(err), provider: 'error', error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      answer: `### Advice for ${context?.workspace_name || 'Workspace'}\n- All source code and repositories are safe.\n- Use standard package managers to rebuild dependencies if deleted.\n- Stash uncommitted changes prior to executing destructive actions.`,
+      provider: 'rules',
+      model: 'offline-rules-engine',
+    };
+  }
+
 }
+
