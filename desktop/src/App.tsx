@@ -528,6 +528,9 @@ export function App() {
           setActiveNav(nav as ActiveNav);
           setSelectedWorkspacePath(null);
         }}
+        onRefresh={() => loadEnvironment(scanRoots)}
+        onInspectFolder={handleInspectFolder}
+        onShowToast={(msg) => showToast(msg, 'success')}
       />
 
       {/* Floating Toast Notification */}
