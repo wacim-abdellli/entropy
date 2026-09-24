@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { AlertTriangle, ArrowUpRight, CircleDot, ExternalLink, FolderGit2, FolderOpen, GitBranch, Globe, HardDrive, RefreshCw, SquareTerminal, Terminal } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { AlertTriangle, ArrowUpRight, CircleDot, ExternalLink, FolderGit2, FolderOpen, GitBranch, Globe, HardDrive, RefreshCw, SquareTerminal, Terminal, Zap } from 'lucide-react';
 import { EnvironmentOverview, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
@@ -178,6 +178,44 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     });
     return list;
   }, [overview?.workspaces]);
+
+  const [confirmCleanSlate, setConfirmCleanSlate] = useState(false);
+  const [cleanSlateLoading, setCleanSlateLoading] = useState(false);
+  const [cleanSlateNotice, setCleanSlateNotice] = useState<string | null>(null);
+
+  const devProcesses = useMemo(() => {
+    const procs = overview?.system?.processes || [];
+    return procs.filter((p) => {
+      const name = (p.name || '').toLowerCase();
+      return (
+        ['node', 'python', 'bun', 'deno', 'cargo', 'rustc', 'go', 'java', 'dotnet', 'ruby', 'tsc', 'vite', 'webpack', 'esbuild'].some((term) => name.includes(term)) ||
+        (p.ports && p.ports.length > 0)
+      );
+    });
+  }, [overview?.system?.processes]);
+
+  const totalDevRam = useMemo(() => {
+    return devProcesses.reduce((acc, p) => acc + (p.memory_bytes || 0), 0);
+  }, [devProcesses]);
+
+  const handleExecuteCleanSlate = async () => {
+    setCleanSlateLoading(true);
+    try {
+      const res = await EntropyApiClient.cleanSlateDevProcesses(devProcesses.map((p) => p.pid));
+      if (res.success) {
+        setCleanSlateNotice(`Clean Slate complete: Terminated ${res.terminated_count} dev processes and freed ${formatSize(res.freed_memory_bytes)} RAM.`);
+      } else {
+        setCleanSlateNotice(res.errors?.[0]?.error || 'Failed to complete Clean Slate.');
+      }
+      onRefresh();
+    } catch {
+      setCleanSlateNotice('Error running Clean Slate.');
+    } finally {
+      setCleanSlateLoading(false);
+      setConfirmCleanSlate(false);
+      setTimeout(() => setCleanSlateNotice(null), 5000);
+    }
+  };
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-[var(--color-surface-0)] animate-enter">
@@ -371,6 +409,29 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 safe project cleanup available
               </span>
             </button>
+            {totalDevRam > 0 && (
+              <button
+                type="button"
+                onClick={() => setConfirmCleanSlate(true)}
+                className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer group"
+                title="Terminate background dev servers to reclaim RAM"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xl font-semibold text-emerald-400 group-hover:underline">
+                      {formatSize(totalDevRam)}
+                    </span>
+                    <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
+                      RAM in {devProcesses.length} dev server{devProcesses.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                    <Zap className="w-3 h-3" />
+                    Clean Slate
+                  </span>
+                </div>
+              </button>
+            )}
           </div>
         </section>
 
@@ -493,6 +554,67 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
           )}
         </section>
+
+        {cleanSlateNotice && (
+          <div className="fixed bottom-6 right-6 z-50 bg-[var(--color-surface-2)] border border-emerald-500/30 text-emerald-300 px-4 py-3 rounded-lg shadow-xl text-xs flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+            <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{cleanSlateNotice}</span>
+          </div>
+        )}
+
+        {confirmCleanSlate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+            <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Clean Slate — Reclaim RAM</h3>
+                  <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                    Terminate <strong className="text-[var(--color-text-primary)]">{devProcesses.length}</strong> background developer processes to instantly free{' '}
+                    <strong className="text-emerald-400 font-semibold">{formatSize(totalDevRam)}</strong> of memory?
+                  </p>
+                </div>
+              </div>
+
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-surface-2)] p-2 divide-y divide-[var(--color-border-subtle)]">
+                {devProcesses.map((p) => (
+                  <div key={p.pid} className="py-1.5 px-2 flex items-center justify-between text-xs font-mono">
+                    <div className="truncate mr-2">
+                      <span className="text-[var(--color-text-primary)] font-medium">{p.name}</span>
+                      <span className="text-[var(--color-text-tertiary)] ml-2">PID {p.pid}</span>
+                      {p.ports && p.ports.length > 0 && (
+                        <span className="text-emerald-400 ml-2">:{p.ports.join(', :')}</span>
+                      )}
+                    </div>
+                    <span className="text-[var(--color-text-secondary)] shrink-0">{formatSize(p.memory_bytes || 0)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmCleanSlate(false)}
+                  disabled={cleanSlateLoading}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteCleanSlate}
+                  disabled={cleanSlateLoading}
+                  className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  {cleanSlateLoading ? 'Reclaiming...' : `Reclaim ${formatSize(totalDevRam)}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

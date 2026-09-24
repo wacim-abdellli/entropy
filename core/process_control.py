@@ -19,7 +19,7 @@ import psutil
 
 logger = logging.getLogger(__name__)
 
-# Windows core processes that must NEVER be terminated by Entropy
+# Windows core processes and user editors that must NEVER be terminated by Entropy
 PROTECTED_PROCESS_NAMES = {
     "system",
     "system idle process",
@@ -37,6 +37,59 @@ PROTECTED_PROCESS_NAMES = {
     "spoolsv.exe",
     "winlogon.exe",
     "taskmgr.exe",
+    # IDEs, text editors and browsers (never kill user's workspace UI)
+    "code.exe",
+    "cursor.exe",
+    "idea64.exe",
+    "pycharm64.exe",
+    "webstorm64.exe",
+    "rider64.exe",
+    "clion64.exe",
+    "devenv.exe",
+    "sublime_text.exe",
+    "notepad++.exe",
+    "notepad.exe",
+    "chrome.exe",
+    "msedge.exe",
+    "firefox.exe",
+    "brave.exe",
+}
+
+# Known developer processes and runtimes that can be cleanly terminated
+DEV_PROCESS_NAMES = {
+    "node.exe",
+    "node",
+    "python.exe",
+    "python",
+    "python3.exe",
+    "python3",
+    "uvicorn.exe",
+    "uvicorn",
+    "gunicorn.exe",
+    "gunicorn",
+    "bun.exe",
+    "bun",
+    "deno.exe",
+    "deno",
+    "ruby.exe",
+    "ruby",
+    "cargo.exe",
+    "cargo",
+    "rustc.exe",
+    "rustc",
+    "go.exe",
+    "go",
+    "java.exe",
+    "javaw.exe",
+    "dotnet.exe",
+    "dotnet",
+    "php.exe",
+    "php",
+    "next-server",
+    "vite.exe",
+    "esbuild.exe",
+    "webpack.exe",
+    "tsc.exe",
 }
 
 
@@ -203,3 +256,133 @@ def free_port(port: int, force: bool = True) -> Dict[str, Any]:
             "name": result.get("name"),
             "error": result.get("error"),
         }
+
+
+def get_clean_slate_candidates(workspace_roots: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """
+    Find background developer processes that can be safely terminated in a 'Clean Slate' action.
+    
+    Identifies processes that:
+    1. Are NOT protected system processes or IDE main windows.
+    2. Match known dev process names OR have their CWD inside a workspace root OR are listening on dev ports.
+    
+    Returns a list of candidate dictionaries with pid, name, cwd, memory_bytes, ports, and uptime_seconds.
+    """
+    candidates = []
+    listening_ports_by_pid = get_listening_port_owners()
+    
+    normalized_roots = [
+        os.path.normcase(os.path.abspath(r)) for r in (workspace_roots or []) if os.path.exists(r)
+    ]
+    
+    for proc in psutil.process_iter(attrs=["pid", "name", "create_time", "memory_info"]):
+        try:
+            pid = proc.info["pid"]
+            name = (proc.info.get("name") or "").lower()
+            
+            if is_process_protected(pid, name):
+                continue
+                
+            ports = listening_ports_by_pid.get(pid, [])
+            
+            cwd = None
+            try:
+                raw_cwd = proc.cwd()
+                if raw_cwd:
+                    cwd = os.path.normpath(raw_cwd)
+            except (psutil.AccessDenied, psutil.NoSuchProcess, OSError):
+                cwd = None
+                
+            in_workspace = False
+            if cwd and normalized_roots:
+                norm_cwd = os.path.normcase(os.path.abspath(cwd))
+                in_workspace = any(norm_cwd.startswith(r + os.sep) or norm_cwd == r for r in normalized_roots)
+            
+            is_dev_name = name in DEV_PROCESS_NAMES or any(name.startswith(p.split(".")[0]) for p in DEV_PROCESS_NAMES)
+            has_dev_ports = bool(ports)
+            
+            # Must be a dev process or inside workspace or holding ports
+            if not (is_dev_name or in_workspace or has_dev_ports):
+                continue
+                
+            mem_bytes = 0
+            if proc.info.get("memory_info"):
+                mem_bytes = getattr(proc.info["memory_info"], "rss", 0)
+                
+            create_time = proc.info.get("create_time") or time.time()
+            uptime_seconds = max(0.0, time.time() - create_time)
+            
+            candidates.append({
+                "pid": pid,
+                "name": proc.info.get("name") or name,
+                "cwd": cwd,
+                "memory_bytes": mem_bytes,
+                "ports": ports,
+                "uptime_seconds": uptime_seconds,
+            })
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+            
+    return candidates
+
+
+def clean_slate_dev_processes(
+    pids: Optional[List[int]] = None,
+    workspace_roots: Optional[List[str]] = None,
+    force: bool = True,
+) -> Dict[str, Any]:
+    """
+    Safely terminate background developer processes to reclaim RAM and free dev ports.
+    
+    Args:
+        pids: Optional explicit list of PIDs to terminate. If None, targets all clean slate candidates.
+        workspace_roots: Optional workspace directories to identify dev processes.
+        force: Whether to force kill if graceful exit times out.
+        
+    Returns:
+        Summary dict with terminated_count, freed_memory_bytes, terminated_processes, and errors.
+    """
+    if pids is not None:
+        targets = []
+        for p in pids:
+            try:
+                proc = psutil.Process(p)
+                targets.append({
+                    "pid": p,
+                    "name": proc.name(),
+                    "memory_bytes": proc.memory_info().rss if hasattr(proc, "memory_info") else 0,
+                })
+            except Exception:
+                targets.append({"pid": p, "name": "unknown", "memory_bytes": 0})
+    else:
+        targets = get_clean_slate_candidates(workspace_roots)
+        
+    terminated = []
+    errors = []
+    total_freed_bytes = 0
+    
+    for item in targets:
+        pid = item["pid"]
+        res = terminate_process(pid, force=force)
+        if res.get("success"):
+            freed = item.get("memory_bytes", 0)
+            total_freed_bytes += freed
+            terminated.append({
+                "pid": pid,
+                "name": item.get("name", res.get("name")),
+                "memory_bytes": freed,
+            })
+        else:
+            errors.append({
+                "pid": pid,
+                "name": item.get("name"),
+                "error": res.get("error"),
+            })
+            
+    return {
+        "success": len(terminated) > 0 or len(errors) == 0,
+        "terminated_count": len(terminated),
+        "freed_memory_bytes": total_freed_bytes,
+        "terminated_processes": terminated,
+        "errors": errors,
+    }

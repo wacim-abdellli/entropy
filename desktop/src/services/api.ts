@@ -1,4 +1,4 @@
-import { EnvironmentOverview, WorkspaceInspection } from '../types/entropy';
+import { CleanSlateCandidate, CleanSlateResult, EnvironmentOverview, WorkspaceInspection } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
   MOCK_ENTROPY_INSPECTION,
@@ -33,6 +33,8 @@ interface PyWebViewApi {
   pick_folder(): Promise<string | null>;
   terminate_process(pid: number, force: boolean): Promise<ActionResult | string>;
   free_port(port: number, force: boolean): Promise<ActionResult | string>;
+  get_clean_slate_candidates?(workspaceRoots?: string[]): Promise<CleanSlateCandidate[] | string>;
+  clean_slate_dev_processes?(pids?: number[]): Promise<CleanSlateResult | string>;
   clean_artifact(path: string): Promise<CleanArtifactResult | string>;
   clean_artifacts(paths: string[]): Promise<CleanArtifactsResult | string>;
   detect_launchers(): Promise<Record<string, boolean> | string>;
@@ -413,6 +415,56 @@ export class EntropyApiClient {
     }
     console.log('[Dev Bridge] Stashing workspace:', workspacePath);
     return { success: true, message: 'Safely stashed working tree.' };
+  }
+
+  /**
+   * Get background developer processes eligible for Clean Slate RAM recovery.
+   */
+  static async getCleanSlateCandidates(workspaceRoots?: string[]): Promise<CleanSlateCandidate[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_clean_slate_candidates) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_clean_slate_candidates!(workspaceRoots);
+          return parseBridgeResponse<CleanSlateCandidate[]>(res);
+        }
+      } catch (err) {
+        console.warn('Failed to get clean slate candidates:', err);
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Safely terminate background developer processes to reclaim RAM and free dev ports.
+   */
+  static async cleanSlateDevProcesses(pids?: number[]): Promise<CleanSlateResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.clean_slate_dev_processes) {
+          const res = await bridgeWindow()!.pywebview!.api!.clean_slate_dev_processes!(pids);
+          return parseBridgeResponse<CleanSlateResult>(res);
+        }
+      } catch (err: unknown) {
+        return {
+          success: false,
+          terminated_count: 0,
+          freed_memory_bytes: 0,
+          terminated_processes: [],
+          errors: [{ pid: 0, name: 'unknown', error: errorMessage(err) }],
+        };
+      }
+    }
+    console.log('[Dev Bridge] Clean slate dev processes:', pids);
+    return {
+      success: true,
+      terminated_count: 2,
+      freed_memory_bytes: 1024 * 1024 * 750,
+      terminated_processes: [
+        { pid: 1234, name: 'node.exe', memory_bytes: 1024 * 1024 * 450 },
+        { pid: 5678, name: 'python.exe', memory_bytes: 1024 * 1024 * 300 },
+      ],
+      errors: [],
+    };
   }
 
 }

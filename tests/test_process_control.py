@@ -11,7 +11,13 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from core.process_control import free_port, is_process_protected, terminate_process
+from core.process_control import (
+    clean_slate_dev_processes,
+    free_port,
+    get_clean_slate_candidates,
+    is_process_protected,
+    terminate_process,
+)
 
 
 class TestProcessControl(unittest.TestCase):
@@ -74,6 +80,30 @@ class TestProcessControl(unittest.TestCase):
         self.assertEqual(res["port"], 3000)
         self.assertEqual(res["pid"], 8888)
         mock_terminate.assert_called_once_with(8888, force=True)
+
+    @patch("core.process_control.terminate_process")
+    @patch("core.process_control.get_clean_slate_candidates")
+    def test_clean_slate_dev_processes(self, mock_candidates, mock_terminate):
+        """clean_slate_dev_processes should terminate all candidate dev processes and calculate freed memory."""
+        mock_candidates.return_value = [
+            {"pid": 1001, "name": "node.exe", "memory_bytes": 1024 * 1024 * 500},
+            {"pid": 1002, "name": "python.exe", "memory_bytes": 1024 * 1024 * 250},
+        ]
+        mock_terminate.return_value = {"success": True, "name": "dev"}
+
+        res = clean_slate_dev_processes(force=True)
+        self.assertTrue(res["success"])
+        self.assertEqual(res["terminated_count"], 2)
+        self.assertEqual(res["freed_memory_bytes"], 1024 * 1024 * 750)
+        self.assertEqual(len(res["terminated_processes"]), 2)
+        self.assertEqual(mock_terminate.call_count, 2)
+
+    def test_editor_protection(self):
+        """User code editors like VS Code, Cursor, and browsers must be protected."""
+        self.assertTrue(is_process_protected(99999, "code.exe"))
+        self.assertTrue(is_process_protected(99999, "cursor.exe"))
+        self.assertTrue(is_process_protected(99999, "chrome.exe"))
+        self.assertTrue(is_process_protected(99999, "msedge.exe"))
 
 
 if __name__ == "__main__":

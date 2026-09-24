@@ -246,3 +246,20 @@ export interface EnvironmentOverview {
     scan_roots: string[];
   };
 }
+
+export interface CleanSlateCandidate {
+  pid: number;
+  name: string;
+  cwd: string | null;
+  memory_bytes: number;
+  ports: number[];
+  uptime_seconds: number;
+}
+
+export interface CleanSlateResult {
+  success: boolean;
+  terminated_count: number;
+  freed_memory_bytes: number;
+  terminated_processes: { pid: number; name: string; memory_bytes: number }[];
+  errors: { pid: number; name: string; error: string }[];
+}

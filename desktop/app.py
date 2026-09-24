@@ -286,6 +286,16 @@ class EntropyDesktopApi:
         from core.process_control import free_port
         return free_port(port, force=force)
 
+    def get_clean_slate_candidates(self, workspace_roots: Optional[list[str]] = None) -> list[dict[str, Any]]:
+        """Get list of background developer processes eligible for Clean Slate RAM recovery."""
+        from core.process_control import get_clean_slate_candidates
+        return get_clean_slate_candidates(workspace_roots)
+
+    def clean_slate_dev_processes(self, pids: Optional[list[int]] = None, force: bool = True) -> dict[str, Any]:
+        """Safely terminate orphaned background developer servers to reclaim RAM and ports."""
+        from core.process_control import clean_slate_dev_processes
+        return clean_slate_dev_processes(pids=pids, force=force)
+
     def clean_artifact(self, path: str) -> dict[str, Any]:
         """Safely delete a single whitelisted build artifact directory."""
         from core.disk_cleaner import clean_artifact_directory
