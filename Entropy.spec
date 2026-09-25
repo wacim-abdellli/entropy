@@ -1,4 +1,4 @@
-﻿# -*- mode: python ; coding: utf-8 -*-
+# -*- mode: python ; coding: utf-8 -*-
 
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
@@ -28,6 +28,14 @@ hiddenimports = [
     'core.entities',
     'core.graph',
     'core.findings',
+    'core.system_cleaner',
+    'core.git_control',
+    'core.cache_cleaner',
+    'core.launcher',
+    'core.advisor',
+    'core.ai_provider',
+    'core.disk_cleaner',
+    'core.docker_control',
     'collectors',
     'collectors.git',
     'collectors.projects',
