@@ -376,16 +376,6 @@ export const SystemView: React.FC<SystemViewProps> = ({
                   <div className="flex justify-end gap-1">
                     <button
                       type="button"
-                      title="Open Terminal here"
-                      aria-label={`Open Terminal at ${process.cwd || process.name}`}
-                      disabled={!process.cwd}
-                      onClick={() => process.cwd && EntropyApiClient.openInTerminal(process.cwd)}
-                      className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-white hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
-                    >
-                      <Terminal className="w-3.5 h-3.5 mx-auto" />
-                    </button>
-                    <button
-                      type="button"
                       title="Open Command Prompt (CMD) here"
                       aria-label={`Open Command Prompt at ${process.cwd || process.name}`}
                       disabled={!process.cwd}

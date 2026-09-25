@@ -283,19 +283,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           },
         });
 
-        // Quick terminal launcher for this workspace
-        items.push({
-          id: `ws-term-${w.id}`,
-          title: `Terminal in ${w.name}`,
-          subtitle: `Launch Terminal at ${w.path}`,
-          category: 'Workspace',
-          icon: <Terminal className="w-4 h-4 text-[var(--color-accent-strong)]" />,
-          actionHint: 'Terminal',
-          action: () => {
-            EntropyApiClient.openInTerminal(w.path);
-            onClose();
-          },
-        });
 
         // Quick CMD launcher
         items.push({

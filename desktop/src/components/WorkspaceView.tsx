@@ -629,15 +629,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => handleLaunchEditor('terminal')}
-                disabled={busyAction === 'editor-terminal'}
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <Terminal className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                <span>{busyAction === 'editor-terminal' ? 'Opening…' : 'Terminal'}</span>
-              </button>
-              <button
-                type="button"
                 onClick={() => handleLaunchEditor('cmd')}
                 disabled={busyAction === 'editor-cmd'}
                 className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
@@ -1052,11 +1043,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         <>
                           <button
                             type="button"
-                            onClick={() => EntropyApiClient.openInTerminal(proc.cwd!)}
-                            className="flex items-center gap-1 px-2.5 py-1 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-md transition-colors cursor-pointer"
+                            onClick={() => EntropyApiClient.openInCmd(proc.cwd!)}
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] hover:bg-[var(--color-surface-3)] rounded-md transition-colors cursor-pointer"
+                            title="Open Command Prompt (CMD)"
                           >
-                            <Terminal className="w-3 h-3" />
-                            <span>Terminal</span>
+                            <SquareTerminal className="w-3 h-3 text-[var(--color-warning)]" />
+                            <span>CMD</span>
                           </button>
                           <button
                             type="button"

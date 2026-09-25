@@ -17,7 +17,7 @@ import {
   Settings,
   Shield,
   ShieldAlert,
-  Terminal,
+  SquareTerminal,
   Zap,
 } from 'lucide-react';
 import { EnvironmentOverview, WorkspaceSummary } from '../types/entropy';
@@ -590,12 +590,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      EntropyApiClient.openInTerminal(workspace.path);
+                      EntropyApiClient.openInCmd(workspace.path);
                     }}
-                    className="p-1.5 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
-                    title="Open in Terminal"
+                    className="p-1.5 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors cursor-pointer"
+                    title="Open in Command Prompt (CMD)"
                   >
-                    <Terminal className="w-3.5 h-3.5" />
+                    <SquareTerminal className="w-3.5 h-3.5" />
                   </button>
 
                   <button
