@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Trash2,
   CheckCircle2,
@@ -17,6 +17,8 @@ import {
   AlertCircle,
   Shield,
   Info,
+  Terminal,
+  FileText,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -24,6 +26,7 @@ import {
   DockerDiskUsage,
   GlobalCacheItem,
   SystemCleanupTarget,
+  CleanupLiveProgress,
 } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
@@ -74,6 +77,17 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   // Shared UI state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
+
+  // Live Progress HUD state
+  const [liveModalOpen, setLiveModalOpen] = useState(false);
+  const [liveProgress, setLiveProgress] = useState<CleanupLiveProgress | null>(null);
+  const logContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [liveProgress?.recent_logs]);
 
   const fetchSystemTargets = async () => {
     setSystemLoading(true);
@@ -237,75 +251,294 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
   const handleCleanSelectedSystem = async () => {
     if (selectedSystemTargets.size === 0) return;
+    setConfirmSystemCleanOpen(false);
+    setLiveModalOpen(true);
     setIsCleaningSystem(true);
     setToastMessage(null);
+
+    const initialLogs = ['Starting Windows & system junk reclamation...'];
+    setLiveProgress({
+      is_running: true,
+      current_phase: 'Initializing cleanup...',
+      current_file: '',
+      items_deleted: 0,
+      items_skipped: 0,
+      bytes_freed: 0,
+      percent: 3,
+      recent_logs: initialLogs,
+      done: false,
+      error: null,
+      summary: null,
+    });
+
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    pollInterval = setInterval(async () => {
+      try {
+        const snap = await EntropyApiClient.getCleanupProgress();
+        if (snap && (snap.is_running || snap.done || snap.recent_logs?.length)) {
+          setLiveProgress(snap);
+          if (snap.done && pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        }
+      } catch (err) {
+        console.warn('Live progress poll error:', err);
+      }
+    }, 100);
+
     try {
       const targets = Array.from(selectedSystemTargets);
       const res = await EntropyApiClient.cleanSystemTargets(targets);
-      if (res.success) {
-        setToastMessage(`Cleaned system junk: freed ${formatBytes(res.total_freed_bytes || 0)}.`);
-        setSelectedSystemTargets(new Set());
-        await fetchSystemTargets();
-        await onRefresh();
-      } else {
-        setToastMessage('System cleanup completed with some items skipped.');
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
       }
+
+      const snap = await EntropyApiClient.getCleanupProgress();
+      const freed = res.total_freed_bytes ?? snap.bytes_freed ?? 0;
+      const deleted = res.total_deleted_count ?? snap.items_deleted ?? 0;
+      const skipped = res.total_skipped_count ?? snap.items_skipped ?? 0;
+
+      setLiveProgress({
+        is_running: false,
+        current_phase: 'Finished',
+        current_file: '',
+        items_deleted: deleted,
+        items_skipped: skipped,
+        bytes_freed: freed,
+        percent: 100,
+        recent_logs: [
+          ...(snap.recent_logs?.length ? snap.recent_logs : initialLogs),
+          `✓ Completed! Reclaimed ${formatBytes(freed)} (${deleted} files removed, ${skipped} in-use items safely skipped).`,
+        ],
+        done: true,
+        error: null,
+        summary: {
+          total_freed_bytes: freed,
+          total_deleted_count: deleted,
+          total_skipped_count: skipped,
+        },
+      });
+
+      setSelectedSystemTargets(new Set());
+      await fetchSystemTargets();
+      await onRefresh();
     } catch (err) {
       console.error('System cleanup failed:', err);
-      setToastMessage('System cleanup encountered an error.');
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      setLiveProgress((prev) => ({
+        is_running: false,
+        current_phase: 'Error',
+        current_file: '',
+        items_deleted: prev?.items_deleted || 0,
+        items_skipped: prev?.items_skipped || 0,
+        bytes_freed: prev?.bytes_freed || 0,
+        percent: 100,
+        recent_logs: [...(prev?.recent_logs || []), `✕ Error encountered: ${String(err)}`],
+        done: true,
+        error: String(err),
+      }));
     } finally {
       setIsCleaningSystem(false);
-      setConfirmSystemCleanOpen(false);
-      setTimeout(() => setToastMessage(null), 5000);
     }
   };
 
   const handleCleanSelectedArtifacts = async () => {
     if (selectedArtifacts.size === 0) return;
+    setConfirmCleanOpen(false);
+    setLiveModalOpen(true);
     setIsCleaning(true);
     setToastMessage(null);
+
+    const initialLogs = ['Starting build artifacts removal...'];
+    setLiveProgress({
+      is_running: true,
+      current_phase: 'Initializing artifacts cleanup...',
+      current_file: '',
+      items_deleted: 0,
+      items_skipped: 0,
+      bytes_freed: 0,
+      percent: 5,
+      recent_logs: initialLogs,
+      done: false,
+      error: null,
+      summary: null,
+    });
+
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    pollInterval = setInterval(async () => {
+      try {
+        const snap = await EntropyApiClient.getCleanupProgress();
+        if (snap && (snap.is_running || snap.done || snap.recent_logs?.length)) {
+          setLiveProgress(snap);
+          if (snap.done && pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        }
+      } catch (err) {
+        console.warn('Live progress poll error:', err);
+      }
+    }, 100);
+
     try {
       const pathsToClean = Array.from(selectedArtifacts);
       const result = await EntropyApiClient.cleanArtifacts(pathsToClean);
-      if (result.success) {
-        setToastMessage(`Freed ${formatBytes(result.total_freed_bytes || 0)} (${result.success_count} folders cleaned)`);
-        setSelectedArtifacts(new Set());
-        await onRefresh();
-      } else {
-        setToastMessage(`Cleaned ${result.success_count}, failed ${result.failed_count}`);
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
       }
+
+      const snap = await EntropyApiClient.getCleanupProgress();
+      const freed = result.total_freed_bytes ?? snap.bytes_freed ?? 0;
+      const successCount = result.success_count ?? snap.items_deleted ?? 0;
+      const failedCount = result.failed_count ?? snap.items_skipped ?? 0;
+
+      setLiveProgress({
+        is_running: false,
+        current_phase: 'Finished',
+        current_file: '',
+        items_deleted: successCount,
+        items_skipped: failedCount,
+        bytes_freed: freed,
+        percent: 100,
+        recent_logs: [
+          ...(snap.recent_logs?.length ? snap.recent_logs : initialLogs),
+          `✓ Finished! Deleted ${successCount} folder(s), reclaimed ${formatBytes(freed)}.`,
+        ],
+        done: true,
+        error: failedCount > 0 ? `${failedCount} folder(s) could not be removed.` : null,
+        summary: {
+          total_freed_bytes: freed,
+          total_deleted_count: successCount,
+          total_skipped_count: failedCount,
+        },
+      });
+
+      setSelectedArtifacts(new Set());
+      await onRefresh();
     } catch (error) {
       console.error('Artifact cleanup failed:', error);
-      setToastMessage('Cleanup failed. See console.');
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      setLiveProgress((prev) => ({
+        is_running: false,
+        current_phase: 'Error',
+        current_file: '',
+        items_deleted: prev?.items_deleted || 0,
+        items_skipped: prev?.items_skipped || 0,
+        bytes_freed: prev?.bytes_freed || 0,
+        percent: 100,
+        recent_logs: [...(prev?.recent_logs || []), `✕ Deletion failed: ${String(error)}`],
+        done: true,
+        error: String(error),
+      }));
     } finally {
       setIsCleaning(false);
-      setConfirmCleanOpen(false);
-      setTimeout(() => setToastMessage(null), 5000);
     }
   };
 
   const handlePurgeSelectedCaches = async () => {
     if (selectedCaches.size === 0) return;
+    setConfirmCachePurgeOpen(false);
+    setLiveModalOpen(true);
     setIsPurgingCaches(true);
     setToastMessage(null);
+
+    const initialLogs = ['Starting package cache purge...'];
+    setLiveProgress({
+      is_running: true,
+      current_phase: 'Initializing cache purge...',
+      current_file: '',
+      items_deleted: 0,
+      items_skipped: 0,
+      bytes_freed: 0,
+      percent: 5,
+      recent_logs: initialLogs,
+      done: false,
+      error: null,
+      summary: null,
+    });
+
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    pollInterval = setInterval(async () => {
+      try {
+        const snap = await EntropyApiClient.getCleanupProgress();
+        if (snap && (snap.is_running || snap.done || snap.recent_logs?.length)) {
+          setLiveProgress(snap);
+          if (snap.done && pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        }
+      } catch (err) {
+        console.warn('Live progress poll error:', err);
+      }
+    }, 100);
+
     try {
       const targets = Array.from(selectedCaches);
       const res = await EntropyApiClient.purgeCaches(targets);
-      if (res.success) {
-        setToastMessage(`Purged ${res.success_count} caches: freed ${formatBytes(res.total_freed_bytes || 0)}.`);
-        setSelectedCaches(new Set());
-        await fetchGlobalCaches();
-        await onRefresh();
-      } else {
-        setToastMessage(`Purged ${res.success_count} caches, ${res.failed_count} failed.`);
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
       }
+
+      const snap = await EntropyApiClient.getCleanupProgress();
+      const freed = res.total_freed_bytes ?? snap.bytes_freed ?? 0;
+      const successCount = res.success_count ?? snap.items_deleted ?? 0;
+      const failedCount = res.failed_count ?? snap.items_skipped ?? 0;
+
+      setLiveProgress({
+        is_running: false,
+        current_phase: 'Finished',
+        current_file: '',
+        items_deleted: successCount,
+        items_skipped: failedCount,
+        bytes_freed: freed,
+        percent: 100,
+        recent_logs: [
+          ...(snap.recent_logs?.length ? snap.recent_logs : initialLogs),
+          `✓ Purged ${successCount} caches: reclaimed ${formatBytes(freed)}.`,
+        ],
+        done: true,
+        error: failedCount > 0 ? `${failedCount} caches failed to purge.` : null,
+        summary: {
+          total_freed_bytes: freed,
+          total_deleted_count: successCount,
+          total_skipped_count: failedCount,
+        },
+      });
+
+      setSelectedCaches(new Set());
+      await fetchGlobalCaches();
+      await onRefresh();
     } catch (err) {
       console.error('Cache purge failed:', err);
-      setToastMessage('Cache purge failed.');
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      setLiveProgress((prev) => ({
+        is_running: false,
+        current_phase: 'Error',
+        current_file: '',
+        items_deleted: prev?.items_deleted || 0,
+        items_skipped: prev?.items_skipped || 0,
+        bytes_freed: prev?.bytes_freed || 0,
+        percent: 100,
+        recent_logs: [...(prev?.recent_logs || []), `✕ Cache purge failed: ${String(err)}`],
+        done: true,
+        error: String(err),
+      }));
     } finally {
       setIsPurgingCaches(false);
-      setConfirmCachePurgeOpen(false);
-      setTimeout(() => setToastMessage(null), 5000);
     }
   };
 
@@ -1132,6 +1365,171 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               >
                 Confirm Prune
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Live Cleanup Progress & Activity Stream HUD ── */}
+      {liveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl max-w-xl w-full p-6 space-y-5">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${
+                    liveProgress?.done
+                      ? 'bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success)]'
+                      : 'bg-[var(--color-accent-muted)] border-[var(--color-accent)]/30 text-[var(--color-accent-strong)]'
+                  }`}
+                >
+                  {liveProgress?.done ? (
+                    <CheckCircle2 size={22} className="animate-in zoom-in-75 duration-200" />
+                  ) : (
+                    <Loader2 size={22} className="animate-spin text-[var(--color-accent)]" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                    {liveProgress?.done ? 'Cleanup Completed Successfully!' : 'Cleaning in Progress…'}
+                  </h3>
+                  <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                    {liveProgress?.done
+                      ? `Reclaimed a total of ${formatBytes(liveProgress?.bytes_freed || liveProgress?.summary?.total_freed_bytes || 0)}.`
+                      : liveProgress?.current_phase || 'Active reclamation running in background...'}
+                  </p>
+                </div>
+              </div>
+
+              {liveProgress?.done && (
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
+                  100% Done
+                </span>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[var(--color-text-tertiary)] truncate max-w-[320px]">
+                  {liveProgress?.current_phase || 'Processing...'}
+                </span>
+                <span className="font-mono font-bold text-[var(--color-accent-strong)]">
+                  {liveProgress?.percent || 0}%
+                </span>
+              </div>
+              <div className="w-full bg-[var(--color-surface-3)] rounded-full h-2.5 overflow-hidden border border-[var(--color-border-subtle)]">
+                <div
+                  className={`h-full transition-all duration-300 ease-out rounded-full ${
+                    liveProgress?.done
+                      ? 'bg-[var(--color-success)]'
+                      : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400'
+                  }`}
+                  style={{ width: `${Math.max(2, liveProgress?.percent || 0)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Live Metrics Grid */}
+            <div className="grid grid-cols-3 gap-2.5">
+              <div className="bg-[var(--color-surface-2)] p-3 rounded-xl border border-[var(--color-border-subtle)] flex flex-col justify-between">
+                <span className="text-[11px] text-[var(--color-text-tertiary)] font-medium">Space Freed</span>
+                <span className="text-base font-bold font-mono text-[var(--color-success)] mt-1 truncate">
+                  {formatBytes(liveProgress?.bytes_freed || 0)}
+                </span>
+              </div>
+              <div className="bg-[var(--color-surface-2)] p-3 rounded-xl border border-[var(--color-border-subtle)] flex flex-col justify-between">
+                <span className="text-[11px] text-[var(--color-text-tertiary)] font-medium">Files Deleted</span>
+                <span className="text-base font-bold font-mono text-[var(--color-text-primary)] mt-1 truncate">
+                  {(liveProgress?.items_deleted || 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="bg-[var(--color-surface-2)] p-3 rounded-xl border border-[var(--color-border-subtle)] flex flex-col justify-between">
+                <span className="text-[11px] text-[var(--color-text-tertiary)] font-medium">In-Use Skipped</span>
+                <span className="text-base font-bold font-mono text-[var(--color-warning)] mt-1 truncate">
+                  {(liveProgress?.items_skipped || 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* Active File Ticker */}
+            {!liveProgress?.done && liveProgress?.current_file && (
+              <div className="bg-[var(--color-surface-2)] px-3 py-2 rounded-xl border border-[var(--color-border-subtle)] flex items-center gap-2 text-xs font-mono text-[var(--color-text-secondary)]">
+                <FileText size={13} className="text-[var(--color-text-tertiary)] shrink-0" />
+                <span className="text-[var(--color-text-tertiary)] shrink-0">Processing:</span>
+                <span className="truncate text-[var(--color-text-primary)]">{liveProgress.current_file}</span>
+              </div>
+            )}
+
+            {/* Live Activity Terminal */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-[var(--color-text-tertiary)] px-1">
+                <div className="flex items-center gap-1.5 font-medium">
+                  <Terminal size={13} />
+                  <span>Activity Stream</span>
+                </div>
+                {liveProgress?.done ? (
+                  <span className="text-[10px] font-mono text-[var(--color-success)]">TASK COMPLETE</span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--color-success)]">
+                    <span className="w-2 h-2 rounded-full bg-[var(--color-success)] animate-pulse" />
+                    LIVE
+                  </span>
+                )}
+              </div>
+              <div
+                ref={logContainerRef}
+                className="h-44 overflow-y-auto bg-[var(--color-surface-0)] border border-[var(--color-border-subtle)] rounded-xl p-3 font-mono text-[11px] leading-relaxed space-y-1 select-text scrollbar-thin shadow-inner"
+              >
+                {(liveProgress?.recent_logs || []).map((line, idx) => {
+                  const isArrow = line.startsWith('→') || line.startsWith('Initializing');
+                  const isSuccess = line.startsWith('✓') || line.includes('Finished') || line.includes('Successfully');
+                  const isError = line.startsWith('✕') || line.includes('Failed') || line.includes('error');
+                  return (
+                    <div
+                      key={idx}
+                      className={`truncate ${
+                        isSuccess
+                          ? 'text-[var(--color-success)] font-medium'
+                          : isError
+                          ? 'text-[var(--color-danger)] font-medium'
+                          : isArrow
+                          ? 'text-[var(--color-accent-strong)] font-medium'
+                          : 'text-[var(--color-text-secondary)]'
+                      }`}
+                    >
+                      {line}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border-subtle)]">
+              <p className="text-[11px] text-[var(--color-text-tertiary)]">
+                {liveProgress?.done
+                  ? 'All selected items safely processed.'
+                  : 'Locked files in use by apps are automatically protected.'}
+              </p>
+              {liveProgress?.done ? (
+                <button
+                  type="button"
+                  onClick={() => setLiveModalOpen(false)}
+                  className="px-5 py-2 rounded-xl text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white cursor-pointer transition-opacity shadow-md"
+                >
+                  Done
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="px-4 py-2 rounded-xl text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-tertiary)] cursor-not-allowed"
+                >
+                  Cleaning in progress…
+                </button>
+              )}
             </div>
           </div>
         </div>

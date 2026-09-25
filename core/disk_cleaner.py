@@ -18,6 +18,8 @@ import shutil
 import stat
 from typing import Any, Dict, List
 
+from core.cleanup_progress import progress_tracker
+
 logger = logging.getLogger(__name__)
 
 ALLOWED_DISPOSABLE_NAMES = {
@@ -139,22 +141,46 @@ def clean_artifact_directory(path: str) -> Dict[str, Any]:
 def clean_multiple_artifacts(paths: List[str]) -> Dict[str, Any]:
     """
     Deletes multiple whitelisted build artifact directories.
-    
+    Updates progress_tracker in real time for live UI feedback.
     Returns total freed bytes and results per path.
     """
+    progress_tracker.start("Build Artifacts Cleanup")
     total_freed = 0
     results: List[Dict[str, Any]] = []
     success_count = 0
     failed_count = 0
 
-    for path in paths:
+    total_paths = len(paths)
+    for idx, path in enumerate(paths):
+        name = os.path.basename(path)
+        pct = int((idx / max(1, total_paths)) * 100)
+        progress_tracker.set_phase(f"Cleaning {name} ({idx + 1}/{total_paths})", percent=pct)
+        progress_tracker.update(current_file=path, log_line=f"Purging directory: {name}...")
+
         res = clean_artifact_directory(path)
         results.append(res)
         if res["success"]:
-            total_freed += res["freed_bytes"]
+            freed = res["freed_bytes"]
+            total_freed += freed
             success_count += 1
+            progress_tracker.update(
+                bytes_delta=freed,
+                deleted_count=1,
+                log_line=f"Deleted {name} ({freed / (1024*1024):.1f} MB freed)",
+            )
         else:
             failed_count += 1
+            progress_tracker.update(
+                skipped_count=1,
+                log_line=f"Failed to delete {name}: {res.get('error')}",
+            )
+
+    progress_tracker.finish(summary={
+        "total_freed_bytes": total_freed,
+        "total_deleted_count": success_count,
+        "total_skipped_count": failed_count,
+        "results": results,
+    })
 
     return {
         "success": failed_count == 0,

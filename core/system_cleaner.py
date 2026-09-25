@@ -27,9 +27,20 @@ import shutil
 import stat
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+from core.cleanup_progress import progress_tracker
+
+
+def _format_size_helper(bytes_val: int) -> str:
+    if bytes_val < 1024:
+        return f"{bytes_val} B"
+    if bytes_val < 1024 * 1024:
+        return f"{bytes_val / 1024:.1f} KB"
+    return f"{bytes_val / (1024 * 1024):.1f} MB"
+
 
 
 def _remove_readonly(func: Any, path: str, excinfo: Any) -> None:
@@ -351,6 +362,7 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
     """
     Safely clean a specific system target by ID.
     Enforces directory root preservation, age filters, and non-blocking lock handling.
+    Emits real-time progress events to progress_tracker.
     """
     target_spec = next((s for s in KNOWN_TARGETS_SPECS if s["id"] == target_id), None)
     if not target_spec:
@@ -362,15 +374,28 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
     skipped_count = 0
 
     if t_type == "recycle_bin":
-        prev_bytes, _ = _query_recycle_bin()
+        progress_tracker.update(
+            current_file="Windows Recycle Bin",
+            log_line="Querying and emptying Windows Recycle Bin...",
+        )
+        prev_bytes, prev_items = _query_recycle_bin()
         ok, msg = _empty_recycle_bin()
         after_bytes, _ = _query_recycle_bin()
         actual_freed = max(0, prev_bytes - after_bytes)
+        freed = actual_freed or prev_bytes
+        freed_bytes = freed
+        deleted_count = max(1, prev_items) if ok else 0
+        progress_tracker.update(
+            current_file="",
+            bytes_delta=freed_bytes,
+            deleted_count=deleted_count,
+            log_line=f"Purged Recycle Bin: freed {_format_size_helper(freed_bytes)} ({deleted_count} items)." if ok else f"Recycle Bin error: {msg}",
+        )
         return {
             "id": target_id,
             "success": ok,
-            "freed_bytes": actual_freed or prev_bytes,
-            "deleted_count": 1,
+            "freed_bytes": freed_bytes,
+            "deleted_count": deleted_count,
             "skipped_count": 0,
             "message": msg if ok else f"Recycle Bin error: {msg}",
         }
@@ -380,6 +405,11 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
         if temp_dir and os.path.isdir(temp_dir):
             now = time.time()
             one_day = 86400
+
+            progress_tracker.update(
+                current_file=temp_dir,
+                log_line=f"Scanning {temp_dir} for files older than 24 hours...",
+            )
 
             # Delete files >24h
             for root, dirs, files in os.walk(temp_dir, topdown=False):
@@ -393,8 +423,17 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
                             os.remove(p)
                             freed_bytes += f_size
                             deleted_count += 1
+                            rel = os.path.relpath(p, temp_dir)
+                            should_log = (deleted_count % 10 == 0) or (f_size > 262144)
+                            progress_tracker.update(
+                                current_file=rel,
+                                bytes_delta=f_size,
+                                deleted_count=1,
+                                log_line=f"Deleted: {rel} ({_format_size_helper(f_size)})" if should_log else None,
+                            )
                     except (PermissionError, OSError):
                         skipped_count += 1
+                        progress_tracker.update(skipped_count=1)
 
                 # Clean empty subdirectories (never the root temp_dir)
                 for d in dirs:
@@ -416,8 +455,16 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
                     os.remove(p)
                     freed_bytes += f_size
                     deleted_count += 1
+                    base = os.path.basename(p)
+                    progress_tracker.update(
+                        current_file=base,
+                        bytes_delta=f_size,
+                        deleted_count=1,
+                        log_line=f"Purged thumbnail cache: {base} ({_format_size_helper(f_size)})",
+                    )
                 except (PermissionError, OSError):
                     skipped_count += 1
+                    progress_tracker.update(skipped_count=1)
 
     elif t_type in ("dir_contents", "glob_dir_contents"):
         target_dirs: list[str] = []
@@ -430,26 +477,48 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
         for d in target_dirs:
             if not os.path.isdir(d):
                 continue
-            # Empty contents of directory, preserving parent root
+            progress_tracker.update(
+                current_file=d,
+                log_line=f"Clearing cache directory: {os.path.basename(d)}...",
+            )
             try:
                 for entry in os.listdir(d):
                     sub_path = os.path.join(d, entry)
                     try:
                         if os.path.isdir(sub_path):
-                            s, _ = _calc_dir_footprint(sub_path)
+                            s, c = _calc_dir_footprint(sub_path)
                             shutil.rmtree(sub_path, onerror=_remove_readonly)
                             freed_bytes += s
-                            deleted_count += 1
+                            cnt = c if c > 0 else 1
+                            deleted_count += cnt
+                            progress_tracker.update(
+                                current_file=entry,
+                                bytes_delta=s,
+                                deleted_count=cnt,
+                                log_line=f"Cleared cache folder: {entry} ({_format_size_helper(s)})",
+                            )
                         else:
                             f_size = os.path.getsize(sub_path)
                             os.chmod(sub_path, stat.S_IWRITE)
                             os.remove(sub_path)
                             freed_bytes += f_size
                             deleted_count += 1
+                            should_log = (deleted_count % 15 == 0) or (f_size > 524288)
+                            progress_tracker.update(
+                                current_file=entry,
+                                bytes_delta=f_size,
+                                deleted_count=1,
+                                log_line=f"Deleted cache item: {entry} ({_format_size_helper(f_size)})" if should_log else None,
+                            )
                     except (PermissionError, OSError):
                         skipped_count += 1
+                        progress_tracker.update(skipped_count=1)
             except Exception:
                 pass
+
+    progress_tracker.update(
+        log_line=f"Finished {target_spec['name']}: {_format_size_helper(freed_bytes)} reclaimed ({deleted_count} deleted, {skipped_count} skipped)."
+    )
 
     return {
         "id": target_id,
@@ -464,20 +533,36 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
 def clean_multiple_system_targets(target_ids: List[str]) -> Dict[str, Any]:
     """
     Clean multiple system targets in sequence.
+    Updates progress_tracker in real time for live UI feedback.
     Returns aggregated freed bytes and per-target outcomes.
     """
+    progress_tracker.start("System Junk Reclamation")
     total_freed = 0
     total_deleted = 0
     total_skipped = 0
     results: List[Dict[str, Any]] = []
 
-    for t_id in target_ids:
+    total_targets = len(target_ids)
+    for idx, t_id in enumerate(target_ids):
+        target_spec = next((s for s in KNOWN_TARGETS_SPECS if s["id"] == t_id), None)
+        target_name = target_spec["name"] if target_spec else t_id
+        percent = int((idx / max(1, total_targets)) * 100)
+        progress_tracker.set_phase(f"Cleaning {target_name} ({idx + 1}/{total_targets})", percent=percent)
+
         res = clean_system_target(t_id)
         results.append(res)
         if res.get("success"):
             total_freed += res.get("freed_bytes", 0)
             total_deleted += res.get("deleted_count", 0)
             total_skipped += res.get("skipped_count", 0)
+
+    summary_data = {
+        "total_freed_bytes": total_freed,
+        "total_deleted_count": total_deleted,
+        "total_skipped_count": total_skipped,
+        "results": results,
+    }
+    progress_tracker.finish(summary=summary_data)
 
     return {
         "success": True,

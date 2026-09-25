@@ -28,6 +28,8 @@ from typing import Any, Dict, List, Optional
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+from core.cleanup_progress import progress_tracker
+
 logger = logging.getLogger(__name__)
 
 
@@ -206,20 +208,46 @@ def purge_system_cache(target_path_or_id: str) -> Dict[str, Any]:
 
 
 def purge_multiple_caches(targets: List[str]) -> Dict[str, Any]:
-    """Purge multiple recognized global developer cache directories."""
+    """
+    Purge multiple recognized global developer cache directories.
+    Updates progress_tracker in real time for live UI feedback.
+    """
+    progress_tracker.start("Package Caches Purge")
     total_freed = 0
     results = []
     success_count = 0
     failed_count = 0
 
-    for target in targets:
+    total_targets = len(targets)
+    for idx, target in enumerate(targets):
+        pct = int((idx / max(1, total_targets)) * 100)
+        progress_tracker.set_phase(f"Purging cache {target} ({idx + 1}/{total_targets})", percent=pct)
+        progress_tracker.update(current_file=target, log_line=f"Emptying cache: {target}...")
+
         res = purge_system_cache(target)
         results.append(res)
         if res["success"]:
-            total_freed += res.get("freed_bytes", 0)
+            freed = res.get("freed_bytes", 0)
+            total_freed += freed
             success_count += 1
+            progress_tracker.update(
+                bytes_delta=freed,
+                deleted_count=1,
+                log_line=f"Purged {res.get('label', target)} ({freed / (1024*1024):.1f} MB freed)",
+            )
         else:
             failed_count += 1
+            progress_tracker.update(
+                skipped_count=1,
+                log_line=f"Failed to purge {res.get('label', target)}: {res.get('error')}",
+            )
+
+    progress_tracker.finish(summary={
+        "total_freed_bytes": total_freed,
+        "total_deleted_count": success_count,
+        "total_skipped_count": failed_count,
+        "results": results,
+    })
 
     return {
         "success": failed_count == 0,

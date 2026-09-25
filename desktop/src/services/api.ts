@@ -14,6 +14,7 @@ import {
   SystemCleanupTarget,
   WorkspaceHealth,
   WorkspaceInspection,
+  CleanupLiveProgress,
 } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
@@ -67,6 +68,7 @@ interface PyWebViewApi {
   purge_caches?(targets: string[]): Promise<CachePurgeResult | string>;
   get_system_cleanup_targets?(): Promise<SystemCleanupTarget[] | string>;
   clean_system_targets?(targets: string[]): Promise<SystemCleanupResult | string>;
+  get_cleanup_progress?(): Promise<CleanupLiveProgress | string>;
   get_workspace_health?(workspace_path: string): Promise<WorkspaceHealth | string>;
   get_ai_config?(): Promise<AiConfig | string>;
   save_ai_config?(updates: Partial<AiConfig>): Promise<{ success: boolean; error?: string; config?: AiConfig } | string>;
@@ -730,6 +732,35 @@ export class EntropyApiClient {
         deleted_count: 12,
         skipped_count: 1,
       })),
+    };
+  }
+
+  /**
+   * Get real-time live cleanup progress snapshot (phases, rolling logs, bytes freed, files deleted).
+   */
+  static async getCleanupProgress(): Promise<CleanupLiveProgress> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_cleanup_progress) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_cleanup_progress!();
+          return parseBridgeResponse<CleanupLiveProgress>(res);
+        }
+      } catch (err) {
+        console.warn('Failed to poll cleanup progress:', err);
+      }
+    }
+    return {
+      is_running: false,
+      current_phase: '',
+      current_file: '',
+      items_deleted: 0,
+      items_skipped: 0,
+      bytes_freed: 0,
+      percent: 0,
+      recent_logs: [],
+      done: false,
+      error: null,
+      summary: null,
     };
   }
 

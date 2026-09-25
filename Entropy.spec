@@ -29,6 +29,7 @@ hiddenimports = [
     'core.graph',
     'core.findings',
     'core.system_cleaner',
+    'core.cleanup_progress',
     'core.git_control',
     'core.cache_cleaner',
     'core.launcher',

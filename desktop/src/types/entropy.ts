@@ -415,5 +415,26 @@ export interface SystemCleanupResult {
   }[];
 }
 
+export interface CleanupLiveProgress {
+  is_running: boolean;
+  current_phase: string;
+  current_file: string;
+  items_deleted: number;
+  items_skipped: number;
+  bytes_freed: number;
+  percent: number;
+  recent_logs: string[];
+  done: boolean;
+  error?: string | null;
+  summary?: {
+    total_freed_bytes: number;
+    total_deleted_count: number;
+    total_skipped_count: number;
+    elapsed_seconds?: number;
+    results?: any[];
+  } | null;
+}
+
+
 
 

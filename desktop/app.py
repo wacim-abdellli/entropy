@@ -329,6 +329,11 @@ class EntropyDesktopApi:
         from core.system_cleaner import clean_multiple_system_targets
         return clean_multiple_system_targets(targets)
 
+    def get_cleanup_progress(self) -> dict[str, Any]:
+        """Get live real-time progress snapshot of running cleanup operations."""
+        from core.cleanup_progress import progress_tracker
+        return progress_tracker.snapshot()
+
     def get_workspace_health(self, workspace_path: str) -> dict[str, Any]:
         """Evaluate workspace health, risks, and actionable recommendations."""
         from dataclasses import asdict
