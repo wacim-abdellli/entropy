@@ -319,6 +319,16 @@ class EntropyDesktopApi:
         from core.cache_cleaner import purge_multiple_caches
         return purge_multiple_caches(targets)
 
+    def get_system_cleanup_targets(self) -> list[dict[str, Any]]:
+        """Discover and measure system-wide PC junk, temp files, browser caches, and recycle bin."""
+        from core.system_cleaner import get_system_cleanup_targets
+        return get_system_cleanup_targets()
+
+    def clean_system_targets(self, targets: list[str]) -> dict[str, Any]:
+        """Safely clean selected system-wide targets (Windows Temp, browser caches, dumps)."""
+        from core.system_cleaner import clean_multiple_system_targets
+        return clean_multiple_system_targets(targets)
+
     def get_workspace_health(self, workspace_path: str) -> dict[str, Any]:
         """Evaluate workspace health, risks, and actionable recommendations."""
         from dataclasses import asdict

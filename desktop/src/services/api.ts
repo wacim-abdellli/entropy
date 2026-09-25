@@ -10,6 +10,8 @@ import {
   EnvironmentOverview,
   GitStashItem,
   GlobalCacheItem,
+  SystemCleanupResult,
+  SystemCleanupTarget,
   WorkspaceHealth,
   WorkspaceInspection,
 } from '../types/entropy';
@@ -63,6 +65,8 @@ interface PyWebViewApi {
   prune_docker_resources?(target: string): Promise<DockerPruneResult | string>;
   get_purgeable_caches?(): Promise<GlobalCacheItem[] | string>;
   purge_caches?(targets: string[]): Promise<CachePurgeResult | string>;
+  get_system_cleanup_targets?(): Promise<SystemCleanupTarget[] | string>;
+  clean_system_targets?(targets: string[]): Promise<SystemCleanupResult | string>;
   get_workspace_health?(workspace_path: string): Promise<WorkspaceHealth | string>;
   get_ai_config?(): Promise<AiConfig | string>;
   save_ai_config?(updates: Partial<AiConfig>): Promise<{ success: boolean; error?: string; config?: AiConfig } | string>;
@@ -666,6 +670,66 @@ export class EntropyApiClient {
       success_count: targets.length,
       failed_count: 0,
       results: targets.map((t) => ({ success: true, id: t, label: t, path: t, freed_bytes: 1024 * 1024 * 150 })),
+    };
+  }
+
+  /**
+   * Discover and measure system-wide PC junk, Windows temp, browser caches, and recycle bin.
+   */
+  static async getSystemCleanupTargets(): Promise<SystemCleanupTarget[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_system_cleanup_targets) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_system_cleanup_targets!();
+          return parseBridgeResponse<SystemCleanupTarget[]>(res) || [];
+        }
+      } catch (err) {
+        console.warn('Failed to get system cleanup targets:', err);
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Safely clean selected system junk targets (Windows Temp, browser caches, crash dumps).
+   */
+  static async cleanSystemTargets(targets: string[]): Promise<SystemCleanupResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.clean_system_targets) {
+          const res = await bridgeWindow()!.pywebview!.api!.clean_system_targets!(targets);
+          return parseBridgeResponse<SystemCleanupResult>(res);
+        }
+      } catch (err: unknown) {
+        return {
+          success: false,
+          total_freed_bytes: 0,
+          total_deleted_count: 0,
+          total_skipped_count: 0,
+          results: targets.map((t) => ({
+            id: t,
+            success: false,
+            freed_bytes: 0,
+            deleted_count: 0,
+            skipped_count: 0,
+            error: errorMessage(err),
+          })),
+        };
+      }
+    }
+    console.log('[Dev Bridge] Cleaning system targets:', targets);
+    return {
+      success: true,
+      total_freed_bytes: 1024 * 1024 * 500,
+      total_deleted_count: 24,
+      total_skipped_count: 2,
+      results: targets.map((t) => ({
+        id: t,
+        success: true,
+        freed_bytes: 1024 * 1024 * 250,
+        deleted_count: 12,
+        skipped_count: 1,
+      })),
     };
   }
 

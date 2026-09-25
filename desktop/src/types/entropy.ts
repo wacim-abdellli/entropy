@@ -385,4 +385,35 @@ export interface GitStashItem {
   branch?: string;
 }
 
+export interface SystemCleanupTarget {
+  id: string;
+  name: string;
+  category: 'system' | 'browser' | 'diagnostics' | 'developer';
+  category_label: string;
+  description: string;
+  risk: 'safe' | 'review' | 'danger';
+  safety_notice: string;
+  is_default_selected: boolean;
+  size_bytes: number;
+  item_count: number;
+  paths: string[];
+}
+
+export interface SystemCleanupResult {
+  success: boolean;
+  total_freed_bytes: number;
+  total_deleted_count: number;
+  total_skipped_count: number;
+  results: {
+    id: string;
+    success: boolean;
+    freed_bytes: number;
+    deleted_count: number;
+    skipped_count: number;
+    message?: string;
+    error?: string;
+  }[];
+}
+
+
 
