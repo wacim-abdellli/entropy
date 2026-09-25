@@ -394,6 +394,9 @@ export interface SystemCleanupTarget {
   risk: 'safe' | 'review' | 'danger';
   safety_notice: string;
   is_default_selected: boolean;
+  is_running?: boolean;
+  locking_process?: string | null;
+  lock_message?: string | null;
   size_bytes: number;
   item_count: number;
   paths: string[];

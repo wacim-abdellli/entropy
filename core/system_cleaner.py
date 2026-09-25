@@ -52,6 +52,36 @@ def _remove_readonly(func: Any, path: str, excinfo: Any) -> None:
         pass
 
 
+def _is_file_deletable(path: str) -> bool:
+    """Test if a file can be deleted on Windows (not locked by another process or owned by SYSTEM ACL)."""
+    try:
+        test_p = path + ".__entropy_test__"
+        os.rename(path, test_p)
+        os.rename(test_p, path)
+        return True
+    except (PermissionError, OSError):
+        return False
+
+
+def _is_any_process_running(proc_names: list[str]) -> bool:
+    """Check if any of the given process executables are currently running on Windows."""
+    if not proc_names:
+        return False
+    try:
+        import psutil
+        names = {p.lower() for p in proc_names}
+        for proc in psutil.process_iter(['name']):
+            try:
+                pname = proc.info['name']
+                if pname and pname.lower() in names:
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+    except Exception:
+        pass
+    return False
+
+
 def _calc_dir_footprint(path: str, max_depth: int = 4, timeout_seconds: float = 2.5) -> tuple[int, int]:
     """Calculate total size and file count of a directory with timeout protection."""
     if not os.path.exists(path) or not os.path.isdir(path):
@@ -159,6 +189,8 @@ KNOWN_TARGETS_SPECS = [
         "safety_notice": "100% safe. Only web caches are cleared. Your bookmarks and accounts are untouched.",
         "is_default_selected": True,
         "type": "dir_contents",
+        "process_names": ["chrome.exe"],
+        "process_app_name": "Google Chrome",
         "paths": [
             os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\User Data\Default\Cache"),
             os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\User Data\Default\Code Cache"),
@@ -175,6 +207,8 @@ KNOWN_TARGETS_SPECS = [
         "safety_notice": "100% safe. Edge automatically re-downloads cached media when browsing.",
         "is_default_selected": True,
         "type": "dir_contents",
+        "process_names": ["msedge.exe"],
+        "process_app_name": "Microsoft Edge",
         "paths": [
             os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\User Data\Default\Cache"),
             os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\User Data\Default\Code Cache"),
@@ -191,6 +225,8 @@ KNOWN_TARGETS_SPECS = [
         "safety_notice": "100% safe. Clears disposable web responses only.",
         "is_default_selected": True,
         "type": "dir_contents",
+        "process_names": ["brave.exe"],
+        "process_app_name": "Brave Browser",
         "paths": [
             os.path.expandvars(r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data\Default\Cache"),
             os.path.expandvars(r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data\Default\Code Cache"),
@@ -206,6 +242,8 @@ KNOWN_TARGETS_SPECS = [
         "safety_notice": "100% safe. Only web caches are removed.",
         "is_default_selected": True,
         "type": "glob_dir_contents",
+        "process_names": ["firefox.exe"],
+        "process_app_name": "Mozilla Firefox",
         "paths": [
             os.path.expandvars(r"%LOCALAPPDATA%\Mozilla\Firefox\Profiles\*\cache2"),
         ],
@@ -244,6 +282,8 @@ KNOWN_TARGETS_SPECS = [
         "safety_notice": "100% safe. VS Code regenerates internal bytecode on launch.",
         "is_default_selected": True,
         "type": "dir_contents",
+        "process_names": ["Code.exe"],
+        "process_app_name": "VS Code",
         "paths": [
             os.path.expandvars(r"%APPDATA%\Code\Cache"),
             os.path.expandvars(r"%APPDATA%\Code\CachedData"),
@@ -283,8 +323,10 @@ def _inspect_single_target(spec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                         try:
                             st = os.stat(p)
                             if now - st.st_mtime > one_day:
-                                size_bytes += st.st_size
-                                item_count += 1
+                                # Test if file can actually be deleted by current user (not locked by kernel handle or SYSTEM ACL)
+                                if _is_file_deletable(p):
+                                    size_bytes += st.st_size
+                                    item_count += 1
                         except Exception:
                             pass
             except Exception:
@@ -295,12 +337,17 @@ def _inspect_single_target(spec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if exp_dir and os.path.isdir(exp_dir):
             valid_paths.append(exp_dir)
             dbs = glob.glob(os.path.join(exp_dir, "thumbcache_*.db"))
+            total_raw = 0
             for p in dbs:
                 try:
-                    size_bytes += os.path.getsize(p)
-                    item_count += 1
+                    total_raw += os.path.getsize(p)
                 except Exception:
                     pass
+            # Windows Explorer shell pre-allocates an empty 3,153,408 byte baseline (15 empty database skeletons)
+            # which contains 0 user thumbnails. Only report space above this empty shell baseline.
+            reclaimable_thumb_bytes = max(0, total_raw - 3153408)
+            size_bytes = reclaimable_thumb_bytes
+            item_count = len(dbs) if reclaimable_thumb_bytes > 0 else 0
 
     elif t_type == "glob_dir_contents":
         for pattern in spec["paths"]:
@@ -322,6 +369,11 @@ def _inspect_single_target(spec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if size_bytes == 0 and item_count == 0 and not valid_paths:
         return None
 
+    proc_names = spec.get("process_names", [])
+    is_proc_running = _is_any_process_running(proc_names) if proc_names else False
+    app_name = spec.get("process_app_name", spec["name"])
+    lock_message = f"{app_name} is currently open. Close {app_name} to clean its active cache." if is_proc_running else None
+
     return {
         "id": spec["id"],
         "name": spec["name"],
@@ -330,7 +382,10 @@ def _inspect_single_target(spec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "description": spec["description"],
         "risk": spec["risk"],
         "safety_notice": spec["safety_notice"],
-        "is_default_selected": spec["is_default_selected"] and size_bytes > 0,
+        "is_default_selected": spec["is_default_selected"] and size_bytes > 0 and not is_proc_running,
+        "is_running": is_proc_running,
+        "locking_process": proc_names[0] if is_proc_running and proc_names else None,
+        "lock_message": lock_message,
         "size_bytes": size_bytes,
         "item_count": item_count,
         "paths": valid_paths,
@@ -419,6 +474,10 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
                         st = os.stat(p)
                         if now - st.st_mtime > one_day:
                             f_size = st.st_size
+                            if not _is_file_deletable(p):
+                                skipped_count += 1
+                                progress_tracker.update(skipped_count=1)
+                                continue
                             os.chmod(p, stat.S_IWRITE)
                             os.remove(p)
                             freed_bytes += f_size
@@ -474,6 +533,14 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
         else:
             target_dirs.extend(target_spec["paths"])
 
+        proc_names = target_spec.get("process_names", [])
+        is_proc_running = _is_any_process_running(proc_names) if proc_names else False
+        app_name = target_spec.get("process_app_name", target_spec["name"])
+        if is_proc_running:
+            progress_tracker.update(
+                log_line=f"⚠️ {app_name} is currently open. Active files locked by Windows will be safely skipped."
+            )
+
         for d in target_dirs:
             if not os.path.isdir(d):
                 continue
@@ -486,30 +553,53 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
                     sub_path = os.path.join(d, entry)
                     try:
                         if os.path.isdir(sub_path):
-                            s, c = _calc_dir_footprint(sub_path)
-                            shutil.rmtree(sub_path, onerror=_remove_readonly)
-                            freed_bytes += s
-                            cnt = c if c > 0 else 1
-                            deleted_count += cnt
-                            progress_tracker.update(
-                                current_file=entry,
-                                bytes_delta=s,
-                                deleted_count=cnt,
-                                log_line=f"Cleared cache folder: {entry} ({_format_size_helper(s)})",
-                            )
+                            s_before, c_before = _calc_dir_footprint(sub_path)
+                            try:
+                                shutil.rmtree(sub_path, onerror=_remove_readonly)
+                            except Exception:
+                                pass
+                            if os.path.exists(sub_path):
+                                s_after, c_after = _calc_dir_footprint(sub_path)
+                                actual_freed = max(0, s_before - s_after)
+                                freed_bytes += actual_freed
+                                if actual_freed > 0:
+                                    deleted_count += max(1, c_before - c_after)
+                                if s_after > 0:
+                                    skipped_count += (c_after or 1)
+                                    progress_tracker.update(
+                                        current_file=entry,
+                                        skipped_count=(c_after or 1),
+                                        log_line=f"Locked by running app: {entry} ({_format_size_helper(s_after)} in use by {app_name})",
+                                    )
+                            else:
+                                freed_bytes += s_before
+                                deleted_count += (c_before or 1)
+                                progress_tracker.update(
+                                    current_file=entry,
+                                    bytes_delta=s_before,
+                                    deleted_count=(c_before or 1),
+                                    log_line=f"Cleared cache folder: {entry} ({_format_size_helper(s_before)})",
+                                )
                         else:
                             f_size = os.path.getsize(sub_path)
-                            os.chmod(sub_path, stat.S_IWRITE)
-                            os.remove(sub_path)
-                            freed_bytes += f_size
-                            deleted_count += 1
-                            should_log = (deleted_count % 15 == 0) or (f_size > 524288)
-                            progress_tracker.update(
-                                current_file=entry,
-                                bytes_delta=f_size,
-                                deleted_count=1,
-                                log_line=f"Deleted cache item: {entry} ({_format_size_helper(f_size)})" if should_log else None,
-                            )
+                            try:
+                                os.chmod(sub_path, stat.S_IWRITE)
+                                os.remove(sub_path)
+                                freed_bytes += f_size
+                                deleted_count += 1
+                                should_log = (deleted_count % 15 == 0) or (f_size > 524288)
+                                progress_tracker.update(
+                                    current_file=entry,
+                                    bytes_delta=f_size,
+                                    deleted_count=1,
+                                    log_line=f"Deleted cache item: {entry} ({_format_size_helper(f_size)})" if should_log else None,
+                                )
+                            except (PermissionError, OSError):
+                                skipped_count += 1
+                                progress_tracker.update(
+                                    skipped_count=1,
+                                    log_line=f"Skipped in-use file: {entry}",
+                                )
                     except (PermissionError, OSError):
                         skipped_count += 1
                         progress_tracker.update(skipped_count=1)
@@ -520,13 +610,21 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
         log_line=f"Finished {target_spec['name']}: {_format_size_helper(freed_bytes)} reclaimed ({deleted_count} deleted, {skipped_count} skipped)."
     )
 
+    proc_names = target_spec.get("process_names", [])
+    is_proc_running = _is_any_process_running(proc_names) if proc_names else False
+    app_name = target_spec.get("process_app_name", target_spec["name"])
+    if is_proc_running and freed_bytes == 0 and skipped_count > 0:
+        message = f"{target_spec['name']} is currently locked by {app_name}. Please close {app_name} to clean its active cache."
+    else:
+        message = f"Cleaned {target_spec['name']}. Freed {_format_size_helper(freed_bytes)} ({deleted_count} items removed, {skipped_count} active items safely skipped)."
+
     return {
         "id": target_id,
         "success": True,
         "freed_bytes": freed_bytes,
         "deleted_count": deleted_count,
         "skipped_count": skipped_count,
-        "message": f"Cleaned {target_spec['name']}. Freed {freed_bytes} bytes ({deleted_count} items removed, {skipped_count} active items safely skipped).",
+        "message": message,
     }
 
 

@@ -206,8 +206,10 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   };
 
   const handleSelectAllSafeSystemTargets = () => {
-    const safeIds = systemTargets.filter((t) => t.risk === 'safe').map((t) => t.id);
-    const allSafeSelected = safeIds.every((id) => selectedSystemTargets.has(id));
+    const safeIds = systemTargets
+      .filter((t) => t.risk === 'safe' && !t.is_running && t.size_bytes > 0)
+      .map((t) => t.id);
+    const allSafeSelected = safeIds.length > 0 && safeIds.every((id) => selectedSystemTargets.has(id));
     if (allSafeSelected) {
       const next = new Set(selectedSystemTargets);
       safeIds.forEach((id) => next.delete(id));
@@ -755,6 +757,11 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                             <span className="text-[10px] uppercase font-semibold text-[var(--color-text-tertiary)] bg-[var(--color-surface-3)] px-2 py-0.5 rounded-full border border-[var(--color-border-subtle)]">
                               {target.category_label}
                             </span>
+                            {target.is_running && (
+                              <span className="text-[10px] font-semibold text-[var(--color-warning)] bg-[var(--color-warning-bg)] px-2 py-0.5 rounded-full border border-[var(--color-warning-border)] flex items-center gap-1">
+                                <AlertCircle size={10} /> App Open (Locked)
+                              </span>
+                            )}
                             {target.risk === 'safe' ? (
                               <span className="text-[10px] font-medium text-[var(--color-success)] bg-[var(--color-success-bg)] px-2 py-0.5 rounded-full border border-[var(--color-success-border)]">
                                 100% Safe
@@ -769,10 +776,17 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                           <p className="text-xs text-[var(--color-text-secondary)] mt-1">
                             {target.description}
                           </p>
-                          <p className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5 flex items-center gap-1">
-                            <Info size={11} className="shrink-0 text-[var(--color-accent)]" />
-                            <span>{target.safety_notice}</span>
-                          </p>
+                          {target.is_running && target.lock_message ? (
+                            <p className="text-[11px] text-[var(--color-warning)] mt-1 flex items-center gap-1.5 font-medium">
+                              <AlertCircle size={12} className="shrink-0" />
+                              <span>{target.lock_message}</span>
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5 flex items-center gap-1">
+                              <Info size={11} className="shrink-0 text-[var(--color-accent)]" />
+                              <span>{target.safety_notice}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -1220,6 +1234,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                   <div className="flex items-center gap-2 text-[var(--color-warning)]">
                     <Shield size={14} className="shrink-0" />
                     <span>Windows Recycle Bin will be permanently emptied.</span>
+                  </div>
+                )}
+                {Array.from(selectedSystemTargets).some((id) => systemTargets.find((t) => t.id === id)?.is_running) && (
+                  <div className="flex items-center gap-2 text-[var(--color-warning)] pt-1 border-t border-[var(--color-border-subtle)]">
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>One or more selected apps are open. Locked cache files will be safely skipped.</span>
                   </div>
                 )}
               </div>
