@@ -11,6 +11,7 @@ import {
   GitBranch,
   GitMerge,
   HardDrive,
+  Plus,
   RefreshCw,
   Search,
   Settings,
@@ -232,9 +233,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <h1 className="text-base font-semibold tracking-tight text-[var(--color-text-primary)]">
                 Workspaces
               </h1>
-              <span className="text-[11px] font-mono text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
-                {workspaces.length}
-              </span>
+              {isLoading && workspaces.length === 0 ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[var(--color-accent-strong)] px-2 py-0.5 rounded-full bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/30">
+                  <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                  <span>Scanning…</span>
+                </span>
+              ) : (
+                <span className="text-[11px] font-mono text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
+                  {workspaces.length}
+                </span>
+              )}
             </div>
 
             {/* Filter Pills */}
@@ -351,7 +359,68 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       {/* ── Workspaces List (Takes Full Prime Screen Space) ── */}
       <div className="max-w-6xl mx-auto px-6 sm:px-8 py-5">
         <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden divide-y divide-[var(--color-border-subtle)] shadow-xs">
-          {filteredWorkspaces.map((workspace) => {
+          {/* Subtle real-time scan progress bar when refreshing existing workspaces */}
+          {isLoading && workspaces.length > 0 && (
+            <div className="h-0.5 w-full bg-[var(--color-accent)]/20 overflow-hidden">
+              <div className="h-full bg-[var(--color-accent)] animate-pulse w-full" />
+            </div>
+          )}
+
+          {isLoading && workspaces.length === 0 ? (
+            <div className="divide-y divide-[var(--color-border-subtle)]">
+              {/* Scanning status banner */}
+              <div className="p-4 bg-[var(--color-surface-2)]/50 border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <RefreshCw className="w-4 h-4 text-[var(--color-accent)] animate-spin shrink-0" />
+                  <div>
+                    <span className="font-semibold text-[var(--color-text-primary)]">
+                      Scanning developer directories across your PC…
+                    </span>
+                    <p className="text-[11px] text-[var(--color-text-tertiary)] font-mono mt-0.5">
+                      Discovering Git repositories, dev servers, and build artifacts
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-mono text-[var(--color-text-tertiary)] hidden sm:inline">
+                  Please wait…
+                </span>
+              </div>
+
+              {/* Shimmering Skeleton rows */}
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between gap-4 px-4 py-3.5 animate-pulse"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-2 h-2 rounded-full bg-[var(--color-surface-3)] shrink-0" />
+                    <div className="space-y-2 flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-4 bg-[var(--color-surface-3)] rounded"
+                          style={{ width: `${85 + (i * 27) % 65}px` }}
+                        />
+                        <div className="h-3.5 w-14 bg-[var(--color-surface-3)]/60 rounded" />
+                      </div>
+                      <div
+                        className="h-3 bg-[var(--color-surface-3)]/40 rounded"
+                        style={{ width: `${150 + (i * 45) % 130}px` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="h-4 w-16 bg-[var(--color-surface-3)]/60 rounded" />
+                    <div className="h-4 w-14 bg-[var(--color-surface-3)]/40 rounded" />
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="w-6 h-6 bg-[var(--color-surface-3)]/50 rounded-md" />
+                    <div className="w-6 h-6 bg-[var(--color-surface-3)]/50 rounded-md" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            filteredWorkspaces.map((workspace) => {
             const isDirty = workspace.has_uncommitted_changes;
             const isRunning = workspace.process_count > 0;
             const reclaimableSize = workspaceArtifactSizeMap.get(
@@ -557,16 +626,62 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </div>
               </div>
             );
-          })}
+          })
+        )}
 
-          {filteredWorkspaces.length === 0 && (
-            <div className="p-10 text-center space-y-2">
-              <FolderGit2 className="w-8 h-8 text-[var(--color-text-tertiary)] mx-auto opacity-40" />
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                {searchQuery
-                  ? `No workspaces found matching "${searchQuery}".`
-                  : 'No workspaces found in this filter.'}
-              </p>
+          {!isLoading && filteredWorkspaces.length === 0 && (
+            <div className="p-12 text-center space-y-3">
+              <FolderGit2 className="w-9 h-9 text-[var(--color-text-tertiary)] mx-auto opacity-40" />
+              {workspaces.length === 0 ? (
+                <div className="space-y-3 max-w-sm mx-auto">
+                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    No workspaces detected
+                  </h3>
+                  <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                    No repositories or projects were found in your configured scan directories. Add a project folder or configure additional scan roots.
+                  </p>
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={onInspectFolder}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Folder
+                    </button>
+                    {onNavigateToSettings && (
+                      <button
+                        type="button"
+                        onClick={onNavigateToSettings}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)] transition-colors cursor-pointer"
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                        Configure Roots
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    {searchQuery
+                      ? `No workspaces found matching "${searchQuery}".`
+                      : 'No workspaces found matching the selected filter.'}
+                  </p>
+                  {(searchQuery || filter !== 'all') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setFilter('all');
+                      }}
+                      className="text-xs text-[var(--color-accent)] hover:underline cursor-pointer"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
