@@ -114,6 +114,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     const procs = overview?.system?.processes || [];
     return procs.filter((p) => {
       const name = (p.name || '').toLowerCase();
+      const isProtected = ['antigravity', 'cursor', 'code', 'windsurf', 'entropy', 'chrome', 'msedge', 'firefox', 'brave', 'devenv', 'idea', 'pycharm', 'webstorm', 'explorer', 'taskmgr', 'svchost'].some((term) => name.includes(term));
+      if (isProtected) return false;
       return (
         ['node', 'python', 'bun', 'deno', 'cargo', 'rustc', 'go', 'java', 'dotnet', 'ruby', 'tsc', 'vite', 'webpack', 'esbuild'].some((term) => name.includes(term)) ||
         (p.ports && p.ports.length > 0)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ArrowLeft,
   GitBranch,
@@ -175,7 +175,25 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
   const { workspace, connections } = inspection;
   const git = connections.git;
-  const processes = connections.processes || [];
+  const PROTECTED_PROCESS_SET = useMemo(() => new Set([
+    'antigravity.exe', 'antigravity',
+    'code.exe', 'code',
+    'cursor.exe', 'cursor',
+    'windsurf.exe', 'windsurf',
+    'entropy.exe', 'entropy',
+    'vscodium.exe', 'vscodium',
+    'idea64.exe', 'pycharm64.exe', 'webstorm64.exe', 'rider64.exe', 'clion64.exe', 'devenv.exe',
+    'chrome.exe', 'msedge.exe', 'firefox.exe', 'brave.exe', 'explorer.exe', 'taskmgr.exe'
+  ]), []);
+
+  const rawProcesses: ProcessConnection[] = connections.processes || [];
+  const processes: ProcessConnection[] = useMemo(() => {
+    return rawProcesses.filter((proc: ProcessConnection) => {
+      const name = (proc.name || '').toLowerCase();
+      return !PROTECTED_PROCESS_SET.has(name) && !PROTECTED_PROCESS_SET.has(name.replace('.exe', ''));
+    });
+  }, [rawProcesses, PROTECTED_PROCESS_SET]);
+
   const dependencies = connections.dependencies || [];
   const dirtyFiles = git?.dirty_files || [];
 
@@ -214,9 +232,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     };
   }, [workspace.path]);
 
-  const activePorts = Array.from(
-    new Set(processes.flatMap((p) => p.ports || []))
-  ).sort((a, b) => a - b);
+  const activePorts: number[] = Array.from(
+    new Set(processes.flatMap((p: ProcessConnection) => p.ports || []))
+  ).sort((a: number, b: number) => a - b);
 
   const totalDependencyBytes = dependencies.reduce(
     (sum, d) => sum + (d.size_bytes || 0),

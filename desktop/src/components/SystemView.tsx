@@ -13,8 +13,19 @@ interface SystemViewProps {
   currentWorkspace?: WorkspaceSummary | null;
 }
 
-const developerNames = ['node', 'python', 'py', 'cargo', 'rustc', 'go', 'flutter', 'dart', 'java', 'dotnet', 'ruby', 'code', 'cursor', 'powershell', 'pwsh', 'cmd', 'bash', 'wt', 'vite', 'next', 'ts-node', 'nodemon', 'webpack', 'esbuild', 'npm', 'yarn', 'pnpm'];
-const systemNames = new Set(['svchost.exe', 'system', 'system idle process', 'registry', 'smss.exe', 'csrss.exe', 'wininit.exe', 'services.exe', 'lsass.exe', 'fontdrvhost.exe', 'dwm.exe', 'memory compression', 'sihost.exe']);
+const developerNames = ['node', 'python', 'py', 'cargo', 'rustc', 'go', 'flutter', 'dart', 'java', 'dotnet', 'ruby', 'powershell', 'pwsh', 'cmd', 'bash', 'wt', 'vite', 'next', 'ts-node', 'nodemon', 'webpack', 'esbuild', 'npm', 'yarn', 'pnpm'];
+const systemNames = new Set([
+  'svchost.exe', 'system', 'system idle process', 'registry', 'smss.exe', 'csrss.exe',
+  'wininit.exe', 'services.exe', 'lsass.exe', 'fontdrvhost.exe', 'dwm.exe', 'memory compression', 'sihost.exe',
+  'explorer.exe', 'taskmgr.exe',
+  'antigravity.exe', 'antigravity',
+  'code.exe', 'code',
+  'cursor.exe', 'cursor',
+  'windsurf.exe', 'windsurf',
+  'entropy.exe', 'entropy',
+  'idea64.exe', 'pycharm64.exe', 'webstorm64.exe', 'rider64.exe', 'clion64.exe', 'devenv.exe',
+  'chrome.exe', 'msedge.exe', 'firefox.exe', 'brave.exe',
+]);
 
 function bytes(value: number | null | undefined): string {
   if (!value) return '—';
@@ -24,9 +35,10 @@ function bytes(value: number | null | undefined): string {
 }
 
 function isDeveloperProcess(process: ProcessConnection): boolean {
-  if (process.ports?.length || process.cwd || process.is_shell) return true;
   const name = (process.name || '').toLowerCase();
-  return !systemNames.has(name) && developerNames.some((term) => name.includes(term));
+  if (systemNames.has(name) || systemNames.has(name.replace('.exe', ''))) return false;
+  if (process.ports?.length || process.cwd || process.is_shell) return true;
+  return developerNames.some((term) => name.includes(term));
 }
 
 export const SystemView: React.FC<SystemViewProps> = ({

@@ -26,6 +26,7 @@ from core.entities import (
     ScanResult,
 )
 from core.graph import EnvironmentGraph, Observability, RelationshipType
+from core.process_control import PROTECTED_PROCESS_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +147,11 @@ def build_environment_graph(scan: ScanResult) -> EnvironmentGraph:
 
     # 4. Link Process -> Project (STRONGLY INFERABLE)
     for proc in scan.processes:
+        proc_name_lower = (proc.name or "").lower()
+        # Never associate IDEs, text editors, AI coding tools, browsers, or system utilities as project dev processes
+        if proc_name_lower in PROTECTED_PROCESS_NAMES or proc_name_lower.replace(".exe", "") in PROTECTED_PROCESS_NAMES:
+            continue
+
         matched_project = None
         match_reason = ""
 
