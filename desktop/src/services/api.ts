@@ -253,97 +253,29 @@ export class EntropyApiClient {
   /**
    * Open path in native Windows Explorer.
    */
-  static async openInExplorer(path: string): Promise<void> {
-    if (isTauri()) {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('open_in_explorer', { path });
-        return;
-      } catch (err) {
-        console.warn('Failed to open in explorer via Tauri:', err);
-      }
-    }
-
-    if (isPyWebView()) {
-      try {
-        await bridgeWindow()!.pywebview!.api!.open_in_explorer(path);
-        return;
-      } catch (err) {
-        console.warn('Failed to open in explorer via pywebview:', err);
-      }
-    }
-
-    console.log('[Dev Bridge] Opening Explorer for:', path);
+  static async openInExplorer(path: string): Promise<ActionResult> {
+    return EntropyApiClient.launchIde(path, 'explorer');
   }
 
   /**
    * Open path in native Windows Terminal or PowerShell.
    */
-  static async openInTerminal(path: string): Promise<void> {
-    if (isTauri()) {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('open_in_terminal', { path });
-        return;
-      } catch (err) {
-        console.warn('Failed to open terminal via Tauri:', err);
-      }
-    }
-
-    if (isPyWebView()) {
-      try {
-        await bridgeWindow()!.pywebview!.api!.open_in_terminal(path);
-        return;
-      } catch (err) {
-        console.warn('Failed to open terminal via pywebview:', err);
-      }
-    }
-
-    console.log('[Dev Bridge] Opening Terminal for:', path);
+  static async openInTerminal(path: string): Promise<ActionResult> {
+    return EntropyApiClient.launchIde(path, 'terminal');
   }
 
   /**
    * Open path in native Windows PowerShell.
    */
-  static async openInPowerShell(path: string): Promise<void> {
-    if (isPyWebView()) {
-      try {
-        if (bridgeWindow()?.pywebview?.api?.open_in_powershell) {
-          await bridgeWindow()!.pywebview!.api!.open_in_powershell!(path);
-          return;
-        }
-      } catch (err) {
-        console.warn('Failed to open PowerShell via direct pywebview API:', err);
-      }
-    }
-
-    try {
-      await EntropyApiClient.launchIde(path, 'powershell');
-    } catch (err) {
-      console.warn('Failed to open PowerShell via launchIde:', err);
-    }
+  static async openInPowerShell(path: string): Promise<ActionResult> {
+    return EntropyApiClient.launchIde(path, 'powershell');
   }
 
   /**
    * Open path in native Windows Command Prompt (cmd.exe).
    */
-  static async openInCmd(path: string): Promise<void> {
-    if (isPyWebView()) {
-      try {
-        if (bridgeWindow()?.pywebview?.api?.open_in_cmd) {
-          await bridgeWindow()!.pywebview!.api!.open_in_cmd!(path);
-          return;
-        }
-      } catch (err) {
-        console.warn('Failed to open CMD via direct pywebview API:', err);
-      }
-    }
-
-    try {
-      await EntropyApiClient.launchIde(path, 'cmd');
-    } catch (err) {
-      console.warn('Failed to open CMD via launchIde:', err);
-    }
+  static async openInCmd(path: string): Promise<ActionResult> {
+    return EntropyApiClient.launchIde(path, 'cmd');
   }
 
   /**

@@ -535,38 +535,47 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => EntropyApiClient.openInTerminal(workspace.path)}
-                title="Open in Windows Terminal"
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
+                onClick={() => handleLaunchEditor('terminal')}
+                disabled={busyAction === 'editor-terminal'}
+                title="Open in Windows Terminal (or PowerShell)"
+                aria-label="Open in Windows Terminal"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
               >
                 <Terminal className="w-4 h-4" />
-                Terminal
+                {busyAction === 'editor-terminal' ? 'Opening...' : 'Terminal'}
               </button>
               <button
                 type="button"
-                onClick={() => EntropyApiClient.openInPowerShell(workspace.path)}
+                onClick={() => handleLaunchEditor('powershell')}
+                disabled={busyAction === 'editor-powershell'}
                 title="Open in PowerShell"
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
+                aria-label="Open in PowerShell"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
               >
                 <Terminal className="w-4 h-4 text-[var(--color-accent-strong)]" />
-                PowerShell
+                {busyAction === 'editor-powershell' ? 'Opening...' : 'PowerShell'}
               </button>
               <button
                 type="button"
-                onClick={() => EntropyApiClient.openInCmd(workspace.path)}
+                onClick={() => handleLaunchEditor('cmd')}
+                disabled={busyAction === 'editor-cmd'}
                 title="Open in Command Prompt (CMD)"
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
+                aria-label="Open in Command Prompt"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
               >
                 <SquareTerminal className="w-4 h-4 text-[var(--color-warning)]" />
-                CMD
+                {busyAction === 'editor-cmd' ? 'Opening...' : 'CMD'}
               </button>
               <button
                 type="button"
-                onClick={() => EntropyApiClient.openInExplorer(workspace.path)}
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
+                onClick={() => handleLaunchEditor('explorer')}
+                disabled={busyAction === 'editor-explorer'}
+                title="Open in Windows File Explorer"
+                aria-label="Open in File Explorer"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
               >
                 <FolderOpen className="w-4 h-4" />
-                Explorer
+                {busyAction === 'editor-explorer' ? 'Opening...' : 'Explorer'}
               </button>
               {dirtyFiles.length > 0 && (
                 <button
