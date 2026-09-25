@@ -1,10 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
-  ArrowUpRight,
+  ArrowRight,
   CheckCircle2,
-  ChevronRight,
-  Clock,
   Code2,
   Copy,
   ExternalLink,
@@ -12,7 +10,6 @@ import {
   FolderOpen,
   GitBranch,
   GitMerge,
-  Globe,
   HardDrive,
   RefreshCw,
   Search,
@@ -50,8 +47,8 @@ function formatWipAge(timestamp: number | null | undefined): string {
   const seconds = Math.floor(Date.now() / 1000 - ts);
   const days = Math.floor(seconds / 86400);
   if (days < 1) return 'today';
-  if (days === 1) return '1 day old';
-  return `${days} days old`;
+  if (days === 1) return '1d ago';
+  return `${days}d ago`;
 }
 
 function typeName(type: string): string {
@@ -90,15 +87,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   const workspaces = useMemo(() => overview?.workspaces || [], [overview?.workspaces]);
   const artifacts = useMemo(() => overview?.system?.artifacts || [], [overview?.system?.artifacts]);
-  const reclaimable = useMemo(
-    () => artifacts.reduce((sum, artifact) => sum + (artifact.size_bytes || 0), 0),
-    [artifacts]
-  );
 
   const dirtyList = useMemo(() => workspaces.filter((w) => w.has_uncommitted_changes), [workspaces]);
   const runningList = useMemo(() => workspaces.filter((w) => w.process_count > 0), [workspaces]);
 
-  // Map workspace path to reclaimable artifacts size
   const workspaceArtifactSizeMap = useMemo(() => {
     const map = new Map<string, number>();
     artifacts.forEach((a) => {
@@ -117,20 +109,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     });
   }, [workspaces, workspaceArtifactSizeMap]);
 
-  const devServers = useMemo(() => {
-    const list: { workspace: WorkspaceSummary; port: number }[] = [];
-    workspaces.forEach((w) => {
-      (w.ports || []).forEach((port) => {
-        list.push({ workspace: w, port });
-      });
-    });
-    return list;
-  }, [workspaces]);
-
-  const secretLeakWorkspaces = useMemo(() => {
-    return workspaces.filter((w) => w.unprotected_env_files && w.unprotected_env_files.length > 0);
-  }, [workspaces]);
-
   const devProcesses = useMemo(() => {
     const procs = overview?.system?.processes || [];
     return procs.filter((p) => {
@@ -146,7 +124,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     return devProcesses.reduce((acc, p) => acc + (p.memory_bytes || 0), 0);
   }, [devProcesses]);
 
-  // Filtering & Sorting
+  // Filter and sort
   const filteredWorkspaces = useMemo(() => {
     let list = workspaces;
 
@@ -184,12 +162,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     setTimeout(() => setCopiedPath(null), 1800);
   };
 
-  const handleQuickIgnoreEnv = async (workspacePath: string) => {
+  const handleQuickIgnoreEnv = async (e: React.MouseEvent, workspacePath: string) => {
+    e.stopPropagation();
     setGitLoadingPath(workspacePath);
     try {
       const res = await EntropyApiClient.addToGitignore(workspacePath, '.env*');
       if (res.success) {
-        setGitNotice(`Protected secrets: Added .env* to .gitignore`);
+        setGitNotice(`Protected: Added .env* to .gitignore`);
       } else {
         setGitNotice(res.error || 'Failed to update .gitignore');
       }
@@ -244,53 +223,115 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   return (
     <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full max-w-full bg-[var(--color-surface-0)] text-[var(--color-text-primary)]">
-      {/* ── Top Header ── */}
-      <header className="sticky top-0 z-20 px-6 sm:px-8 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface-0)]/95 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">Workspaces</h1>
-              <span className="px-2.5 py-0.5 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs font-mono font-medium text-[var(--color-text-secondary)]">
-                {workspaces.length} detected
+      {/* ── Minimal Linear-style Toolbar ── */}
+      <header className="sticky top-0 z-20 px-6 sm:px-8 py-3.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-0)]/95 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Left: Title & Filter Tabs */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-semibold tracking-tight text-[var(--color-text-primary)]">
+                Workspaces
+              </h1>
+              <span className="text-[11px] font-mono text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
+                {workspaces.length}
               </span>
             </div>
-            <p className="text-xs text-[var(--color-text-secondary)] mt-1">
-              Real-time monitoring across your configured PC directories.
-            </p>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] rounded-lg text-xs">
+              <button
+                type="button"
+                onClick={() => setFilter('all')}
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                  filter === 'all'
+                    ? 'bg-[var(--color-surface-3)] text-[var(--color-text-primary)] font-medium shadow-xs'
+                    : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                }`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('running')}
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  filter === 'running'
+                    ? 'bg-[var(--color-surface-3)] text-[var(--color-success)] font-medium shadow-xs'
+                    : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
+                <span>Running ({runningList.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('dirty')}
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  filter === 'dirty'
+                    ? 'bg-[var(--color-surface-3)] text-[var(--color-warning)] font-medium shadow-xs'
+                    : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
+                <span>Unsaved ({dirtyList.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('cleanup')}
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  filter === 'cleanup'
+                    ? 'bg-[var(--color-surface-3)] text-[var(--color-accent-strong)] font-medium shadow-xs'
+                    : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                }`}
+              >
+                <HardDrive className="w-3 h-3 text-[var(--color-accent)]" />
+                <span>Cleanable ({cleanupList.length})</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            {/* Search Input */}
+          {/* Right: Search & Actions */}
+          <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter by name, branch, path..."
-                className="w-56 sm:w-64 h-8 pl-8 pr-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] focus:border-[var(--color-accent)] rounded-lg text-xs placeholder-[var(--color-text-tertiary)] focus:outline-none transition-colors"
+                placeholder="Search..."
+                className="w-44 sm:w-52 h-7.5 pl-8 pr-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] focus:border-[var(--color-accent)] rounded-lg text-xs placeholder-[var(--color-text-tertiary)] focus:outline-none transition-colors"
               />
             </div>
+
+            {totalDevRam > 0 && (
+              <button
+                type="button"
+                onClick={() => setConfirmCleanSlate(true)}
+                className="h-7.5 px-2.5 rounded-lg bg-[var(--color-success-bg)] hover:bg-[var(--color-success)]/20 border border-[var(--color-success-border)] text-xs text-[var(--color-success)] flex items-center gap-1.5 font-medium transition-colors cursor-pointer"
+                title="Reclaim RAM by terminating background dev processes"
+              >
+                <Zap className="w-3 h-3" />
+                <span>Free {formatSize(totalDevRam)}</span>
+              </button>
+            )}
 
             <button
               type="button"
               onClick={onInspectFolder}
-              className="h-8 px-3 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 transition-opacity cursor-pointer shadow-sm"
-              title="Add or inspect a workspace folder from disk"
+              className="h-7.5 px-3 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 transition-opacity cursor-pointer shadow-xs"
+              title="Add or inspect a workspace folder"
             >
               <FolderOpen className="w-3.5 h-3.5" />
-              <span>Add Folder…</span>
+              <span>Add Folder</span>
             </button>
 
             {onNavigateToSettings && (
               <button
                 type="button"
                 onClick={onNavigateToSettings}
-                className="h-8 px-2.5 rounded-lg bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Configure monitored directories across PC"
+                className="h-7.5 px-2 rounded-lg hover:bg-[var(--color-surface-2)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer"
+                title="Manage scanned folders"
               >
-                <Settings className="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" />
-                <span className="hidden sm:inline">Scan Roots</span>
+                <Settings className="w-3.5 h-3.5" />
               </button>
             )}
 
@@ -298,8 +339,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               type="button"
               onClick={onRefresh}
               disabled={isLoading}
-              title="Refresh all workspaces"
-              className="w-8 h-8 rounded-lg bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+              className="h-7.5 w-7.5 rounded-lg hover:bg-[var(--color-surface-2)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+              title="Refresh workspaces"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -307,269 +348,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
       </header>
 
-      {/* ── Main Dashboard Container ── */}
-      <div className="max-w-6xl mx-auto px-6 sm:px-8 py-6 space-y-6">
-
-        {/* ── Overview Metrics Strip ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {/* Running Dev Servers Card */}
-          <div
-            onClick={() => setFilter(filter === 'running' ? 'all' : 'running')}
-            className={`p-4 rounded-xl border transition-all cursor-pointer ${
-              filter === 'running'
-                ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-xs'
-                : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">
-                Dev Processes
-              </span>
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  runningList.length > 0
-                    ? 'bg-[var(--color-success)] shadow-[0_0_8px_rgba(52,211,153,.7)] animate-pulse'
-                    : 'bg-[var(--color-text-tertiary)]'
-                }`}
-              />
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold font-mono text-[var(--color-text-primary)]">
-                {runningList.length}
-              </span>
-              <span className="text-xs text-[var(--color-text-secondary)]">active workspace{runningList.length === 1 ? '' : 's'}</span>
-            </div>
-            <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)] truncate">
-              {totalDevRam > 0 ? `${formatSize(totalDevRam)} RAM in ${devProcesses.length} servers` : 'No background processes'}
-            </div>
-          </div>
-
-          {/* Uncommitted Changes Card */}
-          <div
-            onClick={() => setFilter(filter === 'dirty' ? 'all' : 'dirty')}
-            className={`p-4 rounded-xl border transition-all cursor-pointer ${
-              filter === 'dirty'
-                ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-xs'
-                : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">
-                Unsaved Work
-              </span>
-              <AlertTriangle
-                className={`w-3.5 h-3.5 ${
-                  dirtyList.length > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-tertiary)]'
-                }`}
-              />
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className={`text-2xl font-bold font-mono ${dirtyList.length > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-primary)]'}`}>
-                {dirtyList.length}
-              </span>
-              <span className="text-xs text-[var(--color-text-secondary)]">need review / stash</span>
-            </div>
-            <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)] truncate">
-              {dirtyList.length > 0 ? 'Uncommitted code sitting in working tree' : 'All Git repositories clean'}
-            </div>
-          </div>
-
-          {/* Reclaimable Dependencies Card */}
-          <div
-            onClick={() => setFilter(filter === 'cleanup' ? 'all' : 'cleanup')}
-            className={`p-4 rounded-xl border transition-all cursor-pointer ${
-              filter === 'cleanup'
-                ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-xs'
-                : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">
-                Reclaimable Space
-              </span>
-              <HardDrive className="w-3.5 h-3.5 text-[var(--color-accent-strong)]" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold font-mono text-[var(--color-accent-strong)]">
-                {formatSize(reclaimable)}
-              </span>
-              <span className="text-xs text-[var(--color-text-secondary)]">safe junk</span>
-            </div>
-            <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)] truncate">
-              {cleanupList.length} project{cleanupList.length === 1 ? '' : 's'} with disposable build folders
-            </div>
-          </div>
-
-          {/* Clean Slate RAM Reclaimer Card */}
-          <div className="p-4 rounded-xl border bg-[var(--color-surface-1)] border-[var(--color-border)] flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">
-                RAM Recovery
-              </span>
-              <Zap className="w-3.5 h-3.5 text-[var(--color-success)]" />
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <div>
-                <div className="text-base font-bold font-mono text-[var(--color-success)]">
-                  {totalDevRam > 0 ? formatSize(totalDevRam) : '0 B'}
-                </div>
-                <div className="text-[11px] text-[var(--color-text-tertiary)]">
-                  {devProcesses.length} orphaned dev server{devProcesses.length === 1 ? '' : 's'}
-                </div>
-              </div>
-              {totalDevRam > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setConfirmCleanSlate(true)}
-                  className="px-2.5 py-1 text-xs font-medium rounded-lg bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] hover:bg-[var(--color-success)]/20 transition-colors cursor-pointer"
-                  title="Terminate background dev servers to reclaim RAM"
-                >
-                  Clean Slate
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Active Dev Servers Bar ── */}
-        {devServers.length > 0 && (
-          <div className="bg-[var(--color-surface-1)] border border-[var(--color-success-border)] rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-success)]">
-              <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-success)] animate-pulse" />
-              <span>{devServers.length} Active Localhost Port{devServers.length > 1 ? 's' : ''}:</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {devServers.map(({ workspace, port }) => (
-                <div
-                  key={`${workspace.id}-${port}`}
-                  className="flex items-center gap-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] px-3 py-1 rounded-lg text-xs"
-                >
-                  <span className="font-semibold text-[var(--color-text-primary)]">{workspace.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => EntropyApiClient.openUrl(`http://localhost:${port}`)}
-                    title={`Open http://localhost:${port} in web browser`}
-                    className="inline-flex items-center gap-1 font-mono font-medium text-[var(--color-success)] hover:underline cursor-pointer"
-                  >
-                    <Globe className="w-3 h-3" />
-                    <span>:{port}</span>
-                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-                  </button>
-                  <span className="text-[var(--color-border-subtle)]">|</span>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await EntropyApiClient.freePort(port);
-                      onRefresh();
-                    }}
-                    title={`Free port ${port} by terminating background process`}
-                    className="text-[var(--color-warning)] hover:underline cursor-pointer font-medium"
-                  >
-                    Free
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Secret Leak Watchdog Banner ── */}
-        {secretLeakWorkspaces.length > 0 && (
-          <div className="bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-[var(--color-danger)]" />
-                <h3 className="text-xs font-semibold text-[var(--color-danger)]">
-                  Secret Leak Watchdog: {secretLeakWorkspaces.length} workspace{secretLeakWorkspaces.length > 1 ? 's' : ''} have unprotected .env secrets
-                </h3>
-              </div>
-              <span className="text-[11px] text-[var(--color-danger)]/80">Prevent secret leaks to Git</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {secretLeakWorkspaces.map((w) => (
-                <div
-                  key={w.id}
-                  className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] text-xs"
-                >
-                  <div className="min-w-0 mr-2">
-                    <span className="font-semibold text-[var(--color-text-primary)] block truncate">{w.name}</span>
-                    <span className="font-mono text-[11px] text-[var(--color-danger)] truncate block">
-                      {w.unprotected_env_files?.join(', ')}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickIgnoreEnv(w.path)}
-                    disabled={gitLoadingPath === w.path}
-                    className="shrink-0 px-2.5 py-1 text-xs font-medium bg-[var(--color-danger)] hover:opacity-90 text-white rounded-md transition-opacity cursor-pointer disabled:opacity-50"
-                  >
-                    {gitLoadingPath === w.path ? 'Adding...' : 'Add to .gitignore'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Interactive Filter Tabs ── */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <div className="flex items-center gap-1.5 p-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl">
-            <button
-              type="button"
-              onClick={() => setFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                filter === 'all'
-                  ? 'bg-[var(--color-surface-3)] text-[var(--color-text-primary)] shadow-xs'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              All ({workspaces.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('running')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                filter === 'running'
-                  ? 'bg-[var(--color-surface-3)] text-[var(--color-success)] shadow-xs'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
-              <span>Running ({runningList.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('dirty')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                filter === 'dirty'
-                  ? 'bg-[var(--color-surface-3)] text-[var(--color-warning)] shadow-xs'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
-              <span>Unsaved ({dirtyList.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('cleanup')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                filter === 'cleanup'
-                  ? 'bg-[var(--color-surface-3)] text-[var(--color-accent-strong)] shadow-xs'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              <HardDrive className="w-3 h-3 text-[var(--color-accent)]" />
-              <span>Cleanable ({cleanupList.length})</span>
-            </button>
-          </div>
-
-          <div className="text-xs text-[var(--color-text-tertiary)]">
-            Showing {filteredWorkspaces.length} of {workspaces.length} workspace{workspaces.length === 1 ? '' : 's'}
-          </div>
-        </div>
-
-        {/* ── Workspaces List ── */}
-        <div className="space-y-2.5">
+      {/* ── Workspaces List (Takes Full Prime Screen Space) ── */}
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 py-5">
+        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden divide-y divide-[var(--color-border-subtle)] shadow-xs">
           {filteredWorkspaces.map((workspace) => {
             const isDirty = workspace.has_uncommitted_changes;
             const isRunning = workspace.process_count > 0;
@@ -585,39 +366,40 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <div
                 key={workspace.id}
                 onClick={() => onSelectWorkspace(workspace.path)}
-                className={`group p-4 rounded-xl border transition-all cursor-pointer ${
-                  isCurrent
-                    ? 'bg-[var(--color-surface-1)] border-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/30'
-                    : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:border-[var(--color-border-subtle)]'
+                className={`group flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer ${
+                  isCurrent ? 'bg-[var(--color-surface-2)]/50 border-l-2 border-l-[var(--color-accent)]' : ''
                 }`}
               >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  {/* Left: Project identity */}
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`w-2 h-2 rounded-full shrink-0 ${
-                          isRunning
-                            ? 'bg-[var(--color-success)] shadow-[0_0_8px_rgba(52,211,153,.7)] animate-pulse'
-                            : isDirty
-                            ? 'bg-[var(--color-warning)]'
-                            : 'bg-[var(--color-text-tertiary)]'
-                        }`}
-                      />
-                      <h3 className="font-semibold text-base text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors truncate">
+                {/* Left: Identity */}
+                <div className="min-w-0 flex-1 flex items-center gap-3">
+                  {/* Status Indicator Dot */}
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      isRunning
+                        ? 'bg-[var(--color-success)] shadow-[0_0_6px_rgba(52,211,153,.7)] animate-pulse'
+                        : isDirty
+                        ? 'bg-[var(--color-warning)]'
+                        : 'bg-[var(--color-border-strong)]'
+                    }`}
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors truncate">
                         {workspace.name}
-                      </h3>
+                      </span>
 
                       {isCurrent && (
-                        <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-accent)]/15 text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30">
-                          Active Project
+                        <span className="text-[10px] font-semibold uppercase px-1.5 py-0.2 rounded bg-[var(--color-accent)]/15 text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30">
+                          Active
                         </span>
                       )}
 
-                      <span className="text-[11px] font-medium text-[var(--color-text-secondary)] bg-[var(--color-surface-2)] px-2 py-0.5 rounded border border-[var(--color-border)]">
+                      <span className="text-[11px] text-[var(--color-text-tertiary)] font-mono">
                         {typeName(workspace.project_type)}
                       </span>
 
+                      {/* Ports */}
                       {workspace.ports && workspace.ports.length > 0 && (
                         <div className="flex items-center gap-1">
                           {workspace.ports.map((port) => (
@@ -627,173 +409,164 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                                 e.stopPropagation();
                                 EntropyApiClient.openUrl(`http://localhost:${port}`);
                               }}
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] hover:bg-[var(--color-success)]/20 rounded cursor-pointer transition-colors"
-                              title={`Open localhost:${port} in browser`}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-mono text-[var(--color-success)] bg-[var(--color-success-bg)] border border-[var(--color-success-border)] rounded hover:underline cursor-pointer"
+                              title={`Open http://localhost:${port}`}
                             >
                               :{port}
-                              <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                              <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                             </span>
                           ))}
                         </div>
                       )}
                     </div>
 
-                    {/* Path & copy */}
-                    <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)] font-mono">
-                      <span className="truncate max-w-lg" title={workspace.path}>
+                    {/* Path */}
+                    <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)] font-mono mt-0.5">
+                      <span className="truncate max-w-md" title={workspace.path}>
                         {workspace.path}
                       </span>
                       <button
                         type="button"
                         onClick={(e) => handleCopyPath(e, workspace.path)}
-                        className="p-1 rounded hover:bg-[var(--color-surface-3)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
-                        title="Copy folder path"
+                        className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-opacity"
+                        title="Copy path"
                       >
                         {copiedPath === workspace.path ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)]" />
+                          <CheckCircle2 className="w-3 h-3 text-[var(--color-success)]" />
                         ) : (
-                          <Copy className="w-3.5 h-3.5" />
+                          <Copy className="w-3 h-3" />
                         )}
                       </button>
                     </div>
                   </div>
+                </div>
 
-                  {/* Middle: Git & Status Chips */}
-                  <div className="flex flex-wrap items-center gap-2 md:gap-3 shrink-0">
-                    {/* Git Branch */}
-                    <div className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface-2)] px-2.5 py-1 rounded-lg border border-[var(--color-border)]">
-                      <GitBranch className="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" />
-                      <span className="font-mono text-xs">{workspace.git_branch || 'HEAD'}</span>
-                    </div>
+                {/* Center: Git & Changes */}
+                <div className="flex items-center gap-3 shrink-0 text-xs">
+                  {/* Branch */}
+                  <span className="inline-flex items-center gap-1 font-mono text-[var(--color-text-secondary)]">
+                    <GitBranch className="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" />
+                    <span>{workspace.git_branch || 'HEAD'}</span>
+                  </span>
 
-                    {/* Git Dirty / Clean status */}
-                    {isDirty ? (
-                      <div className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-warning)] bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] px-2.5 py-1 rounded-lg">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        <span>{workspace.dirty_count || 1} unsaved file{(workspace.dirty_count || 1) === 1 ? '' : 's'}</span>
-                      </div>
-                    ) : (
-                      <div className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)] bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] px-2.5 py-1 rounded-lg">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)]" />
-                        <span>Clean</span>
-                      </div>
-                    )}
-
-                    {/* Reclaimable Junk Badge */}
-                    {reclaimableSize > 0 && (
-                      <div
-                        className="inline-flex items-center gap-1.5 text-xs font-mono font-medium text-[var(--color-accent-strong)] bg-[var(--color-accent-muted)] border border-[var(--color-border)] px-2.5 py-1 rounded-lg"
-                        title="Build artifacts / dependencies safe to clean"
-                      >
-                        <HardDrive className="w-3 h-3 text-[var(--color-accent)]" />
-                        <span>{formatSize(reclaimableSize)}</span>
-                      </div>
-                    )}
-
-                    {/* Secret leak alert */}
-                    {workspace.unprotected_env_files && workspace.unprotected_env_files.length > 0 && (
-                      <span
-                        title="Secrets unprotected in .gitignore"
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)] rounded-lg"
-                      >
-                        <ShieldAlert className="w-3 h-3 text-[var(--color-danger)]" />
-                        <span>.env exposed</span>
+                  {/* Changes state */}
+                  {isDirty ? (
+                    <span className="inline-flex items-center gap-1 text-[var(--color-warning)] font-medium">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>
+                        {workspace.dirty_count || 1} unsaved
+                        {workspace.oldest_dirty_timestamp && (
+                          <span className="text-[10px] text-[var(--color-text-tertiary)] font-normal ml-1">
+                            ({formatWipAge(workspace.oldest_dirty_timestamp)})
+                          </span>
+                        )}
                       </span>
-                    )}
+                    </span>
+                  ) : (
+                    <span className="text-[var(--color-text-tertiary)]">
+                      clean
+                    </span>
+                  )}
 
-                    {/* Merged branches alert */}
-                    {workspace.merged_branches && workspace.merged_branches.length > 0 && (
-                      <span
-                        title={`${workspace.merged_branches.length} merged branch(es) safe to prune`}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold bg-[var(--color-surface-2)] text-[var(--color-accent-strong)] border border-[var(--color-border)] rounded-lg"
-                      >
-                        <GitMerge className="w-3 h-3 text-[var(--color-accent)]" />
-                        <span>{workspace.merged_branches.length} merged</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Right: Direct Actions */}
-                  <div className="flex items-center gap-1.5 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-[var(--color-border-subtle)]">
+                  {/* Secret Leak Tag */}
+                  {workspace.unprotected_env_files && workspace.unprotected_env_files.length > 0 && (
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        EntropyApiClient.launchIde(workspace.path, 'code');
-                      }}
-                      className="p-2 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
-                      title="Open in VS Code"
+                      onClick={(e) => handleQuickIgnoreEnv(e, workspace.path)}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)] rounded hover:bg-[var(--color-danger)]/20 transition-colors"
+                      title="Click to add .env* to .gitignore"
                     >
-                      <Code2 className="w-4 h-4" />
+                      <ShieldAlert className="w-2.5 h-2.5" />
+                      <span>.env</span>
                     </button>
+                  )}
 
+                  {/* Merged Branch Tag */}
+                  {workspace.merged_branches && workspace.merged_branches.length > 0 && (
+                    <span
+                      title={`${workspace.merged_branches.length} merged branch`}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-[var(--color-accent-strong)] bg-[var(--color-surface-3)] border border-[var(--color-border-subtle)] rounded font-mono"
+                    >
+                      <GitMerge className="w-2.5 h-2.5" />
+                      <span>{workspace.merged_branches.length}</span>
+                    </span>
+                  )}
+
+                  {/* Reclaimable Junk */}
+                  {reclaimableSize > 0 && (
+                    <span
+                      className="font-mono text-[11px] text-[var(--color-accent-strong)]"
+                      title="Reclaimable build dependencies"
+                    >
+                      {formatSize(reclaimableSize)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Right: Actions */}
+                <div className="flex items-center gap-1 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      EntropyApiClient.launchIde(workspace.path, 'code');
+                    }}
+                    className="p-1.5 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                    title="Open in VS Code"
+                  >
+                    <Code2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      EntropyApiClient.openInTerminal(workspace.path);
+                    }}
+                    className="p-1.5 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                    title="Open in Terminal"
+                  >
+                    <Terminal className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      EntropyApiClient.openInExplorer(workspace.path);
+                    }}
+                    className="p-1.5 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                    title="Open in File Explorer"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5" />
+                  </button>
+
+                  {isDirty && (
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        EntropyApiClient.openInTerminal(workspace.path);
-                      }}
-                      className="p-2 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
-                      title="Open in Windows Terminal"
+                      onClick={(e) => handleQuickStash(e, workspace.path)}
+                      disabled={gitLoadingPath === workspace.path}
+                      className="px-2 py-1 rounded-md text-[11px] font-medium text-[var(--color-warning)] hover:bg-[var(--color-warning-bg)] transition-colors cursor-pointer disabled:opacity-50"
+                      title="Safely stash working tree"
                     >
-                      <Terminal className="w-4 h-4" />
+                      {gitLoadingPath === workspace.path ? '…' : 'Stash'}
                     </button>
+                  )}
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        EntropyApiClient.openInExplorer(workspace.path);
-                      }}
-                      className="p-2 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
-                      title="Open in File Explorer"
-                    >
-                      <FolderOpen className="w-4 h-4" />
-                    </button>
-
-                    {isDirty && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleQuickStash(e, workspace.path)}
-                        disabled={gitLoadingPath === workspace.path}
-                        className="px-2.5 py-1.5 rounded-lg bg-[var(--color-warning-bg)] hover:bg-[var(--color-warning)]/20 text-[var(--color-warning)] border border-[var(--color-warning-border)] text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
-                        title="Safely stash working tree"
-                      >
-                        {gitLoadingPath === workspace.path ? 'Stashing…' : 'Stash'}
-                      </button>
-                    )}
-
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent)] group-hover:translate-x-0.5 transition-all">
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent)] group-hover:translate-x-0.5 transition-all ml-1" />
                 </div>
               </div>
             );
           })}
 
-          {/* Empty State */}
           {filteredWorkspaces.length === 0 && (
-            <div className="p-12 text-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl space-y-3">
-              <FolderGit2 className="w-10 h-10 text-[var(--color-text-tertiary)] mx-auto opacity-50" />
-              <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
-                {searchQuery ? 'No matching workspaces found' : 'No workspaces in this filter'}
-              </h3>
-              <p className="text-xs text-[var(--color-text-secondary)] max-w-sm mx-auto">
+            <div className="p-10 text-center space-y-2">
+              <FolderGit2 className="w-8 h-8 text-[var(--color-text-tertiary)] mx-auto opacity-40" />
+              <p className="text-xs text-[var(--color-text-secondary)]">
                 {searchQuery
-                  ? `No workspace matched "${searchQuery}". Clear your search or add a new folder.`
-                  : 'Try selecting a different filter above or add a new directory to monitor.'}
+                  ? `No workspaces found matching "${searchQuery}".`
+                  : 'No workspaces found in this filter.'}
               </p>
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={onInspectFolder}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium transition-opacity cursor-pointer shadow-sm"
-                >
-                  <FolderOpen className="w-3.5 h-3.5" />
-                  <span>Choose Folder in File Explorer</span>
-                </button>
-              </div>
             </div>
           )}
         </div>
@@ -801,15 +574,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
       {/* ── Toast Notifications ── */}
       {cleanSlateNotice && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[var(--color-surface-2)] border border-[var(--color-success-border)] text-[var(--color-success)] px-4 py-3 rounded-xl shadow-xl text-xs flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
-          <Zap className="w-4 h-4 text-[var(--color-success)] shrink-0" />
+        <div className="fixed bottom-5 right-5 z-50 bg-[var(--color-surface-2)] border border-[var(--color-success-border)] text-[var(--color-success)] px-3.5 py-2.5 rounded-lg shadow-xl text-xs flex items-center gap-2 animate-in fade-in">
+          <Zap className="w-3.5 h-3.5 text-[var(--color-success)] shrink-0" />
           <span>{cleanSlateNotice}</span>
         </div>
       )}
 
       {gitNotice && (
-        <div className="fixed bottom-6 left-6 z-50 bg-[var(--color-surface-2)] border border-[var(--color-accent)]/40 text-[var(--color-text-primary)] px-4 py-3 rounded-xl shadow-xl text-xs flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
-          <Shield className="w-4 h-4 text-[var(--color-accent)] shrink-0" />
+        <div className="fixed bottom-5 left-5 z-50 bg-[var(--color-surface-2)] border border-[var(--color-accent)]/40 text-[var(--color-text-primary)] px-3.5 py-2.5 rounded-lg shadow-xl text-xs flex items-center gap-2 animate-in fade-in">
+          <Shield className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
           <span>{gitNotice}</span>
         </div>
       )}
@@ -817,22 +590,22 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       {/* ── Clean Slate Confirmation Modal ── */}
       {confirmCleanSlate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in zoom-in-95 duration-150">
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-full bg-[var(--color-success-bg)] border border-[var(--color-success-border)] flex items-center justify-center shrink-0">
-                <Zap className="w-5 h-5 text-[var(--color-success)]" />
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl max-w-md w-full p-5 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-[var(--color-success-bg)] border border-[var(--color-success-border)] flex items-center justify-center shrink-0">
+                <Zap className="w-4 h-4 text-[var(--color-success)]" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
-                  Execute Clean Slate?
+                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  Free RAM from Dev Processes?
                 </h3>
-                <p className="text-xs text-[var(--color-text-secondary)] mt-1.5 leading-relaxed">
-                  Safely terminates <strong>{devProcesses.length} background developer servers</strong> and reclaims{' '}
+                <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                  Safely terminates <strong>{devProcesses.length} background dev servers</strong> and frees{' '}
                   <strong className="text-[var(--color-success)] font-mono">{formatSize(totalDevRam)} RAM</strong>.
                 </p>
-                <div className="mt-3 p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs space-y-1 max-h-36 overflow-y-auto font-mono text-[var(--color-text-secondary)]">
+                <div className="mt-2.5 p-2 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] text-xs space-y-1 max-h-32 overflow-y-auto font-mono text-[var(--color-text-secondary)]">
                   {devProcesses.map((p) => (
-                    <div key={p.pid} className="flex justify-between items-center text-[11px]">
+                    <div key={p.pid} className="flex justify-between items-center text-[10px]">
                       <span className="truncate">{p.name} (PID {p.pid})</span>
                       <span className="shrink-0 ml-2">{formatSize(p.memory_bytes)}</span>
                     </div>
@@ -840,12 +613,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--color-border-subtle)]">
+            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
               <button
                 type="button"
                 onClick={() => setConfirmCleanSlate(false)}
                 disabled={cleanSlateLoading}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -853,9 +626,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 type="button"
                 onClick={handleExecuteCleanSlate}
                 disabled={cleanSlateLoading}
-                className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-success)] hover:opacity-90 text-black font-semibold transition-opacity cursor-pointer shadow-sm disabled:opacity-50"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-success)] hover:opacity-90 text-black transition-opacity cursor-pointer shadow-xs disabled:opacity-50"
               >
-                {cleanSlateLoading ? 'Terminating…' : 'Reclaim RAM'}
+                {cleanSlateLoading ? 'Freeing…' : 'Free RAM'}
               </button>
             </div>
           </div>
