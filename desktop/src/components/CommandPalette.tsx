@@ -287,26 +287,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         items.push({
           id: `ws-term-${w.id}`,
           title: `Terminal in ${w.name}`,
-          subtitle: `Launch Windows Terminal at ${w.path}`,
+          subtitle: `Launch Terminal at ${w.path}`,
           category: 'Workspace',
           icon: <Terminal className="w-4 h-4 text-[var(--color-accent-strong)]" />,
           actionHint: 'Terminal',
           action: () => {
             EntropyApiClient.openInTerminal(w.path);
-            onClose();
-          },
-        });
-
-        // Quick PowerShell launcher
-        items.push({
-          id: `ws-ps-${w.id}`,
-          title: `PowerShell in ${w.name}`,
-          subtitle: `Launch PowerShell at ${w.path}`,
-          category: 'Workspace',
-          icon: <Terminal className="w-4 h-4 text-[var(--color-accent)]" />,
-          actionHint: 'PowerShell',
-          action: () => {
-            EntropyApiClient.openInPowerShell(w.path);
             onClose();
           },
         });

@@ -537,23 +537,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 type="button"
                 onClick={() => handleLaunchEditor('terminal')}
                 disabled={busyAction === 'editor-terminal'}
-                title="Open in Windows Terminal (or PowerShell)"
-                aria-label="Open in Windows Terminal"
+                title="Open in Terminal"
+                aria-label="Open in Terminal"
                 className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
               >
                 <Terminal className="w-4 h-4" />
                 {busyAction === 'editor-terminal' ? 'Opening...' : 'Terminal'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLaunchEditor('powershell')}
-                disabled={busyAction === 'editor-powershell'}
-                title="Open in PowerShell"
-                aria-label="Open in PowerShell"
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <Terminal className="w-4 h-4 text-[var(--color-accent-strong)]" />
-                {busyAction === 'editor-powershell' ? 'Opening...' : 'PowerShell'}
               </button>
               <button
                 type="button"
@@ -868,20 +857,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                           <button
                             type="button"
                             onClick={() => EntropyApiClient.openInTerminal(proc.cwd!)}
-                            title="Open Windows Terminal in this directory"
+                            title="Open Terminal in this directory"
                             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
                           >
                             <Terminal className="w-3 h-3" />
                             Terminal Here
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => EntropyApiClient.openInPowerShell(proc.cwd!)}
-                            title="Open PowerShell in this directory"
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Terminal className="w-3 h-3 text-[var(--color-accent-strong)]" />
-                            PowerShell
                           </button>
                           <button
                             type="button"

@@ -155,19 +155,10 @@ function WorkspaceRow({
       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           type="button"
-          title="Open Windows Terminal"
-          aria-label={`Open Windows Terminal at ${workspace.name}`}
+          title="Open in Terminal"
+          aria-label={`Open Terminal at ${workspace.name}`}
           onClick={() => EntropyApiClient.openInTerminal(workspace.path)}
           className="w-7 h-7 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center justify-center cursor-pointer"
-        >
-          <Terminal className="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
-          title="Open in PowerShell"
-          aria-label={`Open PowerShell at ${workspace.name}`}
-          onClick={() => EntropyApiClient.openInPowerShell(workspace.path)}
-          className="w-7 h-7 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent-strong)] flex items-center justify-center cursor-pointer"
         >
           <Terminal className="w-3.5 h-3.5" />
         </button>
@@ -419,22 +410,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   <button
                     type="button"
                     onClick={() => EntropyApiClient.openInTerminal(firstAction.path)}
-                    title="Open in Windows Terminal"
-                    aria-label={`Open Windows Terminal at ${firstAction.name}`}
+                    title="Open in Terminal"
+                    aria-label={`Open Terminal at ${firstAction.name}`}
                     className="h-8 px-3 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
                     <Terminal className="w-3.5 h-3.5" />
                     Terminal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => EntropyApiClient.openInPowerShell(firstAction.path)}
-                    title="Open in PowerShell"
-                    aria-label={`Open PowerShell at ${firstAction.name}`}
-                    className="h-8 px-3 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
-                  >
-                    <Terminal className="w-3.5 h-3.5 text-[var(--color-accent-strong)]" />
-                    PowerShell
                   </button>
                   <button
                     type="button"
