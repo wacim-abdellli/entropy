@@ -30,6 +30,7 @@ import logging
 
 logger = logging.getLogger("entropy.desktop")
 
+from core.config import get_scan_roots, save_scan_roots
 from core.graph import EnvironmentGraph
 from report.contract import serialize_environment_overview, serialize_workspace_inspection
 from scan import run_entropy_inspect, run_entropy_scan
@@ -40,9 +41,18 @@ class EntropyDesktopApi:
 
     def __init__(self) -> None:
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        # Pre-warm environment scan in background while native WebView2 window boots
-        self._prewarm_future = self._executor.submit(self._do_scan_environment)
+        # Pre-warm environment scan using user's persistent scan roots
+        initial_roots = get_scan_roots()
+        self._prewarm_future = self._executor.submit(self._do_scan_environment, roots=initial_roots)
         self._window: Optional[Any] = None
+
+    def get_scan_roots(self) -> list[str]:
+        """Get persistent user-configured scan directories."""
+        return get_scan_roots()
+
+    def save_scan_roots(self, roots: list[str]) -> list[str]:
+        """Save user-configured scan directories persistently to disk."""
+        return save_scan_roots(roots)
 
     def inspect_workspace(self, path: str) -> dict[str, Any]:
         """Inspect a single workspace and return the structured JSON payload."""
@@ -71,31 +81,20 @@ class EntropyDesktopApi:
             return {"error": str(e), "workspace": None}
 
     def _do_scan_environment(self, roots: Optional[List[str]] = None, depth: int = 2) -> dict[str, Any]:
-        """Core environment scan implementation across candidate developer roots."""
+        """Core environment scan implementation across configured developer roots."""
         if roots is not None and len(roots) == 0:
             # User explicitly configured 0 directories to scan
             return serialize_environment_overview(EnvironmentGraph(), [])
 
         if roots is None:
-            # First boot / unconfigured: auto-detect standard dev roots
-            user_home = os.path.expanduser("~")
-            candidate_roots = [
-                os.path.join(user_home, "Desktop"),
-                os.path.join(user_home, "Documents"),
-                os.path.join(user_home, "source", "repos"),
-                os.path.join(user_home, "projects"),
-                os.path.join(user_home, "dev"),
-            ]
-            roots = [os.path.abspath(r) for r in candidate_roots if os.path.isdir(r)]
-            if not roots:
-                roots = [os.path.abspath(user_home)]
-        else:
-            roots = [os.path.abspath(r) for r in roots if os.path.isdir(r)]
-            if not roots:
-                return serialize_environment_overview(EnvironmentGraph(), [])
+            roots = get_scan_roots()
+
+        valid_roots = [os.path.abspath(r) for r in roots if os.path.isdir(r)]
+        if not valid_roots:
+            return serialize_environment_overview(EnvironmentGraph(), [])
 
         try:
-            graph, findings = run_entropy_scan(roots, max_depth=depth)
+            graph, findings = run_entropy_scan(valid_roots, max_depth=depth)
             return serialize_environment_overview(graph, findings)
         except Exception as e:
             return {"error": str(e), "summary": None, "workspaces": []}

@@ -26,7 +26,8 @@ logger = logging.getLogger(__name__)
 SKIP_DIRS = {
     "node_modules", ".git", "venv", ".venv", "__pycache__", "target", "build",
     "dist", ".next", "vendor", ".cache", ".local", ".config", "AppData",
-    "$Recycle.Bin", "System Volume Information"
+    "$Recycle.Bin", "System Volume Information", "Windows", "Program Files",
+    "Program Files (x86)", "ProgramData", "$WinREAgent", "Recovery"
 }
 
 DEPENDENCY_DIR_NAMES = {

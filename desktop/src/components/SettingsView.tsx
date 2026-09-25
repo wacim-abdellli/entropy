@@ -41,12 +41,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const saved = localStorage.getItem('entropy_scan_roots');
       if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
     return scanRoots ?? ['C:\\Users\\pc\\Desktop'];
   });
   const [dirToDelete, setDirToDelete] = useState<string | null>(null);
+  const [saveRootsNotice, setSaveRootsNotice] = useState(false);
 
   const [aiConfig, setAiConfig] = useState<AiConfig>({
     provider: 'rules',
@@ -61,6 +62,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
 
   useEffect(() => {
+    EntropyApiClient.getScanRoots().then((roots) => {
+      if (Array.isArray(roots) && roots.length > 0) {
+        setDirectories(roots);
+      }
+    });
     EntropyApiClient.getAiConfig().then((cfg) => {
       if (cfg) setAiConfig(cfg);
     });
@@ -98,13 +104,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-
-  const saveAndNotify = (updated: string[]) => {
+  const saveAndNotify = async (updated: string[]) => {
     setDirectories(updated);
     try {
       localStorage.setItem('entropy_scan_roots', JSON.stringify(updated));
     } catch {}
+    await EntropyApiClient.saveScanRoots(updated);
     onScanRootsChange?.(updated);
+    setSaveRootsNotice(true);
+    setTimeout(() => setSaveRootsNotice(false), 2500);
   };
 
   const handleRemoveDir = (dirToRemove: string) => {
@@ -112,7 +120,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const updated = directories.filter(
       dir => dir.toLowerCase().replace(/[\\/]+$/, '') !== normToRemove
     );
-    saveAndNotify(updated);
+    void saveAndNotify(updated);
   };
 
   const handleAddDir = async () => {
@@ -122,7 +130,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         const selNorm = selected.toLowerCase().replace(/[\\/]+$/, '');
         if (!directories.some(d => d.toLowerCase().replace(/[\\/]+$/, '') === selNorm)) {
           const updated = [...directories, selected];
-          saveAndNotify(updated);
+          void saveAndNotify(updated);
         }
       }
     } catch (err) {
@@ -135,10 +143,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const selected = await EntropyApiClient.pickFolder();
       if (selected && selected !== oldDir) {
         const updated = directories.map(dir => dir === oldDir ? selected : dir);
-        saveAndNotify(updated);
+        void saveAndNotify(updated);
       }
     } catch (err) {
       console.error('Failed to change directory:', err);
+    }
+  };
+
+  const handleApplyPreset = (presetDirs: string[]) => {
+    const seen = new Set(directories.map(d => d.toLowerCase().replace(/[\\/]+$/, '')));
+    const toAdd = presetDirs.filter(d => !seen.has(d.toLowerCase().replace(/[\\/]+$/, '')));
+    if (toAdd.length > 0) {
+      void saveAndNotify([...directories, ...toAdd]);
     }
   };
 
@@ -176,18 +192,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <FolderSearch size={22} className="text-[var(--color-text-secondary)]" />
               <h2 className="text-xl font-medium">Scan Directories</h2>
             </div>
-            <button 
-              type="button"
-              onClick={handleAddDir}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium transition-opacity cursor-pointer shadow-sm"
-            >
-              <FolderOpen size={14} />
-              <span>Add Directory</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {saveRootsNotice && (
+                <span className="text-xs font-medium text-[var(--color-success)] flex items-center gap-1.5 bg-[var(--color-success-bg)] border border-[var(--color-success-border)] px-2.5 py-1 rounded-md animate-in fade-in">
+                  <CheckCircle2 size={13} />
+                  <span>Config Saved to Disk</span>
+                </span>
+              )}
+              <button 
+                type="button"
+                onClick={handleAddDir}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium transition-opacity cursor-pointer shadow-sm"
+              >
+                <FolderOpen size={14} />
+                <span>Add Directory</span>
+              </button>
+            </div>
           </div>
 
           <p className="text-[var(--color-text-secondary)] text-sm mb-4">
-            Entropy automatically discovers and monitors projects located inside these directories.
+            Entropy automatically discovers and monitors projects located inside these directories. Changes are permanently saved to <code className="text-xs font-mono text-[var(--color-text-primary)]">~/.entropy/config.json</code>.
           </p>
 
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden">
@@ -284,9 +308,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
+          {/* Quick Scan Presets */}
+          <div className="mt-4 p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                Whole-PC &amp; Quick Scan Presets
+              </span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">One-click configuration</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handleApplyPreset(['C:\\Users\\pc'])}
+                className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer"
+              >
+                <div className="font-semibold text-[var(--color-text-primary)]">User Profile</div>
+                <div className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5 font-mono">C:\Users\pc</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset([
+                  'C:\\Users\\pc\\Desktop',
+                  'C:\\Users\\pc\\Documents',
+                  'C:\\Users\\pc\\source\\repos',
+                  'C:\\Users\\pc\\projects',
+                  'C:\\Users\\pc\\dev',
+                ])}
+                className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer"
+              >
+                <div className="font-semibold text-[var(--color-text-primary)]">Standard Dev Roots</div>
+                <div className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5">Desktop, repos, projects</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset(['C:\\'])}
+                className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer"
+              >
+                <div className="font-semibold text-[var(--color-text-primary)]">Entire C: Drive</div>
+                <div className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5">Full machine scan</div>
+              </button>
+            </div>
+          </div>
+
           <div className="mt-3 px-1 text-xs text-[var(--color-text-tertiary)] flex items-center gap-2">
-            <span className="font-semibold text-[var(--color-text-secondary)]">Tip:</span>
-            <span>If you only want Entropy to monitor a specific workspace, remove parent folders (like Desktop) and keep only your target directory.</span>
+            <span className="font-semibold text-[var(--color-text-secondary)]">Permanent Storage:</span>
+            <span>Scan roots are saved directly to <code className="font-mono text-[var(--color-text-secondary)]">~/.entropy/config.json</code> and will never reset back to Desktop unless you re-add it.</span>
           </div>
         </section>
 

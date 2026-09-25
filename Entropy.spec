@@ -28,6 +28,7 @@ hiddenimports = [
     'core.entities',
     'core.graph',
     'core.findings',
+    'core.config',
     'core.system_cleaner',
     'core.cleanup_progress',
     'core.git_control',

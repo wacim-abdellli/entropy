@@ -251,9 +251,18 @@ export function App() {
   // Initial load
   useEffect(() => {
     let ignore = false;
-    EntropyApiClient.scanEnvironment(scanRoots)
-      .then((data) => {
+    EntropyApiClient.getScanRoots()
+      .then((persistedRoots) => {
         if (!ignore) {
+          const activeRoots =
+            Array.isArray(persistedRoots) && persistedRoots.length > 0 ? persistedRoots : scanRoots;
+          setScanRoots(activeRoots);
+          return EntropyApiClient.scanEnvironment(activeRoots);
+        }
+        return null;
+      })
+      .then((data) => {
+        if (!ignore && data) {
           setOverview(data);
           try {
             localStorage.setItem('entropy_cached_overview', JSON.stringify(data));
@@ -281,7 +290,7 @@ export function App() {
     return () => {
       ignore = true;
     };
-  }, [scanRoots, loadEnvironment]);
+  }, []);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -387,6 +396,7 @@ export function App() {
     try {
       localStorage.setItem('entropy_scan_roots', JSON.stringify(updatedRoots));
     } catch {}
+    void EntropyApiClient.saveScanRoots(updatedRoots);
 
     // 4. Background refresh of real metrics
     loadEnvironment(updatedRoots);
@@ -481,6 +491,7 @@ export function App() {
           onSelectWorkspace={handleSelectWorkspace}
           onInspectFolder={handleInspectFolder}
           currentWorkspace={currentWorkspace}
+          onNavigateToSettings={() => setActiveNav('settings')}
         />
       );
     }
@@ -527,6 +538,7 @@ export function App() {
             try {
               localStorage.setItem('entropy_scan_roots', JSON.stringify(newRoots));
             } catch {}
+            void EntropyApiClient.saveScanRoots(newRoots);
             loadEnvironment(newRoots);
           }}
           onOpenWorkspace={(path) => {

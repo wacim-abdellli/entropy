@@ -74,6 +74,8 @@ interface PyWebViewApi {
   save_ai_config?(updates: Partial<AiConfig>): Promise<{ success: boolean; error?: string; config?: AiConfig } | string>;
   test_ai_connection?(provider?: string): Promise<AiTestResult | string>;
   ask_ai_advisor?(question: string, context?: Record<string, any>): Promise<AiResponse | string>;
+  get_scan_roots?(): Promise<string[] | string>;
+  save_scan_roots?(roots: string[]): Promise<string[] | string>;
 }
 
 interface EntropyWindow extends Window {
@@ -887,5 +889,55 @@ export class EntropyApiClient {
     };
   }
 
+  /**
+   * Get user-configured persistent scan directories from backend config.
+   */
+  static async getScanRoots(): Promise<string[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_scan_roots) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_scan_roots!();
+          const parsed = parseBridgeResponse<string[]>(res);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            try {
+              localStorage.setItem('entropy_scan_roots', JSON.stringify(parsed));
+            } catch {}
+            return parsed;
+          }
+        }
+      } catch (err) {
+        console.error('getScanRoots failed:', err);
+      }
+    }
+    try {
+      const saved = localStorage.getItem('entropy_scan_roots');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return ['C:\\Users\\pc\\Desktop'];
+  }
+
+  /**
+   * Save user-configured scan directories persistently to ~/.entropy/config.json.
+   */
+  static async saveScanRoots(roots: string[]): Promise<string[]> {
+    try {
+      localStorage.setItem('entropy_scan_roots', JSON.stringify(roots));
+    } catch {}
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.save_scan_roots) {
+          const res = await bridgeWindow()!.pywebview!.api!.save_scan_roots!(roots);
+          const parsed = parseBridgeResponse<string[]>(res);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (err) {
+        console.error('saveScanRoots failed:', err);
+      }
+    }
+    return roots;
+  }
 }
 

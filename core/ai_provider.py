@@ -22,8 +22,7 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-CONFIG_DIR = Path.home() / ".entropy"
-CONFIG_FILE = CONFIG_DIR / "config.json"
+from core.config import load_config, save_config
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "provider": "rules",  # 'rules' | 'groq' | 'ollama'
@@ -45,17 +44,18 @@ Guidelines:
 
 def get_ai_config() -> Dict[str, Any]:
     """Load AI provider settings from ~/.entropy/config.json."""
-    if not CONFIG_FILE.exists():
-        return dict(DEFAULT_CONFIG)
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            saved = json.load(f)
-            merged = dict(DEFAULT_CONFIG)
-            merged.update(saved)
-            return merged
-    except Exception as e:
-        logger.warning("Failed to read AI config, using defaults: %s", e)
-        return dict(DEFAULT_CONFIG)
+    cfg = load_config()
+    ai_cfg = cfg.get("ai")
+    if isinstance(ai_cfg, dict):
+        merged = dict(DEFAULT_CONFIG)
+        merged.update(ai_cfg)
+        return merged
+    # Backward compatibility with flat keys if previously saved flat
+    merged = dict(DEFAULT_CONFIG)
+    for k in DEFAULT_CONFIG:
+        if k in cfg:
+            merged[k] = cfg[k]
+    return merged
 
 
 def save_ai_config(updates: Dict[str, Any]) -> Dict[str, Any]:
@@ -63,9 +63,7 @@ def save_ai_config(updates: Dict[str, Any]) -> Dict[str, Any]:
     current = get_ai_config()
     current.update(updates)
     try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(current, f, indent=2)
+        save_config({"ai": current})
         return {"success": True, "config": current}
     except Exception as e:
         logger.error("Failed to save AI config: %s", e)
