@@ -442,7 +442,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   };
 
   return (
-    <div className="min-h-full bg-[var(--color-surface-0)] text-[var(--color-text-primary)]">
+    <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full max-w-full bg-[var(--color-surface-0)] text-[var(--color-text-primary)]">
       {/* ── Top Navigation Bar ── */}
       <div className="sticky top-0 z-30 bg-[var(--color-surface-0)]/90 backdrop-blur-md border-b border-[var(--color-border-subtle)] px-4 sm:px-7 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
@@ -510,7 +510,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         </div>
       )}
 
-      <div className="w-full max-w-6xl mx-auto px-4 sm:px-7 py-5 space-y-5 min-w-0">
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-7 py-5 space-y-5 min-w-0 pb-24">
         {/* ── Header Card ── */}
         <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-5 space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
