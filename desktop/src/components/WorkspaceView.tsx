@@ -81,29 +81,29 @@ function statusEmoji(category: string, hasChanges: boolean, processCount: number
 } {
   if (hasChanges) {
     return {
-      icon: <AlertTriangle className="w-5 h-5 text-amber-400" />,
+      icon: <AlertTriangle className="w-5 h-5 text-[var(--color-warning)]" />,
       label: 'Has unsaved changes',
-      color: 'text-amber-400',
+      color: 'text-[var(--color-warning)]',
     };
   }
   if (processCount > 0) {
     return {
-      icon: <Zap className="w-5 h-5 text-emerald-400" />,
+      icon: <Zap className="w-5 h-5 text-[var(--color-success)]" />,
       label: `Active · ${processCount} process${processCount > 1 ? 'es' : ''} running`,
-      color: 'text-emerald-400',
+      color: 'text-[var(--color-success)]',
     };
   }
   if (category === 'dormant') {
     return {
-      icon: <Clock className="w-5 h-5 text-slate-400" />,
+      icon: <Clock className="w-5 h-5 text-[var(--color-text-tertiary)]" />,
       label: 'Inactive',
-      color: 'text-slate-400',
+      color: 'text-[var(--color-text-tertiary)]',
     };
   }
   return {
-    icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" />,
+    icon: <CheckCircle2 className="w-5 h-5 text-[var(--color-success)]" />,
     label: 'Clean',
-    color: 'text-emerald-400',
+    color: 'text-[var(--color-success)]',
   };
 }
 
@@ -139,8 +139,9 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
       }}
       className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer p-1"
       title="Copy path"
+      aria-label="Copy path to clipboard"
     >
-      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? <Check className="w-3.5 h-3.5 text-[var(--color-success)]" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   );
 };
@@ -430,15 +431,15 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             <div
               className={`max-w-4xl mx-auto flex items-start justify-between gap-3 rounded-lg border p-3 text-xs shadow-lg backdrop-blur-md transition-all ${
                 actionResult.type === 'success'
-                  ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200'
-                  : 'bg-rose-950/90 border-rose-500/30 text-rose-200'
+                  ? 'bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success)]'
+                  : 'bg-[var(--color-danger-bg)] border-[var(--color-danger-border)] text-[var(--color-danger)]'
               }`}
             >
               <div className="flex items-start gap-2.5 min-w-0 flex-1">
                 {actionResult.type === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-[var(--color-success)] mt-0.5" />
                 ) : (
-                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-[var(--color-danger)] mt-0.5" />
                 )}
                 <div className="min-w-0 max-h-36 overflow-y-auto pr-2 flex-1">
                   <p className="font-medium whitespace-pre-wrap leading-relaxed select-text font-mono text-[11px]">
@@ -451,6 +452,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 onClick={() => setActionResult(null)}
                 className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer shrink-0"
                 title="Dismiss"
+                aria-label="Dismiss notice"
               >
                 <XCircle className="w-4 h-4" />
               </button>
@@ -490,7 +492,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               {activePorts.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-[var(--color-text-tertiary)] font-medium flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-[var(--color-success)] animate-pulse" />
                     Localhost:
                   </span>
                   {activePorts.map((port) => (
@@ -499,9 +501,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                       type="button"
                       onClick={() => EntropyApiClient.openUrl(`http://localhost:${port}`)}
                       title={`Open http://localhost:${port} in default browser`}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 rounded-md transition-colors cursor-pointer"
+                      aria-label={`Open localhost port ${port} in default browser`}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] hover:bg-[var(--color-success-bg)]/80 rounded-md transition-colors cursor-pointer"
                     >
-                      <Globe className="w-3 h-3 text-emerald-400" />
+                      <Globe className="w-3 h-3 text-[var(--color-success)]" />
                       :{port}
                       <ExternalLink className="w-2.5 h-2.5 opacity-70" />
                     </button>
@@ -516,7 +519,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 type="button"
                 onClick={() => handleLaunchEditor('code')}
                 disabled={busyAction === 'editor-code'}
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-accent)] text-white rounded-md hover:bg-blue-500 transition-colors cursor-pointer disabled:opacity-50"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-accent)] text-white rounded-md hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
               >
                 <Code2 className="w-4 h-4" />
                 {busyAction === 'editor-code' ? 'Opening...' : 'Open in VS Code'}
@@ -545,7 +548,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 title="Open in PowerShell"
                 className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
               >
-                <Terminal className="w-4 h-4 text-sky-400" />
+                <Terminal className="w-4 h-4 text-[var(--color-accent-strong)]" />
                 PowerShell
               </button>
               <button
@@ -554,7 +557,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 title="Open in Command Prompt (CMD)"
                 className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer"
               >
-                <SquareTerminal className="w-4 h-4 text-amber-400" />
+                <SquareTerminal className="w-4 h-4 text-[var(--color-warning)]" />
                 CMD
               </button>
               <button
@@ -570,7 +573,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   type="button"
                   onClick={handleStash}
                   disabled={stashLoading}
-                  className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] hover:bg-amber-500/20 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] hover:bg-[var(--color-warning-bg)]/80 rounded-md transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <Shield className="w-4 h-4" />
                   {stashLoading ? 'Stashing...' : 'Stash Changes'}
@@ -581,7 +584,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   type="button"
                   onClick={handleCleanAllDeps}
                   disabled={busyAction === 'clean-all-deps'}
-                  className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)] hover:bg-rose-500/20 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)] hover:bg-[var(--color-danger-bg)]/80 rounded-md transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" />
                   {busyAction === 'clean-all-deps'
@@ -651,14 +654,14 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
                 {/* Secret Leak Warning */}
                 {git.unprotected_env_files && git.unprotected_env_files.length > 0 && (
-                  <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 flex items-center justify-between gap-3">
+                  <div className="bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] rounded-lg p-3 flex items-center justify-between gap-3">
                     <div className="flex items-start gap-2.5">
-                      <ShieldAlert className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
+                      <ShieldAlert className="w-4 h-4 text-[var(--color-danger)] mt-0.5 shrink-0" />
                       <div>
-                        <div className="text-xs font-semibold text-rose-300">
+                        <div className="text-xs font-semibold text-[var(--color-danger)]">
                           Secret Leak Alert: Unprotected {git.unprotected_env_files.join(', ')}
                         </div>
-                        <div className="text-[11px] text-rose-200/80 mt-0.5">
+                        <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">
                           This environment file is NOT ignored by Git and could accidentally be committed to version control.
                         </div>
                       </div>
@@ -667,7 +670,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                       type="button"
                       onClick={() => handleAddToGitignore('.env*')}
                       disabled={gitActionLoading}
-                      className="shrink-0 px-2.5 py-1 text-xs font-medium bg-rose-500 hover:bg-rose-600 text-white rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                      className="shrink-0 px-2.5 py-1 text-xs font-medium bg-[var(--color-danger)] hover:opacity-90 text-white rounded-md transition-opacity cursor-pointer disabled:opacity-50"
                     >
                       {gitActionLoading ? 'Adding...' : 'Add to .gitignore'}
                     </button>
@@ -676,17 +679,17 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
                 {/* Merged Branches */}
                 {git.merged_branches && git.merged_branches.length > 0 && (
-                  <div className="bg-blue-500/10 border border-blue-500/25 rounded-lg p-3 space-y-2">
+                  <div className="bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-blue-300">
-                        <GitMerge className="w-3.5 h-3.5 text-blue-400" />
+                      <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-text-primary)]">
+                        <GitMerge className="w-3.5 h-3.5 text-[var(--color-accent-strong)]" />
                         <span>{git.merged_branches.length} Merged Branch{git.merged_branches.length > 1 ? 'es' : ''} (Safe to prune)</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => handlePruneMergedBranches(git.merged_branches)}
                         disabled={gitActionLoading}
-                        className="px-2.5 py-1 text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/40 hover:bg-blue-500/30 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                        className="px-2.5 py-1 text-xs font-medium bg-[var(--color-surface-3)] text-[var(--color-accent-strong)] border border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-4)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
                       >
                         {gitActionLoading ? 'Pruning...' : 'Prune Merged Branches'}
                       </button>
@@ -709,11 +712,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 {dirtyFiles.length > 0 && (
                   <div className="pt-3 border-t border-[var(--color-border-subtle)]">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-amber-400 flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-[var(--color-warning)] flex items-center gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5" />
                         {dirtyFiles.length} unsaved file{dirtyFiles.length > 1 ? 's' : ''}
                         {git.oldest_dirty_timestamp && (
-                          <span className="text-xs font-normal text-amber-300/80">
+                          <span className="text-xs font-normal text-[var(--color-text-secondary)]">
                             (oldest {formatTimeAgo(git.oldest_dirty_timestamp)})
                           </span>
                         )}
@@ -737,10 +740,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                             {file.path}
                           </span>
                           <span className={`text-[10px] font-medium uppercase px-1.5 py-0.5 rounded ${
-                            file.status === 'modified' ? 'bg-amber-500/15 text-amber-400' :
-                            file.status === 'untracked' ? 'bg-sky-500/15 text-sky-400' :
-                            file.status === 'deleted' ? 'bg-rose-500/15 text-rose-400' :
-                            'bg-emerald-500/15 text-emerald-400'
+                            file.status === 'modified' ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' :
+                            file.status === 'untracked' ? 'bg-[var(--color-info-bg)] text-[var(--color-info)]' :
+                            file.status === 'deleted' ? 'bg-[var(--color-danger-bg)] text-[var(--color-danger)]' :
+                            'bg-[var(--color-success-bg)] text-[var(--color-success)]'
                           }`}>
                             {file.status}
                           </span>
@@ -779,7 +782,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                       type="button"
                       onClick={() => handleCleanDep(dep)}
                       disabled={cleaningPaths.has(dep.path)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg hover:bg-rose-500/20 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)] rounded-lg hover:bg-[var(--color-danger-bg)]/80 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
                     >
                       <Trash2 className="w-3 h-3" />
                       {cleaningPaths.has(dep.path) ? 'Cleaning…' : `Clean (${formatSize(dep.size_bytes)})`}
@@ -801,7 +804,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                   <div key={proc.entity_id || `${proc.pid}-${i}`} className="bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] rounded-lg p-3 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
-                        <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${proc.is_shell ? 'bg-slate-400' : 'bg-emerald-400'}`} />
+                        <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${proc.is_shell ? 'bg-[var(--color-text-tertiary)]' : 'bg-[var(--color-success)]'}`} />
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-[var(--color-text-primary)] truncate">
                             {proc.name}
@@ -830,10 +833,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                           <button
                             type="button"
                             onClick={() => EntropyApiClient.openUrl(`http://localhost:${port}`)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/25 transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] rounded-lg hover:bg-[var(--color-success-bg)]/80 transition-colors cursor-pointer"
                             title={`Open http://localhost:${port} in web browser`}
+                            aria-label={`Open localhost port ${port} in web browser`}
                           >
-                            <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                            <Globe className="w-3.5 h-3.5 text-[var(--color-success)]" />
                             <span>http://localhost:{port}</span>
                             <ExternalLink className="w-3 h-3 opacity-70" />
                           </button>
@@ -841,8 +845,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                             type="button"
                             onClick={() => handleFreePort(proc, port)}
                             disabled={busyAction === `port-${port}`}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25 rounded-lg hover:bg-amber-500/20 transition-colors cursor-pointer disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] rounded-lg hover:bg-[var(--color-warning-bg)]/80 transition-colors cursor-pointer disabled:opacity-50"
                             title={`Stop the process listening on port ${port}`}
+                            aria-label={`Free port ${port} and terminate process`}
                           >
                             <Zap className="w-3 h-3" />
                             {busyAction === `port-${port}` ? `Freeing ${port}...` : `Free Port ${port}`}
@@ -866,7 +871,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                             title="Open PowerShell in this directory"
                             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
                           >
-                            <Terminal className="w-3 h-3 text-sky-400" />
+                            <Terminal className="w-3 h-3 text-[var(--color-accent-strong)]" />
                             PowerShell
                           </button>
                           <button
@@ -875,7 +880,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                             title="Open Command Prompt (CMD) in this directory"
                             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-4)] hover:text-[var(--color-text-primary)] rounded-lg transition-colors cursor-pointer"
                           >
-                            <SquareTerminal className="w-3 h-3 text-amber-400" />
+                            <SquareTerminal className="w-3 h-3 text-[var(--color-warning)]" />
                             CMD
                           </button>
                           <button
@@ -892,7 +897,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         type="button"
                         onClick={() => handleStopProcess(proc)}
                         disabled={busyAction === `stop-${proc.pid}`}
-                        className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-rose-500/10 text-rose-300 border border-rose-500/25 rounded-lg hover:bg-rose-500/20 transition-colors cursor-pointer disabled:opacity-50"
+                        className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)] rounded-lg hover:bg-[var(--color-danger-bg)]/80 transition-colors cursor-pointer disabled:opacity-50"
+                        aria-label={`Stop process ${proc.name} PID ${proc.pid}`}
                       >
                         <XCircle className="w-3 h-3" />
                         {busyAction === `stop-${proc.pid}` ? 'Stopping...' : 'Stop Process'}

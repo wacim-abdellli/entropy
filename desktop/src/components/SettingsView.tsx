@@ -298,7 +298,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <h2 className="text-xl font-medium">AI Workspace Advisor</h2>
             </div>
             {saveSuccessNotice && (
-              <span className="text-xs font-medium text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md animate-in fade-in">
+              <span className="text-xs font-medium text-[var(--color-success)] flex items-center gap-1.5 bg-[var(--color-success-bg)] border border-[var(--color-success-border)] px-2.5 py-1 rounded-md animate-in fade-in">
                 <CheckCircle2 size={13} />
                 <span>Settings Saved</span>
               </span>
@@ -323,10 +323,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck size={18} className="text-emerald-400" />
+                  <ShieldCheck size={18} className="text-[var(--color-success)]" />
                   <span className="font-semibold text-sm text-[var(--color-text-primary)]">Offline Rules</span>
                 </div>
-                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
                   Default
                 </span>
               </div>
@@ -347,10 +347,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Sparkles size={18} className="text-amber-400" />
+                  <Sparkles size={18} className="text-[var(--color-warning)]" />
                   <span className="font-semibold text-sm text-[var(--color-text-primary)]">Groq Cloud</span>
                 </div>
-                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]">
                   Free Tier
                 </span>
               </div>
@@ -371,10 +371,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Cpu size={18} className="text-sky-400" />
+                  <Cpu size={18} className="text-[var(--color-accent-strong)]" />
                   <span className="font-semibold text-sm text-[var(--color-text-primary)]">Local Ollama</span>
                 </div>
-                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30">
                   Localhost
                 </span>
               </div>
@@ -388,7 +388,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-5 space-y-4">
             {aiConfig.provider === 'rules' && (
               <div className="flex items-start gap-3">
-                <ShieldCheck size={20} className="text-emerald-400 shrink-0 mt-0.5" />
+                <ShieldCheck size={20} className="text-[var(--color-success)] shrink-0 mt-0.5" />
                 <div>
                   <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">Offline Rules Engine is Active</h4>
                   <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
@@ -504,8 +504,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div
                   className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-md border ${
                     testResult.success
-                      ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
-                      : 'bg-rose-500/10 border-rose-500/25 text-rose-300'
+                      ? 'bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success)]'
+                      : 'bg-[var(--color-danger-bg)] border-[var(--color-danger-border)] text-[var(--color-danger)]'
                   }`}
                 >
                   {testResult.success ? <CheckCircle2 size={13} className="shrink-0" /> : <AlertCircle size={13} className="shrink-0" />}

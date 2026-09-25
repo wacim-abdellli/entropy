@@ -68,6 +68,10 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
+function getNowSeconds(): number {
+  return Date.now() / 1000;
+}
+
 /* ───────────────────────── Main App ───────────────────────── */
 
 export function App() {
@@ -210,7 +214,7 @@ export function App() {
     }
   }, []);
 
-  const refreshCurrentContext = useCallback(async () => {
+  const refreshCurrentContext = useCallback(async function doRefresh() {
     setIsLoading(true);
     setError(null);
 
@@ -235,7 +239,9 @@ export function App() {
         title: 'Refresh failed',
         message: 'The action completed, but Entropy could not refresh the latest machine state.',
         details: errorMessage(err),
-        onRetry: () => refreshCurrentContext(),
+        onRetry: () => {
+          void doRefresh();
+        },
       });
     } finally {
       setIsLoading(false);
@@ -244,8 +250,38 @@ export function App() {
 
   // Initial load
   useEffect(() => {
-    loadEnvironment();
-  }, [loadEnvironment]);
+    let ignore = false;
+    EntropyApiClient.scanEnvironment(scanRoots)
+      .then((data) => {
+        if (!ignore) {
+          setOverview(data);
+          try {
+            localStorage.setItem('entropy_cached_overview', JSON.stringify(data));
+          } catch {}
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          setError({
+            title: 'Engine unavailable',
+            message: 'Could not connect to the local Entropy engine.',
+            details: errorMessage(err),
+            onRetry: () => {
+              void loadEnvironment(scanRoots);
+            },
+          });
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [scanRoots, loadEnvironment]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -279,7 +315,7 @@ export function App() {
       path: folder,
       project_type: 'detecting...',
       total_size_bytes: 0,
-      last_modified: Date.now() / 1000,
+      last_modified: getNowSeconds(),
       state_label: 'Ready',
       state_category: 'neutral',
       git_branch: null,
@@ -322,7 +358,7 @@ export function App() {
           metadata: {
             scan_duration_ms: 0,
             engine_version: '0.1.0',
-            timestamp: Date.now() / 1000,
+            timestamp: getNowSeconds(),
             hostname: '',
             scan_roots: [folder],
           },

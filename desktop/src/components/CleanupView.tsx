@@ -42,7 +42,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [activeTab, setActiveTab] = useState<CleanupTab>('artifacts');
 
   // Artifacts state
-  const artifacts = overview?.system?.artifacts || [];
+  const artifacts = useMemo(() => overview?.system?.artifacts || [], [overview?.system?.artifacts]);
   const [selectedArtifacts, setSelectedArtifacts] = useState<Set<string>>(new Set());
   const [isCleaning, setIsCleaning] = useState(false);
   const [confirmCleanOpen, setConfirmCleanOpen] = useState(false);
@@ -85,8 +85,30 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   };
 
   useEffect(() => {
-    fetchGlobalCaches();
-    fetchDockerUsage();
+    let ignore = false;
+    EntropyApiClient.getPurgeableCaches()
+      .then((items) => {
+        if (!ignore && items) {
+          setGlobalCaches(items);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load global caches:', err);
+      });
+
+    EntropyApiClient.getDockerDiskUsage()
+      .then((usage) => {
+        if (!ignore && usage) {
+          setDockerUsage(usage);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to query Docker disk usage:', err);
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const totalArtifactBytes = useMemo(
@@ -293,7 +315,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
             <Box size={14} className={activeTab === 'docker' ? 'text-[var(--color-accent)]' : ''} />
             <span>Docker Storage</span>
             {dockerUsage?.available && dockerUsage.reclaimable_bytes > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-300">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)]">
                 {formatBytes(dockerUsage.reclaimable_bytes)}
               </span>
             )}
@@ -329,7 +351,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
             {artifacts.length === 0 ? (
               <div className="p-12 text-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-1)]">
-                <CheckCircle2 size={40} className="text-emerald-400 mx-auto mb-3 opacity-60" />
+                <CheckCircle2 size={40} className="text-[var(--color-success)] mx-auto mb-3 opacity-60" />
                 <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">No Build Artifacts to Clean</h3>
                 <p className="text-xs text-[var(--color-text-tertiary)] mt-1">Your scanned workspaces are free of unmanaged build directories.</p>
               </div>
@@ -343,14 +365,14 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                       onClick={() => handleToggleArtifact(artifact.path)}
                       className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all border ${
                         isSelected
-                          ? 'bg-[var(--color-surface-2)] border-emerald-500/50 shadow-sm'
+                          ? 'bg-[var(--color-surface-2)] border-[var(--color-success-border)] shadow-sm'
                           : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
                       }`}
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div
                           className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                            isSelected ? 'bg-emerald-500 border-emerald-500' : 'border-[var(--color-border)]'
+                            isSelected ? 'bg-[var(--color-success)] border-[var(--color-success)]' : 'border-[var(--color-border)]'
                           }`}
                         >
                           {isSelected && <Check size={11} className="text-white" />}
@@ -370,7 +392,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                         <div className="font-semibold text-xs text-[var(--color-text-primary)]">
                           {formatBytes(artifact.size_bytes)}
                         </div>
-                        <div className="text-[10px] text-emerald-400 font-medium mt-0.5">
+                        <div className="text-[10px] text-[var(--color-success)] font-medium mt-0.5">
                           Safe to delete
                         </div>
                       </div>
@@ -407,7 +429,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
             {globalCaches.length === 0 ? (
               <div className="p-12 text-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-1)]">
-                <Database size={40} className="text-amber-400 mx-auto mb-3 opacity-60" />
+                <Database size={40} className="text-[var(--color-warning)] mx-auto mb-3 opacity-60" />
                 <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">No Global Caches Found</h3>
                 <p className="text-xs text-[var(--color-text-tertiary)] mt-1">No pip, npm, yarn, or cargo cache directories were located.</p>
               </div>
@@ -428,7 +450,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div
                           className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                            isSelected ? 'bg-blue-500 border-blue-500' : 'border-[var(--color-border)]'
+                            isSelected ? 'bg-[var(--color-accent)] border-[var(--color-accent)]' : 'border-[var(--color-border)]'
                           }`}
                         >
                           {isSelected && <Check size={11} className="text-white" />}
@@ -460,7 +482,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                             title={copiedPath === cache.path ? 'Copied!' : 'Copy path'}
                           >
                             {copiedPath === cache.path ? (
-                              <Check size={12} className="text-emerald-400" />
+                              <Check size={12} className="text-[var(--color-success)]" />
                             ) : (
                               <Copy size={12} />
                             )}
@@ -531,9 +553,9 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                       {formatBytes(dockerUsage.total_size_bytes)}
                     </span>
                   </div>
-                  <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/25">
-                    <span className="text-[11px] text-blue-300 block">Total Reclaimable Space</span>
-                    <span className="text-lg font-semibold text-blue-400 mt-1 block">
+                  <div className="p-4 rounded-xl bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/25">
+                    <span className="text-[11px] text-[var(--color-accent-strong)] block">Total Reclaimable Space</span>
+                    <span className="text-lg font-semibold text-[var(--color-accent-strong)] mt-1 block">
                       {formatBytes(dockerUsage.reclaimable_bytes)}
                     </span>
                   </div>
@@ -550,7 +572,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                   <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] flex flex-col justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <Layers size={16} className="text-blue-400" />
+                        <Layers size={16} className="text-[var(--color-accent-strong)]" />
                         <h4 className="text-xs font-semibold text-[var(--color-text-primary)]">Build Cache</h4>
                       </div>
                       <p className="text-[11px] text-[var(--color-text-secondary)] mt-1.5 leading-relaxed">
@@ -561,7 +583,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                       type="button"
                       onClick={() => setConfirmDockerPrune({ target: 'builder', label: 'Build Cache' })}
                       disabled={Boolean(dockerPruningTarget)}
-                      className="mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/35 hover:bg-blue-500/30 transition-colors cursor-pointer disabled:opacity-50"
+                      className="mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-medium bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/35 hover:bg-[var(--color-accent-muted)]/80 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {dockerPruningTarget === 'builder' ? 'Pruning...' : 'Prune Build Cache'}
                     </button>
@@ -570,7 +592,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                   <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] flex flex-col justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <Box size={16} className="text-amber-400" />
+                        <Box size={16} className="text-[var(--color-warning)]" />
                         <h4 className="text-xs font-semibold text-[var(--color-text-primary)]">Dangling Images</h4>
                       </div>
                       <p className="text-[11px] text-[var(--color-text-secondary)] mt-1.5 leading-relaxed">
@@ -581,7 +603,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                       type="button"
                       onClick={() => setConfirmDockerPrune({ target: 'dangling_images', label: 'Dangling Images' })}
                       disabled={Boolean(dockerPruningTarget)}
-                      className="mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/35 hover:bg-amber-500/30 transition-colors cursor-pointer disabled:opacity-50"
+                      className="mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-medium bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] hover:bg-[var(--color-warning)]/20 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {dockerPruningTarget === 'dangling_images' ? 'Pruning...' : 'Prune Dangling Images'}
                     </button>
@@ -590,7 +612,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                   <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] flex flex-col justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <Zap size={16} className="text-emerald-400" />
+                        <Zap size={16} className="text-[var(--color-success)]" />
                         <h4 className="text-xs font-semibold text-[var(--color-text-primary)]">System Deep Prune</h4>
                       </div>
                       <p className="text-[11px] text-[var(--color-text-secondary)] mt-1.5 leading-relaxed">
@@ -601,7 +623,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                       type="button"
                       onClick={() => setConfirmDockerPrune({ target: 'system', label: 'System Cache' })}
                       disabled={Boolean(dockerPruningTarget)}
-                      className="mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer disabled:opacity-50"
+                      className="mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-[var(--color-success)] hover:opacity-90 text-white transition-opacity cursor-pointer disabled:opacity-50"
                     >
                       {dockerPruningTarget === 'system' ? 'Pruning...' : 'Run System Prune'}
                     </button>
@@ -624,7 +646,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                         </div>
                         <div className="text-right">
                           <span className="font-mono text-[var(--color-text-primary)]">{item.size_raw}</span>
-                          <span className="text-blue-400 font-mono ml-3 font-medium">
+                          <span className="text-[var(--color-accent-strong)] font-mono ml-3 font-medium">
                             Reclaimable: {item.reclaimable_raw}
                           </span>
                         </div>
@@ -664,7 +686,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
             </>
           ) : (
             <div className="text-xs text-[var(--color-text-secondary)]">
-              Docker daemon: <strong className={dockerUsage?.available ? 'text-emerald-400' : 'text-[var(--color-text-tertiary)]'}>
+              Docker daemon: <strong className={dockerUsage?.available ? 'text-[var(--color-success)]' : 'text-[var(--color-text-tertiary)]'}>
                 {dockerUsage?.available ? 'Connected' : 'Offline'}
               </strong>
             </div>
@@ -673,7 +695,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
         <div className="flex items-center gap-3">
           {toastMessage && (
-            <div className="text-emerald-400 text-xs flex items-center gap-1.5 bg-emerald-400/10 border border-emerald-400/25 px-3 py-1.5 rounded-full animate-in fade-in slide-in-from-bottom-2">
+            <div className="text-[var(--color-success)] text-xs flex items-center gap-1.5 bg-[var(--color-success-bg)] border border-[var(--color-success-border)] px-3 py-1.5 rounded-full animate-in fade-in slide-in-from-bottom-2">
               <CheckCircle2 size={14} />
               <span>{toastMessage}</span>
             </div>
@@ -684,7 +706,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               type="button"
               onClick={() => setConfirmCleanOpen(true)}
               disabled={selectedArtifacts.size === 0 || isCleaning}
-              className="px-5 py-2 rounded-lg bg-[var(--color-accent)] hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+              className="px-5 py-2 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity cursor-pointer"
             >
               {isCleaning ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
               <span>Clean Selected ({formatBytes(selectedArtifactBytes)})</span>
@@ -696,7 +718,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               type="button"
               onClick={() => setConfirmCachePurgeOpen(true)}
               disabled={selectedCaches.size === 0 || isPurgingCaches}
-              className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+              className="px-5 py-2 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity cursor-pointer"
             >
               {isPurgingCaches ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
               <span>Purge Selected ({formatBytes(selectedCacheBytes)})</span>
@@ -739,7 +761,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                   setConfirmCleanOpen(false);
                   handleCleanSelectedArtifacts();
                 }}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:bg-blue-500 text-white"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white transition-opacity"
               >
                 Clean Artifacts
               </button>
@@ -753,15 +775,15 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl max-w-md w-full p-5 space-y-4">
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/25 flex items-center justify-center shrink-0">
-                <Database size={18} className="text-blue-400" />
+              <div className="w-9 h-9 rounded-lg bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/25 flex items-center justify-center shrink-0">
+                <Database size={18} className="text-[var(--color-accent-strong)]" />
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
                   Purge Global Package Caches?
                 </h3>
                 <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
-                  Purge <strong className="text-[var(--color-text-primary)]">{selectedCaches.size}</strong> package manager caches to free <strong className="text-blue-400 font-semibold">{formatBytes(selectedCacheBytes)}</strong>?
+                  Purge <strong className="text-[var(--color-text-primary)]">{selectedCaches.size}</strong> package manager caches to free <strong className="text-[var(--color-accent-strong)] font-semibold">{formatBytes(selectedCacheBytes)}</strong>?
                 </p>
                 <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1.5">
                   Package archives will be re-downloaded transparently when needed during future installs.
@@ -782,7 +804,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                   setConfirmCachePurgeOpen(false);
                   handlePurgeSelectedCaches();
                 }}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white transition-opacity"
               >
                 Purge Caches
               </button>
@@ -796,8 +818,8 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl max-w-md w-full p-5 space-y-4">
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/25 flex items-center justify-center shrink-0">
-                <Box size={18} className="text-blue-400" />
+              <div className="w-9 h-9 rounded-lg bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/25 flex items-center justify-center shrink-0">
+                <Box size={18} className="text-[var(--color-accent-strong)]" />
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
@@ -819,7 +841,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               <button
                 type="button"
                 onClick={handleExecuteDockerPrune}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white transition-opacity"
               >
                 Confirm Prune
               </button>

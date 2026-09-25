@@ -12,7 +12,7 @@ colors:
   border-strong: "#424752"
   text-primary: "#f5f7fa"
   text-secondary: "#a9afbb"
-  text-tertiary: "#737a87"
+  text-tertiary: "#8c95a3"
   accent: "#3b82f6"
   accent-strong: "#60a5fa"
   success: "#34d399"
@@ -77,7 +77,7 @@ Entropy is a precision desktop instrument for software developers. The design la
 - **Text Roles**:
   - Primary (`#f5f7fa`): High-legibility off-white for headers and prominent titles.
   - Secondary (`#a9afbb`): Balanced slate for descriptions, body text, and subtitles.
-  - Tertiary (`#737a87`): Muted gray for metadata, timestamps, and secondary captions.
+  - Tertiary (`#8c95a3`): Muted gray for metadata, timestamps, and secondary captions.
 - **Semantic Accents**:
   - Primary Accent (`#3b82f6` / `#60a5fa`): Focused interactive elements, active links, primary CTA buttons.
   - Success (`#34d399`): Clean/safe items, reclaimed space, running processes.

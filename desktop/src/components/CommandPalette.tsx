@@ -69,15 +69,69 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const prevActiveElementRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
+  // Synchronously adjust state during render when opened/closed to prevent cascading effect updates
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setQuery('');
       setActiveCategory('All');
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }
+
+  // Focus input on open, and restore previous active element on close
+  useEffect(() => {
+    if (isOpen) {
+      prevActiveElementRef.current = document.activeElement as HTMLElement;
+      const timer = setTimeout(() => inputRef.current?.focus(), 40);
+      return () => clearTimeout(timer);
+    } else {
+      prevActiveElementRef.current?.focus();
     }
   }, [isOpen]);
+
+  // Focus trap for Tab key and Escape dismissal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        if (!modalRef.current) return;
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isOpen, onClose]);
 
   // Build items list
   const allItems = useMemo(() => {
@@ -105,7 +159,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       title: 'Clean Slate — Terminate Idle Dev Processes',
       subtitle: 'Free memory by stopping orphaned node, python, or rust background servers',
       category: 'Action',
-      icon: <Zap className="w-4 h-4 text-emerald-400" />,
+      icon: <Zap className="w-4 h-4 text-[var(--color-success)]" />,
       actionHint: 'Free RAM',
       action: async () => {
         onClose();
@@ -144,7 +198,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       title: 'Purge Global Package Caches',
       subtitle: 'Reclaim gigabytes from npm, pip, yarn, cargo, or gradle cache folders',
       category: 'Action',
-      icon: <Trash2 className="w-4 h-4 text-amber-400" />,
+      icon: <Trash2 className="w-4 h-4 text-[var(--color-warning)]" />,
       actionHint: 'Cleanup',
       action: () => {
         onNavigate('cleanup');
@@ -157,7 +211,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       title: 'Prune Docker Storage',
       subtitle: 'Clean dangling images, buildkit cache, and stopped containers',
       category: 'Action',
-      icon: <Boxes className="w-4 h-4 text-sky-400" />,
+      icon: <Boxes className="w-4 h-4 text-[var(--color-accent-strong)]" />,
       actionHint: 'Docker',
       action: () => {
         onNavigate('cleanup');
@@ -200,7 +254,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           title: `http://localhost:${port}`,
           subtitle: `Open ${owner} dev server in your default browser`,
           category: 'Port',
-          icon: <Globe className="w-4 h-4 text-emerald-400" />,
+          icon: <Globe className="w-4 h-4 text-[var(--color-success)]" />,
           badge: `:${port}`,
           actionHint: 'Open Browser ↗',
           action: () => {
@@ -235,7 +289,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           title: `Terminal in ${w.name}`,
           subtitle: `Launch Windows Terminal at ${w.path}`,
           category: 'Workspace',
-          icon: <Terminal className="w-4 h-4 text-sky-400" />,
+          icon: <Terminal className="w-4 h-4 text-[var(--color-accent-strong)]" />,
           actionHint: 'Terminal',
           action: () => {
             EntropyApiClient.openInTerminal(w.path);
@@ -249,7 +303,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           title: `PowerShell in ${w.name}`,
           subtitle: `Launch PowerShell at ${w.path}`,
           category: 'Workspace',
-          icon: <Terminal className="w-4 h-4 text-blue-400" />,
+          icon: <Terminal className="w-4 h-4 text-[var(--color-accent)]" />,
           actionHint: 'PowerShell',
           action: () => {
             EntropyApiClient.openInPowerShell(w.path);
@@ -263,7 +317,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           title: `CMD in ${w.name}`,
           subtitle: `Launch Command Prompt at ${w.path}`,
           category: 'Workspace',
-          icon: <SquareTerminal className="w-4 h-4 text-amber-400" />,
+          icon: <SquareTerminal className="w-4 h-4 text-[var(--color-warning)]" />,
           actionHint: 'CMD',
           action: () => {
             EntropyApiClient.openInCmd(w.path);
@@ -291,7 +345,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           title: `Open ${w.name} in VS Code`,
           subtitle: `code "${w.path}"`,
           category: 'Workspace',
-          icon: <Code2 className="w-4 h-4 text-sky-400" />,
+          icon: <Code2 className="w-4 h-4 text-[var(--color-accent-strong)]" />,
           actionHint: 'VS Code',
           action: () => {
             EntropyApiClient.launchIde(w.path, 'vscode');
@@ -304,7 +358,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           title: `Open ${w.name} in Cursor`,
           subtitle: `cursor "${w.path}"`,
           category: 'Workspace',
-          icon: <Code2 className="w-4 h-4 text-indigo-400" />,
+          icon: <Code2 className="w-4 h-4 text-[var(--color-accent)]" />,
           actionHint: 'Cursor',
           action: () => {
             EntropyApiClient.launchIde(w.path, 'cursor');
@@ -322,7 +376,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           title: `${p.name} (PID ${p.pid})`,
           subtitle: `${p.ports && p.ports.length ? 'Port :' + p.ports.join(', :') + ' · ' : ''}RAM: ${formatSize(p.memory_bytes)}${p.cwd ? ' · ' + p.cwd : ''}`,
           category: 'Process',
-          icon: <Cpu className="w-4 h-4 text-amber-400" />,
+          icon: <Cpu className="w-4 h-4 text-[var(--color-warning)]" />,
           badge: `PID ${p.pid}`,
           actionHint: 'Terminate',
           action: async () => {
@@ -391,7 +445,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           title: f.title,
           subtitle: f.recommendation,
           category: 'Finding',
-          icon: <AlertTriangle className="w-4 h-4 text-amber-400" />,
+          icon: <AlertTriangle className="w-4 h-4 text-[var(--color-warning)]" />,
           actionHint: 'View',
           action: () => { onNavigate('home'); onClose(); },
         });
@@ -473,6 +527,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-start justify-center pt-20 px-4 select-none animate-in fade-in duration-100"
     >
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-2xl bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[580px] animate-in zoom-in-95 duration-100"
       >
@@ -494,6 +552,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {query && (
             <button
               type="button"
+              aria-label="Clear search query"
               onClick={() => {
                 setQuery('');
                 setSelectedIndex(0);
@@ -540,13 +599,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
             const categoryStyle =
               item.category === 'Action'
-                ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                ? 'bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border-[var(--color-accent)]/30'
                 : item.category === 'Port'
-                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] border-[var(--color-success-border)]'
                 : item.category === 'Workspace'
-                ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                ? 'bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] border-[var(--color-border-subtle)]'
                 : item.category === 'Process'
-                ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)]'
                 : 'bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] border-[var(--color-border-subtle)]';
 
             return (

@@ -171,7 +171,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
                 type="button"
                 disabled={busy}
                 onClick={execute}
-                className="h-8 px-3 rounded-md bg-rose-500 hover:bg-rose-400 disabled:opacity-50 text-white text-xs font-medium cursor-pointer shadow-sm"
+                className="h-8 px-3 rounded-md bg-[var(--color-danger)] hover:opacity-90 disabled:opacity-50 text-white text-xs font-medium cursor-pointer shadow-sm transition-opacity"
               >
                 {busy ? 'Stopping…' : confirm.kind === 'port' ? 'Free port' : 'Stop process'}
               </button>
@@ -183,14 +183,14 @@ export const SystemView: React.FC<SystemViewProps> = ({
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-md rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] p-5 shadow-2xl space-y-4">
             <div className="flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
+              <div className="p-2 rounded-lg bg-[var(--color-success-bg)] text-[var(--color-success)] shrink-0">
                 <Zap className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-semibold text-sm text-[var(--color-text-primary)]">Clean Slate — Reclaim RAM</h2>
                 <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
                   Terminate <strong className="text-[var(--color-text-primary)]">{devProcesses.length}</strong> background developer processes to instantly free{' '}
-                  <strong className="text-emerald-400 font-semibold">{bytes(totalDevRam)}</strong> of memory?
+                  <strong className="text-[var(--color-success)] font-semibold">{bytes(totalDevRam)}</strong> of memory?
                 </p>
               </div>
             </div>
@@ -202,7 +202,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
                     <span className="text-[var(--color-text-primary)] font-medium">{p.name}</span>
                     <span className="text-[var(--color-text-tertiary)] ml-2">PID {p.pid}</span>
                     {p.ports && p.ports.length > 0 && (
-                      <span className="text-emerald-400 ml-2">:{p.ports.join(', :')}</span>
+                      <span className="text-[var(--color-success)] ml-2">:{p.ports.join(', :')}</span>
                     )}
                   </div>
                   <span className="text-[var(--color-text-secondary)] shrink-0">{bytes(p.memory_bytes)}</span>
@@ -223,7 +223,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
                 type="button"
                 disabled={cleanSlateLoading}
                 onClick={handleExecuteCleanSlate}
-                className="h-8 px-3.5 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="h-8 px-3.5 rounded-md bg-[var(--color-success)] hover:opacity-90 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm transition-opacity"
               >
                 <Zap className="w-3.5 h-3.5" />
                 {cleanSlateLoading ? 'Reclaiming…' : `Reclaim ${bytes(totalDevRam)}`}
@@ -311,10 +311,11 @@ export const SystemView: React.FC<SystemViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setConfirmCleanSlate(true)}
-                  className="h-7 px-2.5 text-xs font-semibold rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors cursor-pointer flex items-center gap-1.5 ml-auto"
+                  className="h-7 px-2.5 text-xs font-semibold rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] hover:bg-[var(--color-success)]/20 transition-colors cursor-pointer flex items-center gap-1.5 ml-auto"
                   title="Terminate background dev servers to reclaim RAM"
+                  aria-label={`Clean Slate: Reclaim ${bytes(totalDevRam)} of dev server memory`}
                 >
-                  <Zap className="w-3 h-3 text-emerald-400" />
+                  <Zap className="w-3 h-3 text-[var(--color-success)]" />
                   Clean Slate ({bytes(totalDevRam)})
                 </button>
               )}
@@ -354,6 +355,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
                         disabled={protectedProcess}
                         onClick={() => setConfirm({ kind: 'port', process, port })}
                         title={protectedProcess ? 'Protected system process' : `Free port ${port}`}
+                        aria-label={`Free port ${port}`}
                         className="h-6 px-1.5 rounded bg-[var(--color-warning-bg)] text-[var(--color-warning)] font-mono text-[11px] hover:bg-[var(--color-warning)] hover:text-black disabled:opacity-40 cursor-pointer"
                       >
                         :{port}
@@ -375,6 +377,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
                     <button
                       type="button"
                       title="Open Windows Terminal here"
+                      aria-label={`Open Windows Terminal at ${process.cwd || process.name}`}
                       disabled={!process.cwd}
                       onClick={() => process.cwd && EntropyApiClient.openInTerminal(process.cwd)}
                       className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-white hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
@@ -384,24 +387,27 @@ export const SystemView: React.FC<SystemViewProps> = ({
                     <button
                       type="button"
                       title="Open PowerShell here"
+                      aria-label={`Open PowerShell at ${process.cwd || process.name}`}
                       disabled={!process.cwd}
                       onClick={() => process.cwd && EntropyApiClient.openInPowerShell(process.cwd)}
-                      className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-sky-400 hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
+                      className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-accent-strong)] hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
                     >
                       <Terminal className="w-3.5 h-3.5 mx-auto" />
                     </button>
                     <button
                       type="button"
                       title="Open Command Prompt (CMD) here"
+                      aria-label={`Open Command Prompt at ${process.cwd || process.name}`}
                       disabled={!process.cwd}
                       onClick={() => process.cwd && EntropyApiClient.openInCmd(process.cwd)}
-                      className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-amber-400 hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
+                      className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-warning)] hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
                     >
                       <SquareTerminal className="w-3.5 h-3.5 mx-auto" />
                     </button>
                     <button
                       type="button"
                       title="Open folder"
+                      aria-label={`Reveal folder in File Explorer: ${process.cwd || process.name}`}
                       disabled={!process.cwd}
                       onClick={() => process.cwd && EntropyApiClient.openInExplorer(process.cwd)}
                       className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-white hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
@@ -412,8 +418,9 @@ export const SystemView: React.FC<SystemViewProps> = ({
                       type="button"
                       disabled={protectedProcess}
                       title={protectedProcess ? 'Protected system process' : 'Stop process'}
+                      aria-label={protectedProcess ? `Protected system process ${process.name}` : `Stop process ${process.name} PID ${process.pid}`}
                       onClick={() => setConfirm({ kind: 'process', process })}
-                      className="w-7 h-7 rounded-md text-rose-400 hover:bg-rose-500/15 disabled:opacity-30 cursor-pointer"
+                      className="w-7 h-7 rounded-md text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)] disabled:opacity-30 cursor-pointer"
                     >
                       <XCircle className="w-3.5 h-3.5 mx-auto" />
                     </button>

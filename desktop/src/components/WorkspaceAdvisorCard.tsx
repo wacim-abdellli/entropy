@@ -53,6 +53,12 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
   const [asking, setAsking] = useState(false);
   const [aiAnswer, setAiAnswer] = useState<AiResponse | null>(null);
   const [copiedAnswer, setCopiedAnswer] = useState(false);
+  const [prevPath, setPrevPath] = useState(workspacePath);
+  if (workspacePath !== prevPath) {
+    setPrevPath(workspacePath);
+    setAiAnswer(null);
+    setLoading(true);
+  }
 
   const fetchHealth = useCallback(async () => {
     setLoading(true);
@@ -69,9 +75,26 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
   }, [workspacePath]);
 
   useEffect(() => {
-    fetchHealth();
-    setAiAnswer(null);
-  }, [fetchHealth]);
+    let ignore = false;
+    EntropyApiClient.getWorkspaceHealth(workspacePath)
+      .then((data) => {
+        if (!ignore && data) {
+          setHealth(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load workspace health:', err);
+      })
+      .finally(() => {
+        if (!ignore) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [workspacePath]);
 
   const handleExecuteTip = async (tip: HealthTip) => {
     if (!tip.action_type) return;
@@ -167,12 +190,12 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
   const score = health?.health_score ?? 85;
   const scoreColor =
     score >= 90
-      ? 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30'
+      ? 'text-[var(--color-success)] bg-[var(--color-success-bg)] border-[var(--color-success-border)]'
       : score >= 70
-      ? 'text-sky-400 bg-sky-500/15 border-sky-500/30'
+      ? 'text-[var(--color-info)] bg-[var(--color-info-bg)] border-[var(--color-info-border)]'
       : score >= 50
-      ? 'text-amber-400 bg-amber-500/15 border-amber-500/30'
-      : 'text-rose-400 bg-rose-500/15 border-rose-500/30';
+      ? 'text-[var(--color-warning)] bg-[var(--color-warning-bg)] border-[var(--color-warning-border)]'
+      : 'text-[var(--color-danger)] bg-[var(--color-danger-bg)] border-[var(--color-danger-border)]';
 
   const tips = health?.tips || [];
 
@@ -245,10 +268,10 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
 
                   const severityBadge =
                     tip.severity === 'urgent'
-                      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                      ? 'bg-[var(--color-danger-bg)] text-[var(--color-danger)] border-[var(--color-danger-border)]'
                       : tip.severity === 'warning'
-                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                      : 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+                      ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)]'
+                      : 'bg-[var(--color-info-bg)] text-[var(--color-info)] border-[var(--color-info-border)]';
 
                   return (
                     <div
@@ -268,7 +291,7 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
                           {tip.description}
                         </p>
                         {notice && (
-                          <div className={`mt-2 text-xs flex items-center gap-1.5 ${notice.success ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          <div className={`mt-2 text-xs flex items-center gap-1.5 ${notice.success ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}>
                             {notice.success ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}
                             <span>{notice.text}</span>
                           </div>
@@ -283,9 +306,9 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
                             disabled={isBusy}
                             className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${
                               tip.severity === 'urgent'
-                                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-xs'
+                                ? 'bg-[var(--color-danger)] hover:opacity-90 text-white shadow-xs'
                                 : tip.severity === 'warning'
-                                ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-xs'
+                                ? 'bg-[var(--color-warning)] hover:opacity-90 text-black font-semibold shadow-xs'
                                 : 'bg-[var(--color-surface-3)] hover:bg-[var(--color-surface-4)] text-[var(--color-text-primary)] border border-[var(--color-border)]'
                             }`}
                           >
@@ -310,8 +333,8 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
-              <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
+            <div className="flex items-center gap-2.5 p-3 rounded-lg bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success)] text-xs">
+              <ShieldCheck size={16} className="text-[var(--color-success)] shrink-0" />
               <span>Great job! No hygiene warnings or uncommitted risks detected in this workspace.</span>
             </div>
           )}
@@ -395,7 +418,7 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
                     className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] transition-colors cursor-pointer"
                     title="Copy response to clipboard"
                   >
-                    {copiedAnswer ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                    {copiedAnswer ? <Check size={12} className="text-[var(--color-success)]" /> : <Copy size={12} />}
                     <span>{copiedAnswer ? 'Copied' : 'Copy'}</span>
                   </button>
                 </div>

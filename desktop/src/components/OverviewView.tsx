@@ -94,18 +94,18 @@ function WorkspaceRow({
           {workspace.unprotected_env_files && workspace.unprotected_env_files.length > 0 && (
             <span
               title={`Unprotected secrets: ${workspace.unprotected_env_files.join(', ')}`}
-              className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 rounded"
+              className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-semibold bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)] rounded"
             >
-              <ShieldAlert className="w-2.5 h-2.5 text-rose-400" />
+              <ShieldAlert className="w-2.5 h-2.5 text-[var(--color-danger)]" />
               .env
             </span>
           )}
           {workspace.merged_branches && workspace.merged_branches.length > 0 && (
             <span
               title={`${workspace.merged_branches.length} merged branch(es) safe to prune`}
-              className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-semibold bg-blue-500/15 text-blue-300 border border-blue-500/30 rounded"
+              className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-semibold bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-border)] rounded"
             >
-              <GitMerge className="w-2.5 h-2.5 text-blue-400" />
+              <GitMerge className="w-2.5 h-2.5 text-[var(--color-accent-strong)]" />
               {workspace.merged_branches.length} merged
             </span>
           )}
@@ -119,9 +119,9 @@ function WorkspaceRow({
                     EntropyApiClient.openUrl(`http://localhost:${port}`);
                   }}
                   title={`Open http://localhost:${port} in browser`}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 rounded cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] hover:bg-[var(--color-success)]/20 rounded cursor-pointer transition-colors"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
                   :{port}
                   <ExternalLink className="w-2.5 h-2.5 opacity-70" />
                 </span>
@@ -156,6 +156,7 @@ function WorkspaceRow({
         <button
           type="button"
           title="Open Windows Terminal"
+          aria-label={`Open Windows Terminal at ${workspace.name}`}
           onClick={() => EntropyApiClient.openInTerminal(workspace.path)}
           className="w-7 h-7 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center justify-center cursor-pointer"
         >
@@ -164,22 +165,25 @@ function WorkspaceRow({
         <button
           type="button"
           title="Open in PowerShell"
+          aria-label={`Open PowerShell at ${workspace.name}`}
           onClick={() => EntropyApiClient.openInPowerShell(workspace.path)}
-          className="w-7 h-7 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-sky-400 flex items-center justify-center cursor-pointer"
+          className="w-7 h-7 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent-strong)] flex items-center justify-center cursor-pointer"
         >
           <Terminal className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
           title="Open in Command Prompt (CMD)"
+          aria-label={`Open Command Prompt at ${workspace.name}`}
           onClick={() => EntropyApiClient.openInCmd(workspace.path)}
-          className="w-7 h-7 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-amber-400 flex items-center justify-center cursor-pointer"
+          className="w-7 h-7 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] flex items-center justify-center cursor-pointer"
         >
           <SquareTerminal className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
           title="Inspect workspace"
+          aria-label={`Inspect workspace ${workspace.name}`}
           onClick={onOpen}
           className="w-7 h-7 rounded-md hover:bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] flex items-center justify-center cursor-pointer"
         >
@@ -364,6 +368,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <button
             type="button"
             title="Refresh workspaces"
+            aria-label="Refresh workspaces"
             onClick={onRefresh}
             disabled={isLoading}
             className="w-8 h-8 rounded-md hover:bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] flex items-center justify-center disabled:opacity-50 cursor-pointer"
@@ -407,7 +412,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   <button
                     type="button"
                     onClick={() => onSelectWorkspace(firstAction.path)}
-                    className="h-8 px-3 rounded-md bg-[var(--color-accent)] hover:bg-blue-500 text-white text-xs font-medium cursor-pointer shrink-0"
+                    className="h-8 px-3 rounded-md bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium cursor-pointer shrink-0 transition-opacity"
                   >
                     Open workspace
                   </button>
@@ -415,6 +420,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     type="button"
                     onClick={() => EntropyApiClient.openInTerminal(firstAction.path)}
                     title="Open in Windows Terminal"
+                    aria-label={`Open Windows Terminal at ${firstAction.name}`}
                     className="h-8 px-3 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
                     <Terminal className="w-3.5 h-3.5" />
@@ -424,18 +430,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     type="button"
                     onClick={() => EntropyApiClient.openInPowerShell(firstAction.path)}
                     title="Open in PowerShell"
+                    aria-label={`Open PowerShell at ${firstAction.name}`}
                     className="h-8 px-3 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
-                    <Terminal className="w-3.5 h-3.5 text-sky-400" />
+                    <Terminal className="w-3.5 h-3.5 text-[var(--color-accent-strong)]" />
                     PowerShell
                   </button>
                   <button
                     type="button"
                     onClick={() => EntropyApiClient.openInCmd(firstAction.path)}
                     title="Open in Command Prompt (CMD)"
+                    aria-label={`Open Command Prompt at ${firstAction.name}`}
                     className="h-8 px-3 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
-                    <SquareTerminal className="w-3.5 h-3.5 text-amber-400" />
+                    <SquareTerminal className="w-3.5 h-3.5 text-[var(--color-warning)]" />
                     CMD
                   </button>
                   {firstAction.ports && firstAction.ports.length > 0 && firstAction.ports.map((port) => (
@@ -444,9 +452,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       type="button"
                       onClick={() => EntropyApiClient.openUrl(`http://localhost:${port}`)}
                       title={`Open http://localhost:${port} in default browser`}
-                      className="h-8 px-3 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 hover:bg-emerald-500/30 text-xs flex items-center gap-1.5 cursor-pointer font-medium transition-colors shrink-0"
+                      aria-label={`Open localhost on port ${port} in browser`}
+                      className="h-8 px-3 rounded-md bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] hover:bg-[var(--color-success)]/20 text-xs flex items-center gap-1.5 cursor-pointer font-medium transition-colors shrink-0"
                     >
-                      <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                      <Globe className="w-3.5 h-3.5 text-[var(--color-success)]" />
                       <span>localhost:{port}</span>
                       <ExternalLink className="w-3 h-3 opacity-70" />
                     </button>
@@ -520,14 +529,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xl font-semibold text-emerald-400 group-hover:underline">
+                    <span className="text-xl font-semibold text-[var(--color-success)] group-hover:underline">
                       {formatSize(totalDevRam)}
                     </span>
                     <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
                       RAM in {devProcesses.length} dev server{devProcesses.length === 1 ? '' : 's'}
                     </span>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
                     <Zap className="w-3 h-3" />
                     Clean Slate
                   </span>
@@ -538,9 +547,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </section>
 
         {devServers.length > 0 && (
-          <section className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+          <section className="bg-[var(--color-success-bg)] border border-[var(--color-success-border)] rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-success)]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-success)] animate-pulse" />
               <span>{devServers.length} Active Localhost Dev Server{devServers.length > 1 ? 's' : ''}:</span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -554,7 +563,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     type="button"
                     onClick={() => EntropyApiClient.openUrl(`http://localhost:${port}`)}
                     title={`Open http://localhost:${port} in default browser`}
-                    className="inline-flex items-center gap-1 font-mono font-medium text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+                    aria-label={`Open localhost on port ${port} in browser`}
+                    className="inline-flex items-center gap-1 font-mono font-medium text-[var(--color-success)] hover:text-[var(--color-success)]/80 transition-colors cursor-pointer"
                   >
                     <Globe className="w-3 h-3" />
                     :{port}
@@ -568,7 +578,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       onRefresh();
                     }}
                     title={`Free port ${port} by terminating owner process`}
-                    className="text-amber-400 hover:text-amber-300 hover:underline cursor-pointer font-medium"
+                    aria-label={`Free port ${port} by terminating process`}
+                    className="text-[var(--color-warning)] hover:text-[var(--color-warning)]/80 hover:underline cursor-pointer font-medium"
                   >
                     Free
                   </button>
@@ -580,15 +591,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
         {/* ── Secret Leak Watchdog Banner ── */}
         {secretLeakWorkspaces.length > 0 && (
-          <section className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 space-y-3">
+          <section className="bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-rose-400" />
-                <h3 className="text-xs font-semibold text-rose-300">
+                <ShieldAlert className="w-4 h-4 text-[var(--color-danger)]" />
+                <h3 className="text-xs font-semibold text-[var(--color-danger)]">
                   Secret Leak Watchdog: {secretLeakWorkspaces.length} workspace{secretLeakWorkspaces.length > 1 ? 's' : ''} have unprotected .env secrets
                 </h3>
               </div>
-              <span className="text-[11px] text-rose-300/80">Never commit secrets to Git</span>
+              <span className="text-[11px] text-[var(--color-danger)]/80">Never commit secrets to Git</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {secretLeakWorkspaces.map((w) => (
@@ -598,7 +609,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 >
                   <div className="min-w-0 mr-2">
                     <span className="font-semibold text-[var(--color-text-primary)] block truncate">{w.name}</span>
-                    <span className="font-mono text-[11px] text-rose-400 truncate block">
+                    <span className="font-mono text-[11px] text-[var(--color-danger)] truncate block">
                       {w.unprotected_env_files?.join(', ')}
                     </span>
                   </div>
@@ -606,7 +617,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     type="button"
                     onClick={() => handleQuickIgnoreEnv(w.path)}
                     disabled={gitLoadingPath === w.path}
-                    className="shrink-0 px-2.5 py-1 text-xs font-medium bg-rose-500 hover:bg-rose-600 text-white rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                    className="shrink-0 px-2.5 py-1 text-xs font-medium bg-[var(--color-danger)] hover:opacity-90 text-white rounded-md transition-opacity cursor-pointer disabled:opacity-50"
                   >
                     {gitLoadingPath === w.path ? 'Adding...' : 'Add to .gitignore'}
                   </button>
@@ -618,15 +629,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
         {/* ── WIP Radar (Work In Progress Safety Net) ── */}
         {wipRadarWorkspaces.length > 0 && (
-          <section className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-4 space-y-3">
+          <section className="bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-400" />
-                <h3 className="text-xs font-semibold text-amber-300">
+                <AlertTriangle className="w-4 h-4 text-[var(--color-warning)]" />
+                <h3 className="text-xs font-semibold text-[var(--color-warning)]">
                   WIP Radar: Stale uncommitted changes in {wipRadarWorkspaces.length} workspace{wipRadarWorkspaces.length > 1 ? 's' : ''}
                 </h3>
               </div>
-              <span className="text-[11px] text-amber-300/80">Stash or commit to prevent data loss</span>
+              <span className="text-[11px] text-[var(--color-warning)]/80">Stash or commit to prevent data loss</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {wipRadarWorkspaces.map((w) => (
@@ -638,7 +649,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     <div className="flex items-center gap-1.5">
                       <span className="font-semibold text-[var(--color-text-primary)] truncate">{w.name}</span>
                       {w.oldest_dirty_timestamp && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-[var(--color-warning-bg)] text-[var(--color-warning)] font-mono border border-[var(--color-warning-border)]">
                           {formatWipAge(w.oldest_dirty_timestamp)}
                         </span>
                       )}
@@ -653,7 +664,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       onClick={() => handleQuickStash(w.path)}
                       disabled={gitLoadingPath === w.path}
                       title="Safely stash changes"
-                      className="px-2.5 py-1 text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/35 hover:bg-amber-500/30 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                      className="px-2.5 py-1 text-xs font-medium bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] hover:bg-[var(--color-warning)]/20 rounded-md transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {gitLoadingPath === w.path ? 'Stashing...' : 'Safe Stash'}
                     </button>
@@ -755,8 +766,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </section>
 
         {cleanSlateNotice && (
-          <div className="fixed bottom-6 right-6 z-50 bg-[var(--color-surface-2)] border border-emerald-500/30 text-emerald-300 px-4 py-3 rounded-lg shadow-xl text-xs flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
-            <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div className="fixed bottom-6 right-6 z-50 bg-[var(--color-surface-2)] border border-[var(--color-success-border)] text-[var(--color-success)] px-4 py-3 rounded-lg shadow-xl text-xs flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+            <Zap className="w-4 h-4 text-[var(--color-success)] shrink-0" />
             <span>{cleanSlateNotice}</span>
           </div>
         )}
@@ -772,14 +783,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
             <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl max-w-md w-full p-5 space-y-4 shadow-2xl">
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
+                <div className="p-2 rounded-lg bg-[var(--color-success-bg)] text-[var(--color-success)] shrink-0">
                   <Zap className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Clean Slate — Reclaim RAM</h3>
                   <p className="text-xs text-[var(--color-text-secondary)] mt-1">
                     Terminate <strong className="text-[var(--color-text-primary)]">{devProcesses.length}</strong> background developer processes to instantly free{' '}
-                    <strong className="text-emerald-400 font-semibold">{formatSize(totalDevRam)}</strong> of memory?
+                    <strong className="text-[var(--color-success)] font-semibold">{formatSize(totalDevRam)}</strong> of memory?
                   </p>
                 </div>
               </div>
@@ -791,7 +802,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       <span className="text-[var(--color-text-primary)] font-medium">{p.name}</span>
                       <span className="text-[var(--color-text-tertiary)] ml-2">PID {p.pid}</span>
                       {p.ports && p.ports.length > 0 && (
-                        <span className="text-emerald-400 ml-2">:{p.ports.join(', :')}</span>
+                        <span className="text-[var(--color-success)] ml-2">:{p.ports.join(', :')}</span>
                       )}
                     </div>
                     <span className="text-[var(--color-text-secondary)] shrink-0">{formatSize(p.memory_bytes || 0)}</span>
@@ -812,7 +823,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   type="button"
                   onClick={handleExecuteCleanSlate}
                   disabled={cleanSlateLoading}
-                  className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-[var(--color-success)] hover:opacity-90 text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-opacity"
                 >
                   <Zap className="w-3.5 h-3.5" />
                   {cleanSlateLoading ? 'Reclaiming...' : `Reclaim ${formatSize(totalDevRam)}`}
