@@ -274,6 +274,21 @@ class EntropyDesktopApi:
         from core.git_control import safe_stash_workspace
         return safe_stash_workspace(workspace_path, message)
 
+    def get_git_stashes(self, workspace_path: str) -> list[dict[str, Any]]:
+        """List all Git stashes for a workspace."""
+        from core.git_control import list_stashes
+        return list_stashes(workspace_path)
+
+    def pop_git_stash(self, workspace_path: str, index: int = 0) -> dict[str, Any]:
+        """Safely restore a Git stash into the working tree."""
+        from core.git_control import pop_stash
+        return pop_stash(workspace_path, index)
+
+    def drop_git_stash(self, workspace_path: str, index: int = 0) -> dict[str, Any]:
+        """Safely drop a Git stash entry."""
+        from core.git_control import drop_stash
+        return drop_stash(workspace_path, index)
+
     def add_to_gitignore(self, workspace_path: str, pattern: str = ".env*") -> dict[str, Any]:
         """Safely append a secret file or pattern to the repository's .gitignore file."""
         from core.git_control import add_to_gitignore

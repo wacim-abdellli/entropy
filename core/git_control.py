@@ -288,3 +288,171 @@ def prune_merged_branches(repo_path: str, branches: list[str] | None = None) -> 
     except Exception as e:
         logger.error("Failed to prune merged branches in %s: %s", abs_path, e)
         return {"success": False, "repo_path": abs_path, "error": str(e)}
+
+
+def list_stashes(repo_path: str) -> list[Dict[str, Any]]:
+    """
+    List all Git stashes for a repository.
+    
+    Returns a list of dicts:
+    [
+        {
+            "index": int,
+            "stash_ref": str,
+            "date": str,
+            "message": str,
+            "branch": str
+        },
+        ...
+    ]
+    """
+    if not repo_path or not os.path.exists(repo_path):
+        return []
+
+    abs_path = os.path.abspath(repo_path)
+    git_dir = os.path.join(abs_path, ".git")
+    if not os.path.exists(git_dir):
+        return []
+
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    base_cmd = ["git", "-C", abs_path, "-c", "core.autocrlf=false"]
+
+    try:
+        res = subprocess.run(
+            base_cmd + ["stash", "list", "--format=%gd|%cr|%gs"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=creationflags,
+        )
+        if res.returncode != 0 or not res.stdout.strip():
+            return []
+
+        stashes: list[Dict[str, Any]] = []
+        for line in res.stdout.splitlines():
+            line_str = line.strip()
+            if not line_str or "|" not in line_str:
+                continue
+            parts = line_str.split("|", 2)
+            if len(parts) >= 3:
+                ref, date_str, msg = parts[0].strip(), parts[1].strip(), parts[2].strip()
+                # Parse index from ref e.g. "stash@{0}"
+                idx = 0
+                if "{" in ref and "}" in ref:
+                    try:
+                        idx = int(ref.split("{")[1].split("}")[0])
+                    except (ValueError, IndexError):
+                        idx = 0
+
+                # Extract branch if message follows standard "WIP on <branch>: ..." or "On <branch>: ..."
+                branch = ""
+                if msg.startswith("WIP on ") or msg.startswith("On "):
+                    branch_part = msg.split(":")[0].replace("WIP on ", "").replace("On ", "").strip()
+                    branch = branch_part
+
+                stashes.append({
+                    "index": idx,
+                    "stash_ref": ref,
+                    "date": date_str,
+                    "message": msg,
+                    "branch": branch,
+                })
+
+        return stashes
+    except Exception as e:
+        logger.error("Failed to list stashes in %s: %s", abs_path, e)
+        return []
+
+
+def pop_stash(repo_path: str, index: int = 0) -> Dict[str, Any]:
+    """
+    Safely pop / restore a stash into the working tree.
+    Enforces that uncommitted changes are not overwritten.
+    """
+    if not repo_path or not os.path.exists(repo_path):
+        return {"success": False, "error": f"Path '{repo_path}' does not exist."}
+
+    abs_path = os.path.abspath(repo_path)
+    git_dir = os.path.join(abs_path, ".git")
+    if not os.path.exists(git_dir):
+        return {"success": False, "error": f"Path '{abs_path}' is not a Git repository."}
+
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    base_cmd = ["git", "-C", abs_path, "-c", "core.autocrlf=false"]
+    stash_ref = f"stash@{{{index}}}"
+
+    try:
+        res = subprocess.run(
+            base_cmd + ["stash", "pop", stash_ref],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            creationflags=creationflags,
+        )
+
+        clean_err = _clean_git_error(res.stderr, res.stdout)
+
+        if res.returncode == 0:
+            return {
+                "success": True,
+                "repo_path": abs_path,
+                "stash_ref": stash_ref,
+                "message": f"Successfully restored {stash_ref} into working tree.",
+            }
+
+        return {
+            "success": False,
+            "repo_path": abs_path,
+            "stash_ref": stash_ref,
+            "error": clean_err or f"Failed to restore {stash_ref}.",
+        }
+    except Exception as e:
+        logger.error("Failed to pop stash %s in %s: %s", stash_ref, abs_path, e)
+        return {"success": False, "repo_path": abs_path, "error": str(e)}
+
+
+def drop_stash(repo_path: str, index: int = 0) -> Dict[str, Any]:
+    """
+    Safely drop/delete a specific stash entry.
+    """
+    if not repo_path or not os.path.exists(repo_path):
+        return {"success": False, "error": f"Path '{repo_path}' does not exist."}
+
+    abs_path = os.path.abspath(repo_path)
+    git_dir = os.path.join(abs_path, ".git")
+    if not os.path.exists(git_dir):
+        return {"success": False, "error": f"Path '{abs_path}' is not a Git repository."}
+
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    base_cmd = ["git", "-C", abs_path, "-c", "core.autocrlf=false"]
+    stash_ref = f"stash@{{{index}}}"
+
+    try:
+        res = subprocess.run(
+            base_cmd + ["stash", "drop", stash_ref],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            creationflags=creationflags,
+        )
+
+        clean_err = _clean_git_error(res.stderr, res.stdout)
+
+        if res.returncode == 0:
+            return {
+                "success": True,
+                "repo_path": abs_path,
+                "stash_ref": stash_ref,
+                "message": f"Dropped {stash_ref}.",
+            }
+
+        return {
+            "success": False,
+            "repo_path": abs_path,
+            "stash_ref": stash_ref,
+            "error": clean_err or f"Failed to drop {stash_ref}.",
+        }
+    except Exception as e:
+        logger.error("Failed to drop stash %s in %s: %s", stash_ref, abs_path, e)
+        return {"success": False, "repo_path": abs_path, "error": str(e)}
+

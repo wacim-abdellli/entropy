@@ -377,3 +377,12 @@ export interface AiResponse {
   error?: string;
 }
 
+export interface GitStashItem {
+  index: number;
+  stash_ref: string;
+  date: string;
+  message: string;
+  branch?: string;
+}
+
+

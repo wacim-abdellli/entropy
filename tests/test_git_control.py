@@ -8,7 +8,15 @@ import subprocess
 import tempfile
 import unittest
 
-from core.git_control import add_to_gitignore, prune_merged_branches, PROTECTED_BRANCHES
+from core.git_control import (
+    add_to_gitignore,
+    prune_merged_branches,
+    safe_stash_workspace,
+    list_stashes,
+    pop_stash,
+    drop_stash,
+    PROTECTED_BRANCHES,
+)
 from collectors.git import collect_git_repository
 
 
@@ -115,6 +123,54 @@ class TestGitControl(unittest.TestCase):
         self.assertIsNotNone(repo.oldest_dirty_timestamp)
         self.assertIn(".env", repo.unprotected_env_files)
 
+    def test_stash_lifecycle(self):
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        subprocess.run(["git", "config", "user.email", "test@entropy.local"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        subprocess.run(["git", "config", "user.name", "Entropy Test"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+
+        # Initial commit
+        with open(os.path.join(self.test_dir, "initial.txt"), "w") as f:
+            f.write("base")
+        subprocess.run(["git", "add", "initial.txt"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        subprocess.run(["git", "commit", "-m", "base commit"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+
+        # Create modified and untracked file
+        with open(os.path.join(self.test_dir, "initial.txt"), "w") as f:
+            f.write("modified")
+        with open(os.path.join(self.test_dir, "untracked.txt"), "w") as f:
+            f.write("new")
+
+        # 1. Stash changes
+        stash_res = safe_stash_workspace(self.test_dir, "Test Stash 1")
+        self.assertTrue(stash_res["success"])
+
+        # Verify directory is clean
+        stashes = list_stashes(self.test_dir)
+        self.assertEqual(len(stashes), 1)
+        self.assertIn("Test Stash 1", stashes[0]["message"])
+
+        # 2. Pop stash
+        pop_res = pop_stash(self.test_dir, 0)
+        self.assertTrue(pop_res["success"])
+
+        # Verify files are restored
+        with open(os.path.join(self.test_dir, "initial.txt"), "r") as f:
+            self.assertEqual(f.read(), "modified")
+        self.assertTrue(os.path.exists(os.path.join(self.test_dir, "untracked.txt")))
+
+        # Stash again and test drop
+        stash_res2 = safe_stash_workspace(self.test_dir, "Test Stash To Drop")
+        self.assertTrue(stash_res2["success"])
+        stashes_before_drop = list_stashes(self.test_dir)
+        self.assertEqual(len(stashes_before_drop), 1)
+
+        drop_res = drop_stash(self.test_dir, 0)
+        self.assertTrue(drop_res["success"])
+        stashes_after_drop = list_stashes(self.test_dir)
+        self.assertEqual(len(stashes_after_drop), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
+

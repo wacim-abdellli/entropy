@@ -30,6 +30,70 @@ interface WorkspaceAdvisorCardProps {
   onNavigateToSettings?: () => void;
 }
 
+const renderInlineSpans = (text: string) => {
+  const codeParts = text.split(/(`[^`]+`)/g);
+  return codeParts.map((part, i) => {
+    if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
+      return (
+        <code
+          key={i}
+          className="px-1.5 py-0.5 mx-0.5 rounded bg-[var(--color-surface-3)] font-mono text-[11px] text-[var(--color-accent-strong)] border border-[var(--color-border-subtle)]"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
+    return boldParts.map((bPart, j) => {
+      if (bPart.startsWith('**') && bPart.endsWith('**') && bPart.length > 4) {
+        return (
+          <strong key={`${i}-${j}`} className="font-semibold text-[var(--color-text-primary)]">
+            {bPart.slice(2, -2)}
+          </strong>
+        );
+      }
+      return bPart;
+    });
+  });
+};
+
+const renderFormattedAnswer = (text: string) => {
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-1.5 text-xs text-[var(--color-text-secondary)] leading-relaxed select-text">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={idx} className="h-1" />;
+
+        if (trimmed.startsWith('### ') || trimmed.startsWith('## ')) {
+          const headerContent = trimmed.replace(/^#+\s*/, '');
+          return (
+            <div key={idx} className="text-xs font-semibold text-[var(--color-text-primary)] pt-1 pb-0.5 border-b border-[var(--color-border-subtle)]">
+              {renderInlineSpans(headerContent)}
+            </div>
+          );
+        }
+
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          const bulletContent = trimmed.replace(/^[-*]\s*/, '');
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1 py-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] mt-1.5 shrink-0" />
+              <div className="flex-1">{renderInlineSpans(bulletContent)}</div>
+            </div>
+          );
+        }
+
+        return (
+          <p key={idx} className="py-0.5">
+            {renderInlineSpans(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
 export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
   workspacePath,
   workspaceName,
@@ -423,8 +487,8 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
                   </button>
                 </div>
 
-                <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap font-sans select-text">
-                  {aiAnswer.answer}
+                <div className="pt-1">
+                  {renderFormattedAnswer(aiAnswer.answer)}
                 </div>
               </div>
             )}

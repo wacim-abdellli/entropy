@@ -8,6 +8,7 @@ import {
   DockerDiskUsage,
   DockerPruneResult,
   EnvironmentOverview,
+  GitStashItem,
   GlobalCacheItem,
   WorkspaceHealth,
   WorkspaceInspection,
@@ -53,6 +54,9 @@ interface PyWebViewApi {
   detect_launchers(): Promise<Record<string, boolean> | string>;
   launch_ide(workspacePath: string, editorId: string): Promise<ActionResult | string>;
   stash_workspace(workspacePath: string, message?: string): Promise<ActionResult | string>;
+  get_git_stashes?(workspace_path: string): Promise<GitStashItem[] | string>;
+  pop_git_stash?(workspace_path: string, index?: number): Promise<ActionResult | string>;
+  drop_git_stash?(workspace_path: string, index?: number): Promise<ActionResult | string>;
   add_to_gitignore?(workspace_path: string, pattern?: string): Promise<ActionResult | string>;
   prune_merged_branches?(workspace_path: string, branches?: string[]): Promise<ActionResult & { pruned?: string[]; failed?: { branch: string; error: string }[] } | string>;
   get_docker_system_df?(): Promise<DockerDiskUsage | string>;
@@ -433,6 +437,59 @@ export class EntropyApiClient {
     }
     console.log('[Dev Bridge] Stashing workspace:', workspacePath);
     return { success: true, message: 'Safely stashed working tree.' };
+  }
+
+  /**
+   * List all saved Git stashes for a workspace.
+   */
+  static async getGitStashes(workspacePath: string): Promise<GitStashItem[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_git_stashes) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_git_stashes!(workspacePath);
+          return parseBridgeResponse<GitStashItem[]>(res) || [];
+        }
+      } catch (err) {
+        console.warn('Failed to get git stashes:', err);
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Safely restore a Git stash into the working tree.
+   */
+  static async popGitStash(workspacePath: string, index: number = 0): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.pop_git_stash) {
+          const res = await bridgeWindow()!.pywebview!.api!.pop_git_stash!(workspacePath, index);
+          return parseBridgeResponse<ActionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    console.log('[Dev Bridge] Popping git stash:', index, 'for', workspacePath);
+    return { success: true, message: `Restored stash @{${index}} into working tree.` };
+  }
+
+  /**
+   * Safely drop a Git stash entry.
+   */
+  static async dropGitStash(workspacePath: string, index: number = 0): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.drop_git_stash) {
+          const res = await bridgeWindow()!.pywebview!.api!.drop_git_stash!(workspacePath, index);
+          return parseBridgeResponse<ActionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    console.log('[Dev Bridge] Dropping git stash:', index, 'for', workspacePath);
+    return { success: true, message: `Dropped stash @{${index}}.` };
   }
 
   /**
