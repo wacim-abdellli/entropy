@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +120,7 @@ class GitRepository(Entity):
     dirty_count: int = 0                         # Total uncommitted files count
     oldest_dirty_timestamp: Optional[float] = None  # Oldest mtime among uncommitted files
     unprotected_env_files: list[str] = field(default_factory=list)  # .env files not ignored by git
+    secret_issues: list[dict[str, Any]] = field(default_factory=list)  # Detected secret/credential issues and protection status
     merged_branches: list[str] = field(default_factory=list)  # Local branches already merged into HEAD
 
 

@@ -293,6 +293,16 @@ class EntropyDesktopApi:
         from core.git_control import add_to_gitignore
         return add_to_gitignore(workspace_path, pattern)
 
+    def untrack_git_secret(self, workspace_path: str, relative_path: str) -> dict[str, Any]:
+        """Safely untrack a secret file from Git index and add to .gitignore."""
+        from core.git_control import untrack_git_secret
+        return untrack_git_secret(workspace_path, relative_path)
+
+    def shield_all_secrets(self, workspace_path: str) -> dict[str, Any]:
+        """Safely shield all tracked and unignored secrets in a workspace."""
+        from core.git_control import shield_all_secrets
+        return shield_all_secrets(workspace_path)
+
     def prune_merged_branches(self, workspace_path: str, branches: Optional[list[str]] = None) -> dict[str, Any]:
         """Safely prune local branches already merged into HEAD."""
         from core.git_control import prune_merged_branches

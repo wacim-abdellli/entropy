@@ -46,6 +46,9 @@ export const MOCK_ENTROPY_INSPECTION: WorkspaceInspection = {
         { status: "modified", path: "report/inspect.py" },
         { status: "untracked", path: "desktop/src/components/EvidencePanel.tsx" },
       ],
+      secret_issues: [
+        { path: ".env", name: ".env", category: "env", status: "protected", risk: "safe", action: null },
+      ],
     },
     processes: [
       {
@@ -436,6 +439,12 @@ export const MOCK_AFTERSALES_INSPECTION: WorkspaceInspection = {
       repo_size_bytes: 12400000,
       is_worktree: false,
       worktree_parent_repo: null,
+      unprotected_env_files: [".env.local"],
+      secret_issues: [
+        { path: "credentials.json", name: "credentials.json", category: "credential", status: "tracked", risk: "high", action: "untrack" },
+        { path: ".env.local", name: ".env.local", category: "env", status: "unignored", risk: "medium", action: "ignore" },
+        { path: ".env", name: ".env", category: "env", status: "protected", risk: "safe", action: null },
+      ],
     },
     processes: [],
     runtimes: [
@@ -575,6 +584,12 @@ export const MOCK_ENVIRONMENT_OVERVIEW: EnvironmentOverview = {
       git_remote: "github.com/company/AfterSalesManagement",
       last_commit_timestamp: 1787000000,
       has_uncommitted_changes: false,
+      unprotected_env_files: [".env.local"],
+      secret_issues: [
+        { path: "credentials.json", name: "credentials.json", category: "credential", status: "tracked", risk: "high", action: "untrack" },
+        { path: ".env.local", name: ".env.local", category: "env", status: "unignored", risk: "medium", action: "ignore" },
+        { path: ".env", name: ".env", category: "env", status: "protected", risk: "safe", action: null },
+      ],
       process_count: 0,
     },
     {
@@ -590,6 +605,9 @@ export const MOCK_ENVIRONMENT_OVERVIEW: EnvironmentOverview = {
       git_remote: "github.com/wacim-abdellli/entropy",
       last_commit_timestamp: Date.now() / 1000 - 840,
       has_uncommitted_changes: true,
+      secret_issues: [
+        { path: ".env", name: ".env", category: "env", status: "protected", risk: "safe", action: null },
+      ],
       process_count: 4,
     },
     {

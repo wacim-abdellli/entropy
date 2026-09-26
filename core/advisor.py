@@ -188,9 +188,39 @@ def evaluate_workspace_health(
     processes = processes or []
     artifacts = artifacts or []
 
-    # 1. Unprotected Secret Files
+    # 1. Unprotected & Tracked Secret Files
+    secret_issues = git_info.get("secret_issues", [])
+    tracked_secrets = [s["path"] for s in secret_issues if s.get("status") == "tracked"]
+    unignored_secrets = [s["path"] for s in secret_issues if s.get("status") == "unignored"]
     unprotected_envs = git_info.get("unprotected_env_files", [])
-    if unprotected_envs:
+
+    if tracked_secrets:
+        score -= 35
+        tips.append(
+            HealthTip(
+                id="tracked_secret",
+                title=f"Critical: {len(tracked_secrets)} Secret(s) Tracked in Git",
+                description=f"Secret files ({', '.join(tracked_secrets[:3])}) are committed or staged in Git. Untrack immediately to prevent leaking credentials.",
+                severity="urgent",
+                action_label="Untrack Secrets",
+                action_type="untrack_secret",
+                action_payload={"workspace_path": workspace_path, "path": tracked_secrets[0]},
+            )
+        )
+    elif unignored_secrets:
+        score -= 25
+        tips.append(
+            HealthTip(
+                id="unprotected_env",
+                title="Protect Secrets in .gitignore",
+                description=f"Secret files ({', '.join(unignored_secrets[:3])}) are not ignored by Git and could accidentally leak into repository history.",
+                severity="urgent",
+                action_label="Add to .gitignore",
+                action_type="add_gitignore",
+                action_payload={"workspace_path": workspace_path, "pattern": ".env*"},
+            )
+        )
+    elif unprotected_envs:
         score -= 25
         tips.append(
             HealthTip(

@@ -61,6 +61,8 @@ interface PyWebViewApi {
   pop_git_stash?(workspace_path: string, index?: number): Promise<ActionResult | string>;
   drop_git_stash?(workspace_path: string, index?: number): Promise<ActionResult | string>;
   add_to_gitignore?(workspace_path: string, pattern?: string): Promise<ActionResult | string>;
+  untrack_git_secret?(workspace_path: string, relative_path: string): Promise<ActionResult | string>;
+  shield_all_secrets?(workspace_path: string): Promise<ActionResult & { untracked_count?: number; ignored_count?: number; total_shielded?: number } | string>;
   prune_merged_branches?(workspace_path: string, branches?: string[]): Promise<ActionResult & { pruned?: string[]; failed?: { branch: string; error: string }[] } | string>;
   get_docker_system_df?(): Promise<DockerDiskUsage | string>;
   prune_docker_resources?(target: string): Promise<DockerPruneResult | string>;
@@ -566,6 +568,44 @@ export class EntropyApiClient {
     }
     console.log('[Dev Bridge] Adding to .gitignore:', pattern, 'for', workspacePath);
     return { success: true, message: `Added '${pattern}' to .gitignore.` };
+  }
+
+  /**
+   * Safely untrack a secret file from Git index and add to .gitignore (keeps local file intact).
+   */
+  static async untrackGitSecret(workspacePath: string, relativePath: string): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.untrack_git_secret) {
+          const res = await bridgeWindow()!.pywebview!.api!.untrack_git_secret!(workspacePath, relativePath);
+          return parseBridgeResponse<ActionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    console.log('[Dev Bridge] Untracking git secret:', relativePath, 'for', workspacePath);
+    return { success: true, message: `Untracked '${relativePath}' from Git.` };
+  }
+
+  /**
+   * Safely shield all tracked and unignored secrets in a workspace.
+   */
+  static async shieldAllSecrets(
+    workspacePath: string
+  ): Promise<ActionResult & { untracked_count?: number; ignored_count?: number; total_shielded?: number }> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.shield_all_secrets) {
+          const res = await bridgeWindow()!.pywebview!.api!.shield_all_secrets!(workspacePath);
+          return parseBridgeResponse<ActionResult & { untracked_count?: number; ignored_count?: number; total_shielded?: number }>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err), untracked_count: 0, ignored_count: 0, total_shielded: 0 };
+      }
+    }
+    console.log('[Dev Bridge] Shielding all secrets for:', workspacePath);
+    return { success: true, message: 'All secrets shielded.', untracked_count: 0, ignored_count: 1, total_shielded: 1 };
   }
 
   /**

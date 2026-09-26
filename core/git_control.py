@@ -192,6 +192,178 @@ def add_to_gitignore(repo_path: str, pattern: str = ".env*") -> Dict[str, Any]:
         return {"success": False, "repo_path": abs_path, "error": str(e)}
 
 
+def untrack_git_secret(repo_path: str, relative_path: str) -> Dict[str, Any]:
+    """
+    Safely untracks a secret or credential file from the Git index while keeping
+    the physical file on disk intact. Also ensures the path is added to .gitignore
+    so it will not reappear as an untracked change.
+
+    Command executed: `git rm --cached <relative_path>`
+    Followed by: `add_to_gitignore(repo_path, pattern)`
+
+    Guarantees zero data loss:
+    - Never deletes the working tree file from disk.
+    - Preserves local developer configuration and credentials.
+    """
+    if not repo_path or not os.path.exists(repo_path):
+        return {"success": False, "error": f"Path '{repo_path}' does not exist."}
+
+    abs_path = os.path.abspath(repo_path)
+    git_dir = os.path.join(abs_path, ".git")
+    if not os.path.exists(git_dir):
+        return {"success": False, "error": f"Path '{abs_path}' is not a Git repository."}
+
+    clean_rel = relative_path.strip().replace("\\", "/").lstrip("/")
+    if not clean_rel:
+        return {"success": False, "error": "Relative path cannot be empty."}
+
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    base_cmd = ["git", "-C", abs_path, "-c", "core.autocrlf=false"]
+
+    try:
+        # Check if file is actually tracked in Git index
+        chk_res = subprocess.run(
+            base_cmd + ["ls-files", "--error-unmatch", clean_rel],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=creationflags,
+        )
+
+        untracked_from_index = False
+        if chk_res.returncode == 0:
+            rm_res = subprocess.run(
+                base_cmd + ["rm", "--cached", clean_rel],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                creationflags=creationflags,
+            )
+            if rm_res.returncode != 0:
+                clean_err = _clean_git_error(rm_res.stderr, rm_res.stdout)
+                return {
+                    "success": False,
+                    "repo_path": abs_path,
+                    "relative_path": clean_rel,
+                    "error": clean_err or f"Failed to untrack '{clean_rel}' from Git index.",
+                }
+            untracked_from_index = True
+
+        # Now ensure it is added to .gitignore so it remains ignored
+        ignore_pattern = clean_rel
+        if clean_rel == ".env" or clean_rel.startswith(".env."):
+            ignore_pattern = ".env*"
+        elif clean_rel.endswith((".pem", ".key")):
+            ignore_pattern = f"*{os.path.splitext(clean_rel)[1]}"
+
+        ign_res = add_to_gitignore(abs_path, ignore_pattern)
+        if ignore_pattern != clean_rel and not ign_res.get("success"):
+            add_to_gitignore(abs_path, clean_rel)
+
+        msg = (
+            f"Successfully untracked '{clean_rel}' from Git index and added to .gitignore. Local file is preserved on disk."
+            if untracked_from_index
+            else f"'{clean_rel}' was not tracked in Git index; added to .gitignore."
+        )
+
+        return {
+            "success": True,
+            "repo_path": abs_path,
+            "relative_path": clean_rel,
+            "untracked_from_index": untracked_from_index,
+            "message": msg,
+        }
+    except Exception as e:
+        logger.error("Failed to untrack git secret '%s' in %s: %s", clean_rel, abs_path, e)
+        return {"success": False, "repo_path": abs_path, "relative_path": clean_rel, "error": str(e)}
+
+
+def shield_all_secrets(repo_path: str) -> Dict[str, Any]:
+    """
+    Safely shields all exposed and tracked secrets in a Git workspace:
+    1. Detects all tracked and unignored secrets via collectors.git.
+    2. Untracks any tracked secrets via 'git rm --cached' (keeping local files on disk).
+    3. Adds standard protection patterns (.env*, *.key, *.pem, etc.) and specific paths to .gitignore.
+    4. Returns summary of protected and untracked items.
+    """
+    if not repo_path or not os.path.exists(repo_path):
+        return {"success": False, "error": f"Path '{repo_path}' does not exist."}
+
+    abs_path = os.path.abspath(repo_path)
+    git_dir = os.path.join(abs_path, ".git")
+    if not os.path.exists(git_dir):
+        return {"success": False, "error": f"Path '{abs_path}' is not a Git repository."}
+
+    from collectors.git import collect_git_repository
+
+    repo = collect_git_repository(abs_path)
+    if not repo:
+        return {"success": False, "error": "Failed to collect repository metadata."}
+
+    issues = getattr(repo, "secret_issues", [])
+    tracked_issues = [i for i in issues if i.get("status") == "tracked"]
+    unignored_issues = [i for i in issues if i.get("status") == "unignored"]
+
+    untracked_count = 0
+    errors: list[str] = []
+
+    # 1. Untrack all tracked secrets
+    for issue in tracked_issues:
+        rel_path = issue["path"]
+        res = untrack_git_secret(abs_path, rel_path)
+        if res.get("success"):
+            untracked_count += 1
+        else:
+            errors.append(res.get("error") or f"Failed to untrack {rel_path}")
+
+    # 2. Add standard protection patterns to .gitignore
+    patterns_to_add = set()
+    for issue in tracked_issues + unignored_issues:
+        p = issue["path"]
+        cat = issue.get("category", "")
+        if cat == "env" or p == ".env" or p.startswith(".env."):
+            patterns_to_add.add(".env*")
+        elif cat == "private_key":
+            patterns_to_add.add("*.pem")
+            patterns_to_add.add("*.key")
+            patterns_to_add.add("id_rsa*")
+            patterns_to_add.add("id_ed25519*")
+        elif cat == "credential":
+            patterns_to_add.add("*credential*.json")
+            patterns_to_add.add("*service-account*.json")
+            patterns_to_add.add("*firebase-adminsdk*.json")
+        else:
+            patterns_to_add.add(p)
+
+    if not patterns_to_add and (tracked_issues or unignored_issues):
+        patterns_to_add.add(".env*")
+
+    ignored_count = 0
+    for pat in sorted(patterns_to_add):
+        ign_res = add_to_gitignore(abs_path, pat)
+        if ign_res.get("success"):
+            ignored_count += 1
+
+    total_shielded = untracked_count + len(unignored_issues)
+    if errors:
+        msg = f"Shielded {total_shielded} secret(s) with {len(errors)} warning(s)."
+    elif total_shielded == 0:
+        add_to_gitignore(abs_path, ".env*")
+        msg = "Repository secrets are safe. Protected .env* in .gitignore."
+    else:
+        msg = f"Successfully shielded {total_shielded} secret file(s) ({untracked_count} untracked from Git, updated .gitignore)."
+
+    return {
+        "success": len(errors) == 0,
+        "repo_path": abs_path,
+        "untracked_count": untracked_count,
+        "ignored_count": ignored_count,
+        "total_shielded": total_shielded,
+        "errors": errors,
+        "message": msg,
+    }
+
+
 def prune_merged_branches(repo_path: str, branches: list[str] | None = None) -> Dict[str, Any]:
     """
     Safely prune local branches that have already been merged into HEAD.

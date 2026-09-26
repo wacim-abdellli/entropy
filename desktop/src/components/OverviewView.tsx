@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  Check,
   CheckCircle2,
   Code2,
   Copy,
@@ -33,7 +34,7 @@ interface OverviewViewProps {
   onNavigateToSettings?: () => void;
 }
 
-type WorkspaceFilter = 'all' | 'running' | 'dirty' | 'cleanup';
+type WorkspaceFilter = 'all' | 'running' | 'dirty' | 'cleanup' | 'secrets';
 
 function formatSize(bytes: number | null | undefined): string {
   if (!bytes || bytes <= 0) return '—';
@@ -110,6 +111,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     });
   }, [workspaces, workspaceArtifactSizeMap]);
 
+  const secretsList = useMemo(() => {
+    return workspaces.filter((w) => {
+      const hasTracked = w.secret_issues?.some((s) => s.status === 'tracked');
+      const hasUnignored =
+        w.secret_issues?.some((s) => s.status === 'unignored') ||
+        (w.unprotected_env_files && w.unprotected_env_files.length > 0);
+      return hasTracked || hasUnignored;
+    });
+  }, [workspaces]);
+
   const devProcesses = useMemo(() => {
     const procs = overview?.system?.processes || [];
     return procs.filter((p) => {
@@ -137,6 +148,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       list = dirtyList;
     } else if (filter === 'cleanup') {
       list = cleanupList;
+    } else if (filter === 'secrets') {
+      list = secretsList;
     }
 
     if (searchQuery.trim()) {
@@ -296,6 +309,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <HardDrive className="w-3 h-3 text-[var(--color-accent)]" />
                 <span>Cleanable ({cleanupList.length})</span>
               </button>
+              {secretsList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFilter('secrets')}
+                  className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    filter === 'secrets'
+                      ? 'bg-[var(--color-surface-3)] text-[var(--color-danger)] font-medium shadow-xs'
+                      : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                  }`}
+                >
+                  <ShieldAlert className="w-3 h-3 text-[var(--color-danger)]" />
+                  <span>Secrets ({secretsList.length})</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -540,17 +567,50 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   )}
 
                   {/* Secret Leak Tag */}
-                  {workspace.unprotected_env_files && workspace.unprotected_env_files.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => handleQuickIgnoreEnv(e, workspace.path)}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)] rounded hover:bg-[var(--color-danger)]/20 transition-colors"
-                      title="Click to add .env* to .gitignore"
-                    >
-                      <ShieldAlert className="w-2.5 h-2.5" />
-                      <span>.env</span>
-                    </button>
-                  )}
+                  {(() => {
+                    const tracked = workspace.secret_issues?.filter((s) => s.status === 'tracked') || [];
+                    const unignored =
+                      workspace.secret_issues?.filter((s) => s.status === 'unignored') ||
+                      (workspace.unprotected_env_files?.map((p) => ({ path: p })) || []);
+                    const protectedSec = workspace.secret_issues?.filter((s) => s.status === 'protected') || [];
+
+                    if (tracked.length > 0) {
+                      return (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)] rounded shadow-xs"
+                          title={`${tracked.length} secret file(s) tracked in Git history! Click workspace to untrack safely.`}
+                        >
+                          <ShieldAlert className="w-2.5 h-2.5" />
+                          <span>{tracked.length} in Git</span>
+                        </span>
+                      );
+                    }
+                    if (unignored.length > 0) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => handleQuickIgnoreEnv(e, workspace.path)}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] rounded hover:bg-[var(--color-warning)]/20 transition-colors cursor-pointer"
+                          title="Click to protect with .gitignore"
+                        >
+                          <ShieldAlert className="w-2.5 h-2.5" />
+                          <span>{unignored.length} exposed</span>
+                        </button>
+                      );
+                    }
+                    if (protectedSec.length > 0) {
+                      return (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-[var(--color-success)] bg-[var(--color-success-bg)]/50 border border-[var(--color-success-border)]/50 rounded"
+                          title={`${protectedSec.length} secret(s) protected by .gitignore`}
+                        >
+                          <Check className="w-2.5 h-2.5" />
+                          <span>shielded</span>
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
 
                   {/* Merged Branch Tag */}
                   {workspace.merged_branches && workspace.merged_branches.length > 0 && (

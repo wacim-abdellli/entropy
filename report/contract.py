@@ -275,6 +275,34 @@ def serialize_workspace_inspection(
             "detail": "status --porcelain checked",
             "verified": True,
         })
+        if getattr(git_repo, "secret_issues", None):
+            tracked_cnt = len([s for s in git_repo.secret_issues if s.get("status") == "tracked"])
+            unignored_cnt = len([s for s in git_repo.secret_issues if s.get("status") == "unignored"])
+            protected_cnt = len([s for s in git_repo.secret_issues if s.get("status") == "protected"])
+            if tracked_cnt > 0:
+                evidence_items.append({
+                    "category": "security",
+                    "label": "Secret Leak Shield",
+                    "value": f"{tracked_cnt} secret(s) tracked in Git",
+                    "detail": "Sensitive credentials tracked in repository history",
+                    "verified": True,
+                })
+            elif unignored_cnt > 0:
+                evidence_items.append({
+                    "category": "security",
+                    "label": "Secret Leak Shield",
+                    "value": f"{unignored_cnt} unignored secret file(s)",
+                    "detail": "Secret files present locally but not protected by .gitignore",
+                    "verified": True,
+                })
+            elif protected_cnt > 0:
+                evidence_items.append({
+                    "category": "security",
+                    "label": "Secret Leak Shield",
+                    "value": f"{protected_cnt} secret file(s) protected",
+                    "detail": "All detected credential files safely ignored in .gitignore",
+                    "verified": True,
+                })
         if git_repo.is_worktree:
             evidence_items.append({
                 "category": "git_worktree",
@@ -557,6 +585,7 @@ def serialize_environment_overview(
             "dirty_count": getattr(git_repo, "dirty_count", 0) if git_repo else 0,
             "oldest_dirty_timestamp": getattr(git_repo, "oldest_dirty_timestamp", None) if git_repo else None,
             "unprotected_env_files": getattr(git_repo, "unprotected_env_files", []) if git_repo else [],
+            "secret_issues": getattr(git_repo, "secret_issues", []) if git_repo else [],
             "merged_branches": getattr(git_repo, "merged_branches", []) if git_repo else [],
             "process_count": len(proc_rels),
             "ports": ws_ports,

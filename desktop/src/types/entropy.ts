@@ -7,6 +7,15 @@ export interface GitDirtyFile {
   path: string;
 }
 
+export interface SecretIssue {
+  path: string;
+  name: string;
+  category: 'env' | 'private_key' | 'credential';
+  status: 'tracked' | 'unignored' | 'protected';
+  risk: 'high' | 'medium' | 'safe';
+  action?: 'untrack' | 'ignore' | null;
+}
+
 export interface WorkspaceSummary {
   id: string;
   name: string;
@@ -23,6 +32,7 @@ export interface WorkspaceSummary {
   dirty_count?: number;
   oldest_dirty_timestamp?: number | null;
   unprotected_env_files?: string[];
+  secret_issues?: SecretIssue[];
   merged_branches?: string[];
   process_count: number;
   ports?: number[];
@@ -68,6 +78,7 @@ export interface GitConnection {
   dirty_count?: number;
   oldest_dirty_timestamp?: number | null;
   unprotected_env_files?: string[];
+  secret_issues?: SecretIssue[];
   merged_branches?: string[];
 }
 

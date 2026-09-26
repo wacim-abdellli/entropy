@@ -18,6 +18,10 @@ import {
   Zap,
   Shield,
   ShieldAlert,
+  ShieldCheck,
+  KeyRound,
+  FileKey,
+  Lock,
   GitMerge,
   Copy,
   Check,
@@ -31,6 +35,7 @@ import {
   GitDirtyFile,
   ProcessConnection,
   GitStashItem,
+  SecretIssue,
 } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 import { WorkspaceAdvisorCard } from './WorkspaceAdvisorCard';
@@ -172,6 +177,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const [pruneModalOpen, setPruneModalOpen] = useState(false);
   const [stopProcModal, setStopProcModal] = useState<ProcessConnection | null>(null);
   const [freePortModal, setFreePortModal] = useState<{ port: number; proc: ProcessConnection } | null>(null);
+  const [untrackModal, setUntrackModal] = useState<SecretIssue | null>(null);
+  const [shieldAllModalOpen, setShieldAllModalOpen] = useState(false);
 
   const { workspace, connections } = inspection;
   const git = connections.git;
@@ -196,6 +203,28 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
   const dependencies = connections.dependencies || [];
   const dirtyFiles = git?.dirty_files || [];
+
+  const secretIssues: SecretIssue[] = useMemo(() => {
+    if (git?.secret_issues && git.secret_issues.length > 0) {
+      return git.secret_issues;
+    }
+    if (git?.unprotected_env_files && git.unprotected_env_files.length > 0) {
+      return git.unprotected_env_files.map((p) => ({
+        path: p,
+        name: p.split(/[\\/]/).pop() || p,
+        category: 'env' as const,
+        status: 'unignored' as const,
+        risk: 'medium' as const,
+        action: 'ignore' as const,
+      }));
+    }
+    return [];
+  }, [git?.secret_issues, git?.unprotected_env_files]);
+
+  const trackedSecrets = useMemo(() => secretIssues.filter((s) => s.status === 'tracked'), [secretIssues]);
+  const unignoredSecrets = useMemo(() => secretIssues.filter((s) => s.status === 'unignored'), [secretIssues]);
+  const protectedSecrets = useMemo(() => secretIssues.filter((s) => s.status === 'protected'), [secretIssues]);
+  const needsShieldingCount = trackedSecrets.length + unignoredSecrets.length;
 
   useEffect(() => {
     if (workspace?.name) {
@@ -455,6 +484,53 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       setActionResult({ type: 'error', text: errorMessage(err) });
     } finally {
       setBusyAction(null);
+      setTimeout(() => setActionResult(null), 4500);
+    }
+  };
+
+  const handleConfirmUntrackSecret = async () => {
+    if (!untrackModal) return;
+    setBusyAction(`untrack-${untrackModal.path}`);
+    setActionResult(null);
+    try {
+      const res = await EntropyApiClient.untrackGitSecret(workspace.path, untrackModal.path);
+      setActionResult({
+        type: res.success ? 'success' : 'error',
+        text: res.success
+          ? (res.message || `Untracked '${untrackModal.path}' from Git index. Local file preserved.`)
+          : (res.error || 'Failed to untrack file.'),
+      });
+      if (res.success) {
+        await onActionComplete?.();
+      }
+    } catch (err: unknown) {
+      setActionResult({ type: 'error', text: errorMessage(err) });
+    } finally {
+      setBusyAction(null);
+      setUntrackModal(null);
+      setTimeout(() => setActionResult(null), 4500);
+    }
+  };
+
+  const handleConfirmShieldAll = async () => {
+    setBusyAction('shield-all');
+    setActionResult(null);
+    try {
+      const res = await EntropyApiClient.shieldAllSecrets(workspace.path);
+      setActionResult({
+        type: res.success ? 'success' : 'error',
+        text: res.success
+          ? (res.message || 'All secrets shielded. Local files preserved.')
+          : (res.error || 'Failed to shield secrets.'),
+      });
+      if (res.success) {
+        await onActionComplete?.();
+      }
+    } catch (err: unknown) {
+      setActionResult({ type: 'error', text: errorMessage(err) });
+    } finally {
+      setBusyAction(null);
+      setShieldAllModalOpen(false);
       setTimeout(() => setActionResult(null), 4500);
     }
   };
@@ -725,30 +801,167 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 )}
               </div>
 
-              {/* Secret Leak Warning */}
-              {git.unprotected_env_files && git.unprotected_env_files.length > 0 && (
-                <div className="bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <ShieldAlert className="w-4 h-4 text-[var(--color-danger)] mt-0.5 shrink-0" />
+              {/* Secret & Credentials Leak Shield */}
+              <div className="bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] rounded-xl p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-[var(--color-surface-3)] border border-[var(--color-border-subtle)] flex items-center justify-center">
+                      <Shield className={`w-4 h-4 ${trackedSecrets.length > 0 ? 'text-[var(--color-danger)]' : unignoredSecrets.length > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]'}`} />
+                    </div>
                     <div>
-                      <div className="text-xs font-semibold text-[var(--color-danger)]">
-                        Secret Leak Warning: Unprotected {git.unprotected_env_files.join(', ')}
+                      <h4 className="text-xs font-semibold text-[var(--color-text-primary)]">
+                        Secret & Credentials Leak Shield
+                      </h4>
+                      <p className="text-[11px] text-[var(--color-text-tertiary)]">
+                        Protects .env files, private keys, and API credentials from accidental Git exposure
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {trackedSecrets.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)]">
+                        {trackedSecrets.length} Tracked in Git
+                      </span>
+                    )}
+                    {unignoredSecrets.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]">
+                        {unignoredSecrets.length} Exposed
+                      </span>
+                    )}
+                    {protectedSecrets.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
+                        {protectedSecrets.length} Protected
+                      </span>
+                    )}
+                    {needsShieldingCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShieldAllModalOpen(true)}
+                        disabled={busyAction === 'shield-all'}
+                        className="px-3 py-1.5 text-xs font-semibold bg-[var(--color-danger)] text-white hover:opacity-90 rounded-lg transition-opacity flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                      >
+                        <Shield className="w-3.5 h-3.5" />
+                        <span>Shield All Secrets</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Banner if there are high/medium risk items */}
+                {trackedSecrets.length > 0 ? (
+                  <div className="bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] rounded-lg p-3 flex items-start gap-2.5 text-xs text-[var(--color-danger)]">
+                    <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold">
+                        Critical: {trackedSecrets.length} secret file(s) tracked in Git history
                       </div>
-                      <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">
-                        This file is not in .gitignore and could accidentally be committed to version control.
+                      <div className="text-[11px] opacity-90 mt-0.5">
+                        These credential files are committed or staged in Git. Use <strong>Untrack (Keep Local)</strong> to remove them from Git tracking with <code className="font-mono text-[10px]">git rm --cached</code> without deleting your files on disk.
                       </div>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleAddToGitignore('.env*')}
-                    disabled={busyAction === 'gitignore'}
-                    className="shrink-0 px-3 py-1.5 text-xs font-medium bg-[var(--color-danger)] hover:opacity-90 text-white rounded-lg transition-opacity cursor-pointer disabled:opacity-50"
-                  >
-                    {busyAction === 'gitignore' ? 'Adding…' : 'Add to .gitignore'}
-                  </button>
-                </div>
-              )}
+                ) : unignoredSecrets.length > 0 ? (
+                  <div className="bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] rounded-lg p-3 flex items-start gap-2.5 text-xs text-[var(--color-warning)]">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold">
+                        {unignoredSecrets.length} secret file(s) exposed on disk (unignored)
+                      </div>
+                      <div className="text-[11px] opacity-90 mt-0.5">
+                        These credential files exist in your workspace and could accidentally be committed during a future commit. Add them to <code className="font-mono text-[10px]">.gitignore</code> to protect them.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-[var(--color-surface-3)]/60 border border-[var(--color-border-subtle)] rounded-lg p-2.5 flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+                    <ShieldCheck className="w-4 h-4 text-[var(--color-success)] shrink-0" />
+                    <span>Secret shield active: all detected credentials and .env files are safely ignored in .gitignore.</span>
+                  </div>
+                )}
+
+                {/* Secret Files List */}
+                {secretIssues.length > 0 ? (
+                  <div className="divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] rounded-lg overflow-hidden bg-[var(--color-surface-1)]">
+                    {secretIssues.map((issue) => {
+                      const isTracked = issue.status === 'tracked';
+                      const isUnignored = issue.status === 'unignored';
+                      const isProtected = issue.status === 'protected';
+
+                      return (
+                        <div
+                          key={issue.path}
+                          className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5 text-xs hover:bg-[var(--color-surface-2)]/60 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="shrink-0 text-[var(--color-text-tertiary)]">
+                              {issue.category === 'env' ? (
+                                <FileKey className="w-4 h-4 text-[var(--color-accent-strong)]" />
+                              ) : issue.category === 'private_key' ? (
+                                <KeyRound className="w-4 h-4 text-[var(--color-warning)]" />
+                              ) : (
+                                <Lock className="w-4 h-4 text-purple-400" />
+                              )}
+                            </span>
+                            <span className="font-mono font-medium text-[var(--color-text-primary)] truncate">
+                              {issue.path}
+                            </span>
+                            <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-[var(--color-surface-3)] text-[var(--color-text-tertiary)] border border-[var(--color-border-subtle)]">
+                              {issue.category === 'env' ? '.env' : issue.category === 'private_key' ? 'key' : 'credential'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            {isTracked ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)]">
+                                <ShieldAlert className="w-3 h-3" />
+                                <span>Tracked in Git</span>
+                              </span>
+                            ) : isUnignored ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]">
+                                <AlertTriangle className="w-3 h-3" />
+                                <span>Exposed locally</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
+                                <Check className="w-3 h-3" />
+                                <span>Protected</span>
+                              </span>
+                            )}
+
+                            {/* Actions per item */}
+                            {isTracked ? (
+                              <button
+                                type="button"
+                                onClick={() => setUntrackModal(issue)}
+                                disabled={busyAction === `untrack-${issue.path}`}
+                                className="px-2.5 py-1 text-xs font-medium bg-[var(--color-danger)] text-white hover:opacity-90 rounded-md transition-opacity cursor-pointer disabled:opacity-50"
+                                title="Untrack from Git while keeping physical file on disk"
+                              >
+                                {busyAction === `untrack-${issue.path}` ? 'Untracking…' : 'Untrack (Keep Local)'}
+                              </button>
+                            ) : isUnignored ? (
+                              <button
+                                type="button"
+                                onClick={() => handleAddToGitignore(issue.path)}
+                                disabled={busyAction === 'gitignore'}
+                                className="px-2.5 py-1 text-xs font-medium bg-[var(--color-surface-3)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface-4)] border border-[var(--color-border-subtle)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                                title="Add to .gitignore"
+                              >
+                                {busyAction === 'gitignore' ? 'Adding…' : 'Add to .gitignore'}
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-[var(--color-text-tertiary)] italic px-1">
+                                in .gitignore
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
 
               {/* Merged Branches */}
               {git.merged_branches && git.merged_branches.length > 0 && (
@@ -1461,6 +1674,117 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 className="px-4 py-2 text-xs font-medium bg-[var(--color-warning)] text-black font-semibold hover:opacity-90 rounded-lg transition-opacity cursor-pointer"
               >
                 Free Port & Terminate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Untrack Secret Modal */}
+      {untrackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-5 h-5 text-[var(--color-danger)]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                  Untrack Secret from Git?
+                </h3>
+                <p className="text-xs font-mono text-[var(--color-text-tertiary)] mt-1 truncate">
+                  {untrackModal.path}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-[var(--color-surface-2)] rounded-lg border border-[var(--color-border-subtle)] space-y-2 text-xs text-[var(--color-text-secondary)]">
+              <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[var(--color-success)]" />
+                <span>Zero Data Loss Guarantee</span>
+              </div>
+              <p>
+                Runs <code className="font-mono text-[11px] text-[var(--color-accent-strong)]">git rm --cached</code> and adds this file to <code className="font-mono text-[11px]">.gitignore</code>.
+              </p>
+              <p className="text-[var(--color-success)] font-medium">
+                ✓ Your physical file, API keys, and passwords on disk remain 100% untouched.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
+              <button
+                type="button"
+                onClick={() => setUntrackModal(null)}
+                className="px-4 py-2 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-2)] rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmUntrackSecret}
+                disabled={busyAction === `untrack-${untrackModal.path}`}
+                className="px-4 py-2 text-xs font-semibold bg-[var(--color-danger)] text-white hover:opacity-90 rounded-lg transition-opacity cursor-pointer disabled:opacity-50"
+              >
+                {busyAction === `untrack-${untrackModal.path}` ? 'Untracking…' : 'Untrack Secret (Keep File)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. Shield All Secrets Modal */}
+      {shieldAllModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] flex items-center justify-center shrink-0">
+                <Shield className="w-5 h-5 text-[var(--color-danger)]" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                  Shield All Secrets in Repository?
+                </h3>
+                <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                  Batch protect all {needsShieldingCount} exposed and tracked credential file(s).
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-[var(--color-surface-2)] rounded-lg border border-[var(--color-border-subtle)] space-y-2 text-xs text-[var(--color-text-secondary)]">
+              <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[var(--color-success)]" />
+                <span>Zero Data Loss Guarantee</span>
+              </div>
+              <ul className="space-y-1 list-disc list-inside">
+                {trackedSecrets.length > 0 && (
+                  <li>
+                    Untracks {trackedSecrets.length} file(s) from Git index via <code className="font-mono text-[11px]">git rm --cached</code>
+                  </li>
+                )}
+                <li>
+                  Adds protection rules (<code className="font-mono text-[11px]">.env*</code>, <code className="font-mono text-[11px]">*.key</code>, <code className="font-mono text-[11px]">*.pem</code>, <code className="font-mono text-[11px]">*credentials*.json</code>) to <code className="font-mono text-[11px]">.gitignore</code>
+                </li>
+                <li className="text-[var(--color-success)] font-medium">
+                  All local credential files and keys on disk remain 100% untouched
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
+              <button
+                type="button"
+                onClick={() => setShieldAllModalOpen(false)}
+                className="px-4 py-2 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-2)] rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmShieldAll}
+                disabled={busyAction === 'shield-all'}
+                className="px-4 py-2 text-xs font-semibold bg-[var(--color-danger)] text-white hover:opacity-90 rounded-lg transition-opacity cursor-pointer disabled:opacity-50"
+              >
+                {busyAction === 'shield-all' ? 'Shielding…' : 'Shield All Secrets Now'}
               </button>
             </div>
           </div>

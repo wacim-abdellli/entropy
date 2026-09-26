@@ -10,6 +10,8 @@ import unittest
 
 from core.git_control import (
     add_to_gitignore,
+    untrack_git_secret,
+    shield_all_secrets,
     prune_merged_branches,
     safe_stash_workspace,
     list_stashes,
@@ -122,6 +124,101 @@ class TestGitControl(unittest.TestCase):
         self.assertGreaterEqual(repo.dirty_count, 1)
         self.assertIsNotNone(repo.oldest_dirty_timestamp)
         self.assertIn(".env", repo.unprotected_env_files)
+        # Check secret_issues
+        env_issue = next((i for i in repo.secret_issues if i["path"] == ".env"), None)
+        self.assertIsNotNone(env_issue)
+        self.assertEqual(env_issue["status"], "unignored")
+        self.assertEqual(env_issue["risk"], "medium")
+
+    def test_untrack_git_secret(self):
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        subprocess.run(["git", "config", "user.email", "test@entropy.local"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        subprocess.run(["git", "config", "user.name", "Entropy Test"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+
+        # Create and commit .env in Git
+        env_path = os.path.join(self.test_dir, ".env")
+        with open(env_path, "w") as f:
+            f.write("DB_PASSWORD=supersecret\n")
+        subprocess.run(["git", "add", ".env"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        subprocess.run(["git", "commit", "-m", "oops commit env"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+
+        # Verify .env is tracked in git index
+        ls_res = subprocess.run(["git", "ls-files", "--error-unmatch", ".env"], cwd=self.test_dir, capture_output=True)
+        self.assertEqual(ls_res.returncode, 0)
+
+        # Untrack secret
+        res = untrack_git_secret(self.test_dir, ".env")
+        self.assertTrue(res["success"])
+        self.assertTrue(res["untracked_from_index"])
+
+        # Verify NOT in git index anymore
+        ls_after = subprocess.run(["git", "ls-files", "--error-unmatch", ".env"], cwd=self.test_dir, capture_output=True)
+        self.assertNotEqual(ls_after.returncode, 0)
+
+        # Verify physical file on disk is 100% preserved
+        self.assertTrue(os.path.exists(env_path))
+        with open(env_path, "r") as f:
+            self.assertEqual(f.read().strip(), "DB_PASSWORD=supersecret")
+
+        # Verify added to .gitignore
+        gitignore_path = os.path.join(self.test_dir, ".gitignore")
+        self.assertTrue(os.path.exists(gitignore_path))
+        with open(gitignore_path, "r") as f:
+            self.assertIn(".env*", f.read())
+
+    def test_shield_all_secrets(self):
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        subprocess.run(["git", "config", "user.email", "test@entropy.local"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        subprocess.run(["git", "config", "user.name", "Entropy Test"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+
+        # Base commit
+        with open(os.path.join(self.test_dir, "app.py"), "w") as f:
+            f.write("print('hello')\n")
+        subprocess.run(["git", "add", "app.py"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+
+        # 1. Tracked secret: credentials.json
+        cred_path = os.path.join(self.test_dir, "credentials.json")
+        with open(cred_path, "w") as f:
+            f.write('{"api_key": "12345"}\n')
+        subprocess.run(["git", "add", "credentials.json"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        subprocess.run(["git", "commit", "-m", "add credentials"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+
+        # 2. Unignored subfolder secret: server/.env
+        server_dir = os.path.join(self.test_dir, "server")
+        os.makedirs(server_dir, exist_ok=True)
+        sub_env = os.path.join(server_dir, ".env")
+        with open(sub_env, "w") as f:
+            f.write("PORT=8000\n")
+
+        # 3. Unignored private key: certs/server.key
+        certs_dir = os.path.join(self.test_dir, "certs")
+        os.makedirs(certs_dir, exist_ok=True)
+        key_file = os.path.join(certs_dir, "server.key")
+        with open(key_file, "w") as f:
+            f.write("---BEGIN RSA PRIVATE KEY---\n")
+
+        # Shield all secrets
+        res = shield_all_secrets(self.test_dir)
+        self.assertTrue(res["success"])
+        self.assertGreaterEqual(res["total_shielded"], 2)
+
+        # Local files on disk must remain intact
+        self.assertTrue(os.path.exists(cred_path))
+        self.assertTrue(os.path.exists(sub_env))
+        self.assertTrue(os.path.exists(key_file))
+
+        # Git index must not have credentials.json
+        ls_cred = subprocess.run(["git", "ls-files", "--error-unmatch", "credentials.json"], cwd=self.test_dir, capture_output=True)
+        self.assertNotEqual(ls_cred.returncode, 0)
+
+        # .gitignore must contain protection patterns
+        with open(os.path.join(self.test_dir, ".gitignore"), "r") as f:
+            content = f.read()
+            self.assertIn(".env*", content)
+            self.assertIn("*.key", content)
 
     def test_stash_lifecycle(self):
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
