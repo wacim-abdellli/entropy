@@ -749,18 +749,18 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
       </div>
 
-      {/* ── Toast Notifications ── */}
+      {/* ── Floating Toasts ── */}
       {cleanSlateNotice && (
-        <div className="fixed bottom-5 right-5 z-50 bg-[var(--color-surface-2)] border border-[var(--color-success-border)] text-[var(--color-success)] px-3.5 py-2.5 rounded-lg shadow-xl text-xs flex items-center gap-2 animate-in fade-in">
-          <Zap className="w-3.5 h-3.5 text-[var(--color-success)] shrink-0" />
-          <span>{cleanSlateNotice}</span>
+        <div className="fixed top-16 right-6 z-50 flex items-center gap-2.5 pl-3 pr-2 py-2.5 rounded-lg shadow-2xl text-xs font-medium max-w-sm border backdrop-blur-sm bg-[var(--color-surface-2)] border-[var(--color-success)]/30 text-[var(--color-success)] animate-in fade-in slide-in-from-top-2">
+          <Zap className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">{cleanSlateNotice}</span>
         </div>
       )}
 
       {gitNotice && (
-        <div className="fixed bottom-5 left-5 z-50 bg-[var(--color-surface-2)] border border-[var(--color-accent)]/40 text-[var(--color-text-primary)] px-3.5 py-2.5 rounded-lg shadow-xl text-xs flex items-center gap-2 animate-in fade-in">
+        <div className={`fixed ${cleanSlateNotice ? 'top-[4.5rem]' : 'top-16'} right-6 z-50 flex items-center gap-2.5 pl-3 pr-2 py-2.5 rounded-lg shadow-2xl text-xs font-medium max-w-sm border backdrop-blur-sm bg-[var(--color-surface-2)] border-[var(--color-accent)]/30 text-[var(--color-text-primary)] animate-in fade-in slide-in-from-top-2`}>
           <Shield className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
-          <span>{gitNotice}</span>
+          <span className="truncate">{gitNotice}</span>
         </div>
       )}
 

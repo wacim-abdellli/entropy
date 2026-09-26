@@ -1333,11 +1333,11 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         </div>
       )}
 
-      {/* ── Toast Notification ── */}
+      {/* ── Floating Toast ── */}
       {toastMessage && (
-        <div className="fixed bottom-20 right-8 z-50 p-3.5 rounded-xl border border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success)] text-xs font-medium shadow-2xl flex items-center gap-2 animate-in fade-in duration-150">
-          <CheckCircle2 size={15} />
-          <span>{toastMessage}</span>
+        <div className="fixed top-16 right-6 z-50 flex items-center gap-2.5 pl-3 pr-2 py-2.5 rounded-lg shadow-2xl text-xs font-medium max-w-sm border backdrop-blur-sm bg-[var(--color-surface-2)] border-[var(--color-success)]/30 text-[var(--color-success)] animate-in fade-in slide-in-from-top-2">
+          <CheckCircle2 size={14} className="shrink-0" />
+          <span className="truncate">{toastMessage}</span>
         </div>
       )}
 
