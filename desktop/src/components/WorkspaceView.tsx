@@ -560,9 +560,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               <button
                 type="button"
                 onClick={onOpenFolder}
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg transition-colors cursor-pointer"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg transition-colors cursor-pointer shrink-0 whitespace-nowrap select-none"
               >
-                <FolderOpen className="w-3.5 h-3.5" />
+                <FolderOpen className="w-3.5 h-3.5 shrink-0" />
                 <span>Open Folder…</span>
               </button>
             )}
@@ -570,9 +570,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               type="button"
               onClick={onReinspect}
               disabled={isLoading}
-              className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg transition-colors cursor-pointer disabled:opacity-50 shrink-0 whitespace-nowrap select-none"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isLoading ? 'animate-spin' : ''}`} />
               <span>Re-scan</span>
             </button>
           </div>
@@ -707,37 +707,37 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 type="button"
                 onClick={() => handleLaunchEditor('code')}
                 disabled={busyAction === 'editor-code'}
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-accent)] text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 shadow-sm"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-accent)] text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 shadow-xs shrink-0 whitespace-nowrap select-none"
               >
-                <Code2 className="w-4 h-4" />
-                <span>{busyAction === 'editor-code' ? 'Launching…' : 'Open in VS Code'}</span>
+                <Code2 className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">{busyAction === 'editor-code' ? 'Launching…' : 'Open in VS Code'}</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleLaunchEditor('cursor')}
                 disabled={busyAction === 'editor-cursor'}
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] rounded-lg transition-colors cursor-pointer disabled:opacity-50 shrink-0 whitespace-nowrap select-none"
               >
-                <Code2 className="w-4 h-4 text-[var(--color-accent-strong)]" />
-                <span>{busyAction === 'editor-cursor' ? 'Launching…' : 'Cursor'}</span>
+                <Code2 className="w-4 h-4 text-[var(--color-accent-strong)] shrink-0" />
+                <span className="whitespace-nowrap">{busyAction === 'editor-cursor' ? 'Launching…' : 'Cursor'}</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleLaunchEditor('cmd')}
                 disabled={busyAction === 'editor-cmd'}
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] rounded-lg transition-colors cursor-pointer disabled:opacity-50 shrink-0 whitespace-nowrap select-none"
               >
-                <SquareTerminal className="w-4 h-4 text-[var(--color-warning)]" />
-                <span>{busyAction === 'editor-cmd' ? 'Opening…' : 'CMD'}</span>
+                <SquareTerminal className="w-4 h-4 text-[var(--color-warning)] shrink-0" />
+                <span className="whitespace-nowrap">{busyAction === 'editor-cmd' ? 'Opening…' : 'CMD'}</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleLaunchEditor('explorer')}
                 disabled={busyAction === 'editor-explorer'}
-                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                className="h-8 flex items-center gap-1.5 px-3 text-xs font-medium bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] rounded-lg transition-colors cursor-pointer disabled:opacity-50 shrink-0 whitespace-nowrap select-none"
               >
-                <FolderOpen className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                <span>{busyAction === 'editor-explorer' ? 'Opening…' : 'Explorer'}</span>
+                <FolderOpen className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0" />
+                <span className="whitespace-nowrap">{busyAction === 'editor-explorer' ? 'Opening…' : 'Explorer'}</span>
               </button>
             </div>
           </div>

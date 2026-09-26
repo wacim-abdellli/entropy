@@ -240,11 +240,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   return (
     <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full max-w-full bg-[var(--color-surface-0)] text-[var(--color-text-primary)]">
       {/* ── Minimal Linear-style Toolbar ── */}
-      <header className="sticky top-0 z-20 px-6 sm:px-8 py-3.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-0)]/95 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <header className="sticky top-0 z-20 px-4 sm:px-8 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-0)]/95 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
           {/* Left: Title & Filter Tabs */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <div className="flex items-center gap-2 shrink-0">
               <h1 className="text-base font-semibold tracking-tight text-[var(--color-text-primary)]">
                 Workspaces
               </h1>
@@ -261,11 +261,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
 
             {/* Filter Pills */}
-            <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] rounded-lg text-xs">
+            <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] rounded-lg text-xs overflow-x-auto scrollbar-none">
               <button
                 type="button"
                 onClick={() => setFilter('all')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
                   filter === 'all'
                     ? 'bg-[var(--color-surface-3)] text-[var(--color-text-primary)] font-medium shadow-xs'
                     : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
@@ -276,50 +276,50 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <button
                 type="button"
                 onClick={() => setFilter('running')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                   filter === 'running'
                     ? 'bg-[var(--color-surface-3)] text-[var(--color-success)] font-medium shadow-xs'
                     : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
                 }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] shrink-0" />
                 <span>Running ({runningList.length})</span>
               </button>
               <button
                 type="button"
                 onClick={() => setFilter('dirty')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                   filter === 'dirty'
                     ? 'bg-[var(--color-surface-3)] text-[var(--color-warning)] font-medium shadow-xs'
                     : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
                 }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] shrink-0" />
                 <span>Unsaved ({dirtyList.length})</span>
               </button>
               <button
                 type="button"
                 onClick={() => setFilter('cleanup')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                   filter === 'cleanup'
                     ? 'bg-[var(--color-surface-3)] text-[var(--color-accent-strong)] font-medium shadow-xs'
                     : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
                 }`}
               >
-                <HardDrive className="w-3 h-3 text-[var(--color-accent)]" />
+                <HardDrive className="w-3 h-3 text-[var(--color-accent)] shrink-0" />
                 <span>Cleanable ({cleanupList.length})</span>
               </button>
               {secretsList.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setFilter('secrets')}
-                  className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                     filter === 'secrets'
                       ? 'bg-[var(--color-surface-3)] text-[var(--color-danger)] font-medium shadow-xs'
                       : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
                   }`}
                 >
-                  <ShieldAlert className="w-3 h-3 text-[var(--color-danger)]" />
+                  <ShieldAlert className="w-3 h-3 text-[var(--color-danger)] shrink-0" />
                   <span>Secrets ({secretsList.length})</span>
                 </button>
               )}
@@ -327,15 +327,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
 
           {/* Right: Search & Actions */}
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <div className="relative shrink min-w-[120px]">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
-                className="w-44 sm:w-52 h-7.5 pl-8 pr-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] focus:border-[var(--color-accent)] rounded-lg text-xs placeholder-[var(--color-text-tertiary)] focus:outline-none transition-colors"
+                className="w-32 sm:w-44 md:w-48 h-8 pl-8 pr-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] focus:border-[var(--color-accent)] rounded-lg text-xs placeholder-[var(--color-text-tertiary)] focus:outline-none transition-colors"
               />
             </div>
 
@@ -343,32 +343,32 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <button
                 type="button"
                 onClick={() => setConfirmCleanSlate(true)}
-                className="h-7.5 px-2.5 rounded-lg bg-[var(--color-success-bg)] hover:bg-[var(--color-success)]/20 border border-[var(--color-success-border)] text-xs text-[var(--color-success)] flex items-center gap-1.5 font-medium transition-colors cursor-pointer"
+                className="h-8 px-3 rounded-lg bg-[var(--color-success-bg)] hover:bg-[var(--color-success)]/20 border border-[var(--color-success-border)] text-xs text-[var(--color-success)] flex items-center gap-1.5 font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs select-none"
                 title="Reclaim RAM by terminating background dev processes"
               >
-                <Zap className="w-3 h-3" />
-                <span>Free {formatSize(totalDevRam)}</span>
+                <Zap className="w-3.5 h-3.5 shrink-0" />
+                <span className="whitespace-nowrap">Free {formatSize(totalDevRam)}</span>
               </button>
             )}
 
             <button
               type="button"
               onClick={onInspectFolder}
-              className="h-7.5 px-3 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 transition-opacity cursor-pointer shadow-xs"
+              className="h-8 px-3.5 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 transition-opacity cursor-pointer shadow-xs shrink-0 whitespace-nowrap select-none"
               title="Add or inspect a workspace folder"
             >
-              <FolderOpen className="w-3.5 h-3.5" />
-              <span>Add Folder</span>
+              <FolderOpen className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap">Add Folder</span>
             </button>
 
             {onNavigateToSettings && (
               <button
                 type="button"
                 onClick={onNavigateToSettings}
-                className="h-7.5 px-2 rounded-lg hover:bg-[var(--color-surface-2)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer"
+                className="h-8 w-8 rounded-lg hover:bg-[var(--color-surface-2)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] flex items-center justify-center transition-colors cursor-pointer shrink-0 border border-transparent hover:border-[var(--color-border-subtle)]"
                 title="Manage scanned folders"
               >
-                <Settings className="w-3.5 h-3.5" />
+                <Settings className="w-3.5 h-3.5 shrink-0" />
               </button>
             )}
 
@@ -376,10 +376,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               type="button"
               onClick={onRefresh}
               disabled={isLoading}
-              className="h-7.5 w-7.5 rounded-lg hover:bg-[var(--color-surface-2)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+              className="h-8 w-8 rounded-lg hover:bg-[var(--color-surface-2)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0 border border-transparent hover:border-[var(--color-border-subtle)]"
               title="Refresh workspaces"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
