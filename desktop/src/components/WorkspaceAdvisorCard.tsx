@@ -1,22 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ShieldCheck,
-  Sparkles,
-  Bot,
-  Send,
+  ShieldAlert,
+  Shield,
   Check,
-  Copy,
   ChevronDown,
   ChevronUp,
   RefreshCw,
   AlertTriangle,
   CheckCircle2,
-  Settings as SettingsIcon,
   GitMerge,
   Trash2,
-  Shield,
+  Activity,
+  Radio,
+  Lock,
+  GitBranch,
+  HardDrive,
 } from 'lucide-react';
-import { WorkspaceHealth, HealthTip, AiResponse } from '../types/entropy';
+import { WorkspaceHealth, HealthTip } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
 interface WorkspaceAdvisorCardProps {
@@ -30,79 +31,13 @@ interface WorkspaceAdvisorCardProps {
   onNavigateToSettings?: () => void;
 }
 
-const renderInlineSpans = (text: string) => {
-  const codeParts = text.split(/(`[^`]+`)/g);
-  return codeParts.map((part, i) => {
-    if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
-      return (
-        <code
-          key={i}
-          className="px-1.5 py-0.5 mx-0.5 rounded bg-[var(--color-surface-3)] font-mono text-[11px] text-[var(--color-accent-strong)] border border-[var(--color-border-subtle)]"
-        >
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
-    return boldParts.map((bPart, j) => {
-      if (bPart.startsWith('**') && bPart.endsWith('**') && bPart.length > 4) {
-        return (
-          <strong key={`${i}-${j}`} className="font-semibold text-[var(--color-text-primary)]">
-            {bPart.slice(2, -2)}
-          </strong>
-        );
-      }
-      return bPart;
-    });
-  });
-};
-
-const renderFormattedAnswer = (text: string) => {
-  const lines = text.split('\n');
-  return (
-    <div className="space-y-1.5 text-xs text-[var(--color-text-secondary)] leading-relaxed select-text">
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div key={idx} className="h-1" />;
-
-        if (trimmed.startsWith('### ') || trimmed.startsWith('## ')) {
-          const headerContent = trimmed.replace(/^#+\s*/, '');
-          return (
-            <div key={idx} className="text-xs font-semibold text-[var(--color-text-primary)] pt-1 pb-0.5 border-b border-[var(--color-border-subtle)]">
-              {renderInlineSpans(headerContent)}
-            </div>
-          );
-        }
-
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          const bulletContent = trimmed.replace(/^[-*]\s*/, '');
-          return (
-            <div key={idx} className="flex items-start gap-2 pl-1 py-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] mt-1.5 shrink-0" />
-              <div className="flex-1">{renderInlineSpans(bulletContent)}</div>
-            </div>
-          );
-        }
-
-        return (
-          <p key={idx} className="py-0.5">
-            {renderInlineSpans(trimmed)}
-          </p>
-        );
-      })}
-    </div>
-  );
-};
-
-export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
+export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
   workspacePath,
-  workspaceName,
   gitBranch,
   hasUncommittedChanges,
   ports,
   artifacts,
   onActionCompleted,
-  onNavigateToSettings,
 }) => {
   const [health, setHealth] = useState<WorkspaceHealth | null>(null);
   const [loading, setLoading] = useState(false);
@@ -111,16 +46,10 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
   // Action state
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<{ id: string; success: boolean; text: string } | null>(null);
-
-  // Q&A state
-  const [question, setQuestion] = useState('');
-  const [asking, setAsking] = useState(false);
-  const [aiAnswer, setAiAnswer] = useState<AiResponse | null>(null);
-  const [copiedAnswer, setCopiedAnswer] = useState(false);
   const [prevPath, setPrevPath] = useState(workspacePath);
+
   if (workspacePath !== prevPath) {
     setPrevPath(workspacePath);
-    setAiAnswer(null);
     setLoading(true);
   }
 
@@ -215,93 +144,76 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
     }
   };
 
-  const handleAskAdvisor = async (qText?: string) => {
-    const query = (qText || question).trim();
-    if (!query || asking) return;
-
-    setAsking(true);
-    try {
-      const res = await EntropyApiClient.askAiAdvisor(query, {
-        workspace_name: workspaceName,
-        workspace_path: workspacePath,
-        git_branch: gitBranch,
-        has_uncommitted_changes: hasUncommittedChanges,
-        ports: ports,
-        artifacts: artifacts,
-      });
-      setAiAnswer(res);
-      if (qText) {
-        setQuestion(qText);
-      }
-    } catch (err: unknown) {
-      setAiAnswer({
-        success: false,
-        answer: err instanceof Error ? err.message : 'Failed to query advisor.',
-        provider: 'error',
-      });
-    } finally {
-      setAsking(false);
-    }
-  };
-
-  const handleCopyAnswer = () => {
-    if (!aiAnswer?.answer) return;
-    navigator.clipboard.writeText(aiAnswer.answer);
-    setCopiedAnswer(true);
-    setTimeout(() => setCopiedAnswer(false), 2000);
-  };
-
-  const score = health?.health_score ?? 85;
-  const scoreColor =
+  const score = health?.health_score ?? 100;
+  const scoreBadge =
     score >= 90
-      ? 'text-[var(--color-success)] bg-[var(--color-success-bg)] border-[var(--color-success-border)]'
+      ? { label: 'Optimal', badgeClass: 'text-[var(--color-success)] bg-[var(--color-success-bg)] border-[var(--color-success-border)]' }
       : score >= 70
-      ? 'text-[var(--color-info)] bg-[var(--color-info-bg)] border-[var(--color-info-border)]'
+      ? { label: 'Good', badgeClass: 'text-[var(--color-info)] bg-[var(--color-info-bg)] border-[var(--color-info-border)]' }
       : score >= 50
-      ? 'text-[var(--color-warning)] bg-[var(--color-warning-bg)] border-[var(--color-warning-border)]'
-      : 'text-[var(--color-danger)] bg-[var(--color-danger-bg)] border-[var(--color-danger-border)]';
+      ? { label: 'Action Needed', badgeClass: 'text-[var(--color-warning)] bg-[var(--color-warning-bg)] border-[var(--color-warning-border)]' }
+      : { label: 'At Risk', badgeClass: 'text-[var(--color-danger)] bg-[var(--color-danger-bg)] border-[var(--color-danger-border)]' };
 
   const tips = health?.tips || [];
+
+  // Diagnostics summary metrics
+  const hasSecretRisk = tips.some((t) => t.id === 'unprotected_env' || t.id === 'tracked_secrets');
+  const hasDirtyWip = hasUncommittedChanges || tips.some((t) => t.id === 'dirty_wip' || t.id === 'stale_wip');
+  const activePortsCount = ports?.length || 0;
+  
+  // Calculate total reclaimable size if available
+  const reclaimableBytes = health?.cleanup_verdicts?.reduce((acc, v) => acc + (v.size_bytes || 0), 0) || 0;
+  const formatBytes = (bytes: number): string => {
+    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${bytes} B`;
+  };
 
   return (
     <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden shadow-xs transition-all">
       {/* Header bar */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-1)]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/25 flex items-center justify-center text-[var(--color-accent)]">
-            <Bot size={18} />
+          <div
+            className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
+              score >= 80
+                ? 'bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success)]'
+                : score >= 60
+                ? 'bg-[var(--color-warning-bg)] border-[var(--color-warning-border)] text-[var(--color-warning)]'
+                : 'bg-[var(--color-danger-bg)] border-[var(--color-danger-border)] text-[var(--color-danger)]'
+            }`}
+          >
+            {score >= 80 ? (
+              <ShieldCheck size={18} />
+            ) : score >= 60 ? (
+              <Activity size={18} />
+            ) : (
+              <ShieldAlert size={18} />
+            )}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Workspace Advisor</h3>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${scoreColor}`}>
-                {score}/100
+              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                Workspace Health & Diagnostics
+              </h3>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${scoreBadge.badgeClass}`}>
+                {score}/100 • {scoreBadge.label}
               </span>
             </div>
             <p className="text-[11px] text-[var(--color-text-tertiary)]">
-              {health?.summary || 'Workspace health evaluation'}
+              {health?.summary || 'Automated hygiene, secret protection, and runtime checks'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {onNavigateToSettings && (
-            <button
-              type="button"
-              onClick={onNavigateToSettings}
-              className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] rounded-md transition-colors cursor-pointer"
-              title="Configure AI Provider in Settings"
-            >
-              <SettingsIcon size={15} />
-            </button>
-          )}
-
           <button
             type="button"
             onClick={fetchHealth}
             disabled={loading}
             className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] rounded-md transition-colors cursor-pointer disabled:opacity-50"
-            title="Refresh Advisor Analysis"
+            title="Refresh Diagnostics"
           >
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -310,7 +222,7 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
             type="button"
             onClick={() => setExpanded(!expanded)}
             className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] rounded-md transition-colors cursor-pointer"
-            title={expanded ? 'Collapse Advisor' : 'Expand Advisor'}
+            title={expanded ? 'Collapse Diagnostics' : 'Expand Diagnostics'}
           >
             {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
@@ -318,12 +230,106 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
       </div>
 
       {expanded && (
-        <div className="p-5 space-y-4">
-          {/* Actionable Health Tips */}
+        <div className="p-5 space-y-5">
+          {/* Quick Diagnostics Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Secret Shield */}
+            <div className="p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)] mb-1">
+                <Lock size={12} />
+                <span>Secret Shield</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    hasSecretRisk ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-success)]'
+                  }`}
+                />
+                <span
+                  className={`text-xs font-medium ${
+                    hasSecretRisk ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-primary)]'
+                  }`}
+                >
+                  {hasSecretRisk ? 'Secrets Exposed' : 'Secured'}
+                </span>
+              </div>
+            </div>
+
+            {/* Git Status */}
+            <div className="p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)] mb-1">
+                <GitBranch size={12} />
+                <span>Working Tree</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    hasDirtyWip ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-success)]'
+                  }`}
+                />
+                <span
+                  className={`text-xs font-medium ${
+                    hasDirtyWip ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-primary)]'
+                  }`}
+                >
+                  {hasDirtyWip ? 'Uncommitted Edits' : 'Clean'}
+                </span>
+                {gitBranch && (
+                  <span className="text-[10px] font-mono text-[var(--color-text-tertiary)] truncate">
+                    ({gitBranch})
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Dev Servers */}
+            <div className="p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)] mb-1">
+                <Radio size={12} />
+                <span>Dev Servers</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    activePortsCount > 0 ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-text-tertiary)]'
+                  }`}
+                />
+                <span className="text-xs font-medium text-[var(--color-text-primary)]">
+                  {activePortsCount > 0 ? `${activePortsCount} Port${activePortsCount > 1 ? 's' : ''} Active` : 'Idle'}
+                </span>
+              </div>
+            </div>
+
+            {/* Reclaimable Disk */}
+            <div className="p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)] mb-1">
+                <HardDrive size={12} />
+                <span>Reclaimable</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    reclaimableBytes > 0 || (artifacts && artifacts.length > 0)
+                      ? 'bg-[var(--color-info)]'
+                      : 'bg-[var(--color-text-tertiary)]'
+                  }`}
+                />
+                <span className="text-xs font-medium text-[var(--color-text-primary)]">
+                  {reclaimableBytes > 0
+                    ? formatBytes(reclaimableBytes)
+                    : artifacts && artifacts.length > 0
+                    ? `${artifacts.length} Target${artifacts.length > 1 ? 's' : ''}`
+                    : 'Clean'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Actionable Health Checks & Recommendations */}
           {tips.length > 0 ? (
             <div className="space-y-2.5">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
-                Recommendations ({tips.length})
+                Recommendations &amp; Quick Fixes ({tips.length})
               </h4>
               <div className="grid grid-cols-1 gap-2.5">
                 {tips.map((tip) => {
@@ -344,7 +350,7 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.2 rounded border ${severityBadge}`}>
+                          <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded border ${severityBadge}`}>
                             {tip.severity}
                           </span>
                           <h5 className="text-xs font-semibold text-[var(--color-text-primary)]">
@@ -355,7 +361,11 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
                           {tip.description}
                         </p>
                         {notice && (
-                          <div className={`mt-2 text-xs flex items-center gap-1.5 ${notice.success ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}>
+                          <div
+                            className={`mt-2 text-xs flex items-center gap-1.5 animate-in fade-in duration-150 ${
+                              notice.success ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'
+                            }`}
+                          >
                             {notice.success ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}
                             <span>{notice.text}</span>
                           </div>
@@ -384,6 +394,10 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
                               <GitMerge size={13} />
                             ) : tip.action_type === 'clean_artifacts' ? (
                               <Trash2 size={13} />
+                            ) : tip.action_type === 'free_port' ? (
+                              <Radio size={13} />
+                            ) : tip.action_type === 'add_gitignore' ? (
+                              <Lock size={13} />
                             ) : (
                               <Check size={13} />
                             )}
@@ -397,104 +411,21 @@ export const WorkspaceAdvisorCard: React.FC<WorkspaceAdvisorCardProps> = ({
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 p-3 rounded-lg bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success)] text-xs">
-              <ShieldCheck size={16} className="text-[var(--color-success)] shrink-0" />
-              <span>Great job! No hygiene warnings or uncommitted risks detected in this workspace.</span>
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success)] text-xs">
+              <ShieldCheck size={20} className="text-[var(--color-success)] shrink-0" />
+              <div>
+                <span className="font-semibold block">All Diagnostics Passed</span>
+                <span className="text-[var(--color-text-secondary)]">
+                  Working tree is clean, secrets are secured in .gitignore, and no orphaned dev processes are running.
+                </span>
+              </div>
             </div>
           )}
-
-          {/* Interactive Advisor Q&A */}
-          <div className="pt-3 border-t border-[var(--color-border-subtle)] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
-                <Sparkles size={13} className="text-[var(--color-accent)]" />
-                <span>Ask Advisor</span>
-              </div>
-              {aiAnswer && (
-                <span className="text-[11px] text-[var(--color-text-tertiary)] flex items-center gap-1">
-                  <span>Backend:</span>
-                  <span className="font-mono text-[var(--color-text-secondary)]">
-                    {aiAnswer.provider === 'groq' ? `Groq (${aiAnswer.model || 'llama-3'})` : aiAnswer.provider === 'ollama' ? `Ollama (${aiAnswer.model})` : 'Offline Rules Engine'}
-                  </span>
-                </span>
-              )}
-            </div>
-
-            {/* Suggestion Chips */}
-            <div className="flex flex-wrap gap-1.5">
-              {[
-                'Is it safe to delete build folders?',
-                'How do I optimize this workspace?',
-                'Are any ports conflicting?',
-              ].map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  onClick={() => handleAskAdvisor(chip)}
-                  disabled={asking}
-                  className="px-2.5 py-1 rounded-full bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border-subtle)] text-[11px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {chip}
-                </button>
-              ))}
-            </div>
-
-            {/* Prompt Bar */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleAskAdvisor();
-                  }}
-                  placeholder="Ask a question about this workspace (e.g., 'rebuild dependencies', 'safe to delete?')..."
-                  className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)] pr-9"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => handleAskAdvisor()}
-                disabled={asking || !question.trim()}
-                className="h-8 px-3.5 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-opacity shrink-0"
-              >
-                {asking ? (
-                  <RefreshCw size={13} className="animate-spin" />
-                ) : (
-                  <Send size={13} />
-                )}
-                <span>Ask</span>
-              </button>
-            </div>
-
-            {/* Answer Display */}
-            {aiAnswer && (
-              <div className="mt-3 p-4 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)] space-y-2 animate-in fade-in duration-150">
-                <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-text-primary)]">
-                    <Bot size={15} className="text-[var(--color-accent)]" />
-                    <span>Advisor Response</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyAnswer}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] transition-colors cursor-pointer"
-                    title="Copy response to clipboard"
-                  >
-                    {copiedAnswer ? <Check size={12} className="text-[var(--color-success)]" /> : <Copy size={12} />}
-                    <span>{copiedAnswer ? 'Copied' : 'Copy'}</span>
-                  </button>
-                </div>
-
-                <div className="pt-1">
-                  {renderFormattedAnswer(aiAnswer.answer)}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>
   );
 };
+
+// Backwards-compatible export alias
+export const WorkspaceAdvisorCard = WorkspaceHealthCard;
