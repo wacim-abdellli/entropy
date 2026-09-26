@@ -34,6 +34,7 @@ interface CleanupViewProps {
   overview: EnvironmentOverview;
   onRefresh: () => Promise<void> | void;
   currentWorkspace?: WorkspaceSummary | null;
+  isLoading?: boolean;
 }
 
 type CleanupTab = 'system' | 'artifacts' | 'caches' | 'docker';
@@ -46,7 +47,68 @@ const formatBytes = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, currentWorkspace }) => {
+const CleanupSkeletonList: React.FC<{
+  title: string;
+  subtitle: string;
+  count?: number;
+}> = ({ title, subtitle, count = 4 }) => (
+  <div className="space-y-4 animate-in fade-in duration-150">
+    {/* Scanning status banner */}
+    <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-xs">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/30 flex items-center justify-center text-[var(--color-accent)] shrink-0">
+          <RefreshCw size={16} className="animate-spin text-[var(--color-accent)]" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-xs font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
+            <span className="truncate">{title}</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[var(--color-surface-2)] text-[var(--color-accent-strong)] border border-[var(--color-border-subtle)] font-medium shrink-0">
+              SCANNING
+            </span>
+          </div>
+          <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5 truncate">
+            {subtitle}
+          </div>
+        </div>
+      </div>
+      <div className="w-24 sm:w-36 h-2 bg-[var(--color-surface-3)] rounded-full overflow-hidden shrink-0 ml-3">
+        <div className="h-full bg-gradient-to-r from-[var(--color-accent)]/40 via-[var(--color-accent)] to-[var(--color-accent)]/40 rounded-full animate-pulse w-3/4" />
+      </div>
+    </div>
+
+    {/* Skeleton item cards */}
+    <div className="grid grid-cols-1 gap-2.5">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] animate-pulse gap-3"
+        >
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="w-4 h-4 rounded bg-[var(--color-surface-3)] mt-1 shrink-0" />
+            <div className="space-y-2 flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="w-4 h-4 rounded bg-[var(--color-surface-3)] shrink-0" />
+                <div className="h-4 w-36 bg-[var(--color-surface-3)] rounded" />
+                <div className="h-3.5 w-20 bg-[var(--color-surface-2)] rounded-full" />
+                <div className="h-3.5 w-16 bg-[var(--color-surface-2)] rounded-full" />
+              </div>
+              <div className="h-3 w-5/6 max-w-md bg-[var(--color-surface-2)] rounded" />
+              <div className="h-2.5 w-1/2 max-w-xs bg-[var(--color-surface-2)]/60 rounded" />
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-3 shrink-0">
+            <div className="space-y-1.5 text-right">
+              <div className="h-4 w-20 bg-[var(--color-surface-3)] rounded ml-auto" />
+              <div className="h-3 w-14 bg-[var(--color-surface-2)] rounded ml-auto" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, currentWorkspace, isLoading }) => {
   const [activeTab, setActiveTab] = useState<CleanupTab>('system');
 
   // System Junk state
@@ -54,7 +116,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [selectedSystemTargets, setSelectedSystemTargets] = useState<Set<string>>(new Set());
   const [isCleaningSystem, setIsCleaningSystem] = useState(false);
   const [confirmSystemCleanOpen, setConfirmSystemCleanOpen] = useState(false);
-  const [systemLoading, setSystemLoading] = useState(false);
+  const [systemLoading, setSystemLoading] = useState(true);
 
   // Artifacts state
   const artifacts = useMemo(() => overview?.system?.artifacts || [], [overview?.system?.artifacts]);
@@ -67,10 +129,11 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [selectedCaches, setSelectedCaches] = useState<Set<string>>(new Set());
   const [isPurgingCaches, setIsPurgingCaches] = useState(false);
   const [confirmCachePurgeOpen, setConfirmCachePurgeOpen] = useState(false);
+  const [cachesLoading, setCachesLoading] = useState(true);
 
   // Docker state
   const [dockerUsage, setDockerUsage] = useState<DockerDiskUsage | null>(null);
-  const [dockerLoading, setDockerLoading] = useState(false);
+  const [dockerLoading, setDockerLoading] = useState(true);
   const [dockerPruningTarget, setDockerPruningTarget] = useState<string | null>(null);
   const [confirmDockerPrune, setConfirmDockerPrune] = useState<{ target: 'builder' | 'dangling_images' | 'system'; label: string } | null>(null);
 
@@ -105,11 +168,14 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   };
 
   const fetchGlobalCaches = async () => {
+    setCachesLoading(true);
     try {
       const items = await EntropyApiClient.getPurgeableCaches();
       setGlobalCaches(items || []);
     } catch (err) {
       console.warn('Failed to load global caches:', err);
+    } finally {
+      setCachesLoading(false);
     }
   };
 
@@ -127,6 +193,10 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
   useEffect(() => {
     let ignore = false;
+    setSystemLoading(true);
+    setCachesLoading(true);
+    setDockerLoading(true);
+
     EntropyApiClient.getSystemCleanupTargets()
       .then((items) => {
         if (!ignore && items) {
@@ -137,6 +207,11 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       })
       .catch((err) => {
         console.warn('Failed to load system targets:', err);
+      })
+      .finally(() => {
+        if (!ignore) {
+          setSystemLoading(false);
+        }
       });
 
     EntropyApiClient.getPurgeableCaches()
@@ -147,6 +222,11 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       })
       .catch((err) => {
         console.warn('Failed to load global caches:', err);
+      })
+      .finally(() => {
+        if (!ignore) {
+          setCachesLoading(false);
+        }
       });
 
     EntropyApiClient.getDockerDiskUsage()
@@ -157,6 +237,11 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       })
       .catch((err) => {
         console.warn('Failed to query Docker disk usage:', err);
+      })
+      .finally(() => {
+        if (!ignore) {
+          setDockerLoading(false);
+        }
       });
 
     return () => {
@@ -627,10 +712,14 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
           >
             <HardDrive size={14} className={activeTab === 'system' ? 'text-[var(--color-accent)]' : ''} />
             <span>Windows &amp; System Junk</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-surface-2)]">
-              {systemTargets.length}
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-surface-2)] flex items-center gap-1">
+              {systemLoading && systemTargets.length === 0 ? (
+                <RefreshCw size={9} className="animate-spin text-[var(--color-accent)]" />
+              ) : (
+                systemTargets.length
+              )}
             </span>
-            {totalSystemBytes > 0 && (
+            {!systemLoading && totalSystemBytes > 0 && (
               <span className="text-[10px] font-mono text-[var(--color-accent-strong)]">
                 ({formatBytes(totalSystemBytes)})
               </span>
@@ -649,8 +738,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
           >
             <Folder size={14} className={activeTab === 'artifacts' ? 'text-[var(--color-accent)]' : ''} />
             <span>Project Artifacts</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-surface-2)]">
-              {artifacts.length}
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-surface-2)] flex items-center gap-1">
+              {isLoading && artifacts.length === 0 ? (
+                <RefreshCw size={9} className="animate-spin text-[var(--color-accent)]" />
+              ) : (
+                artifacts.length
+              )}
             </span>
           </button>
 
@@ -666,8 +759,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
           >
             <Database size={14} className={activeTab === 'caches' ? 'text-[var(--color-accent)]' : ''} />
             <span>Package Manager Caches</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-surface-2)]">
-              {globalCaches.length}
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-surface-2)] flex items-center gap-1">
+              {cachesLoading && globalCaches.length === 0 ? (
+                <RefreshCw size={9} className="animate-spin text-[var(--color-accent)]" />
+              ) : (
+                globalCaches.length
+              )}
             </span>
           </button>
 
@@ -683,11 +780,15 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
           >
             <Box size={14} className={activeTab === 'docker' ? 'text-[var(--color-accent)]' : ''} />
             <span>Docker Storage</span>
-            {dockerUsage?.available && dockerUsage.reclaimable_bytes > 0 && (
+            {dockerLoading && !dockerUsage ? (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-surface-2)]">
+                <RefreshCw size={9} className="animate-spin text-[var(--color-accent)]" />
+              </span>
+            ) : dockerUsage?.available && dockerUsage.reclaimable_bytes > 0 ? (
               <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)]">
                 {formatBytes(dockerUsage.reclaimable_bytes)}
               </span>
-            )}
+            ) : null}
           </button>
         </div>
       </div>
@@ -719,7 +820,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               </div>
             </div>
 
-            {systemTargets.length === 0 ? (
+            {systemLoading && systemTargets.length === 0 ? (
+              <CleanupSkeletonList
+                title="Scanning Windows & Application Junk…"
+                subtitle="Calculating Recycle Bin size, browser web caches, crash dumps, and Windows temp files"
+                count={4}
+              />
+            ) : systemTargets.length === 0 ? (
               <div className="p-12 text-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-1)]">
                 <CheckCircle2 size={36} className="mx-auto text-[var(--color-success)] mb-2" />
                 <h3 className="text-sm font-semibold">Your Windows System is Clean!</h3>
@@ -728,8 +835,14 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-2.5">
-                {systemTargets.map((target) => {
+              <div className="space-y-3">
+                {systemLoading && (
+                  <div className="h-1 w-full bg-[var(--color-accent)]/20 overflow-hidden rounded-full mb-1">
+                    <div className="h-full bg-[var(--color-accent)] animate-pulse w-full" />
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-2.5">
+                  {systemTargets.map((target) => {
                   const isSelected = selectedSystemTargets.has(target.id);
                   return (
                     <div
@@ -819,6 +932,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                     </div>
                   );
                 })}
+                </div>
               </div>
             )}
           </div>
@@ -850,7 +964,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               </div>
             </div>
 
-            {artifacts.length === 0 ? (
+            {isLoading && artifacts.length === 0 ? (
+              <CleanupSkeletonList
+                title="Scanning Workspace Artifacts…"
+                subtitle="Analyzing node_modules, target, .venv, and build caches across workspaces"
+                count={4}
+              />
+            ) : artifacts.length === 0 ? (
               <div className="p-12 text-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-1)]">
                 <CheckCircle2 size={36} className="mx-auto text-[var(--color-success)] mb-2" />
                 <h3 className="text-sm font-semibold">Your Workspaces are Pristine!</h3>
@@ -859,8 +979,14 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-2.5">
-                {artifacts.map((artifact) => {
+              <div className="space-y-3">
+                {isLoading && (
+                  <div className="h-1 w-full bg-[var(--color-accent)]/20 overflow-hidden rounded-full mb-1">
+                    <div className="h-full bg-[var(--color-accent)] animate-pulse w-full" />
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-2.5">
+                  {artifacts.map((artifact) => {
                   const isSelected = selectedArtifacts.has(artifact.path);
                   return (
                     <div
@@ -921,6 +1047,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                     </div>
                   );
                 })}
+                </div>
               </div>
             )}
           </div>
@@ -952,7 +1079,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               </div>
             </div>
 
-            {globalCaches.length === 0 ? (
+            {cachesLoading && globalCaches.length === 0 ? (
+              <CleanupSkeletonList
+                title="Scanning Package Manager Caches…"
+                subtitle="Inspecting global cache directories for pip, npm, yarn, cargo, and gradle"
+                count={3}
+              />
+            ) : globalCaches.length === 0 ? (
               <div className="p-12 text-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-1)]">
                 <CheckCircle2 size={36} className="mx-auto text-[var(--color-success)] mb-2" />
                 <h3 className="text-sm font-semibold">No Global Caches Found</h3>
@@ -961,8 +1094,14 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-2.5">
-                {globalCaches.map((cache) => {
+              <div className="space-y-3">
+                {cachesLoading && (
+                  <div className="h-1 w-full bg-[var(--color-accent)]/20 overflow-hidden rounded-full mb-1">
+                    <div className="h-full bg-[var(--color-accent)] animate-pulse w-full" />
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-2.5">
+                  {globalCaches.map((cache) => {
                   const isSelected = selectedCaches.has(cache.path);
                   return (
                     <div
@@ -1020,6 +1159,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                     </div>
                   );
                 })}
+                </div>
               </div>
             )}
           </div>
@@ -1028,7 +1168,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         {/* ═══ TAB 4: Docker Storage ═══ */}
         {activeTab === 'docker' && (
           <div className="space-y-6">
-            {!dockerUsage?.available ? (
+            {dockerLoading && !dockerUsage ? (
+              <CleanupSkeletonList
+                title="Inspecting Docker Storage…"
+                subtitle="Querying Docker daemon for image layers, build cache, and dangling volumes"
+                count={3}
+              />
+            ) : !dockerUsage?.available ? (
               <div className="p-12 text-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-1)]">
                 <Box size={36} className="mx-auto text-[var(--color-text-tertiary)] mb-2" />
                 <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Docker Daemon is Offline</h3>

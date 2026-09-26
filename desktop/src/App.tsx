@@ -504,6 +504,7 @@ export function App() {
             overview={overview}
             onRefresh={refreshCurrentContext}
             currentWorkspace={currentWorkspace}
+            isLoading={isLoading}
           />
         );
       }
