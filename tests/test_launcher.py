@@ -88,6 +88,24 @@ class TestLauncherModule(unittest.TestCase):
         self.assertTrue(res["success"])
         mock_launch.assert_called_once_with(r"C:\Programs\Cursor\Cursor.exe", self.test_dir)
 
+    @patch("core.launcher._launch_interactive_console")
+    def test_launch_explorer_recycle_bin(self, mock_console: MagicMock) -> None:
+        mock_console.return_value = "Opened Windows Recycle Bin."
+        res = launch_workspace_in_editor("Recycle Bin", "explorer")
+        self.assertTrue(res["success"])
+        mock_console.assert_called_once_with("explorer", "Recycle Bin")
+
+    @patch("core.launcher._launch_interactive_console")
+    def test_launch_explorer_ancestor_fallback(self, mock_console: MagicMock) -> None:
+        mock_console.return_value = "Opened File Explorer."
+        # Non-existent child directory inside self.test_dir
+        non_existent_child = os.path.join(self.test_dir, "missing_subdir_123", "sub2")
+        res = launch_workspace_in_editor(non_existent_child, "explorer")
+        self.assertTrue(res["success"])
+        # Should fall back to the existing self.test_dir
+        mock_console.assert_called_once_with("explorer", self.test_dir)
+
 
 if __name__ == "__main__":
     unittest.main()
+

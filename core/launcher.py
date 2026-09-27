@@ -192,20 +192,44 @@ def _launch_interactive_console(shell_type: str, target_path: str) -> str:
         return _launch_interactive_console("powershell", abs_path)
 
     elif shell_type == "explorer":
-        if "recycle bin" in workspace_path.lower() or workspace_path.lower() in ("recyclebin", "shell:recyclebinfolder"):
+        target_lower = (target_path or "").lower().strip()
+        if "recycle bin" in target_lower or target_lower in ("recyclebin", "shell:recyclebinfolder"):
             if os.name == "nt":
+                if hasattr(os, "startfile"):
+                    try:
+                        os.startfile("shell:RecycleBinFolder")
+                        return "Opened Windows Recycle Bin."
+                    except Exception as e:
+                        logger.warning("os.startfile failed for Recycle Bin: %s", e)
                 subprocess.Popen(["explorer.exe", "shell:RecycleBinFolder"])
                 return "Opened Windows Recycle Bin."
 
-        if os.name == "nt" and hasattr(os, "startfile"):
-            try:
-                os.startfile(abs_path)
-                return "Opened File Explorer."
-            except Exception as e:
-                logger.warning("os.startfile failed for explorer, falling back to explorer.exe: %s", e)
-
         if os.name == "nt":
-            subprocess.Popen(["explorer.exe", abs_path])
+            if os.path.isfile(abs_path):
+                subprocess.Popen(["explorer.exe", f"/select,{abs_path}"])
+                return "Opened File Explorer."
+            elif os.path.isdir(abs_path):
+                if hasattr(os, "startfile"):
+                    try:
+                        os.startfile(abs_path)
+                        return "Opened File Explorer."
+                    except Exception as e:
+                        logger.warning("os.startfile failed for directory: %s", e)
+                subprocess.Popen(["explorer.exe", abs_path])
+                return "Opened File Explorer."
+            else:
+                parent = os.path.dirname(abs_path)
+                if os.path.exists(parent):
+                    if hasattr(os, "startfile"):
+                        try:
+                            os.startfile(parent)
+                            return "Opened File Explorer."
+                        except Exception as e:
+                            logger.warning("os.startfile failed for parent directory: %s", e)
+                    subprocess.Popen(["explorer.exe", parent])
+                    return "Opened File Explorer."
+                subprocess.Popen(["explorer.exe", abs_path])
+                return "Opened File Explorer."
         else:
             subprocess.Popen(["xdg-open", abs_path])
         return "Opened File Explorer."
@@ -265,21 +289,67 @@ def launch_workspace_in_editor(workspace_path: str, editor_id: str) -> Dict[str,
 
     Returns result dict with success state and message.
     """
-    if not workspace_path or not os.path.exists(workspace_path):
+    if not workspace_path:
+        return {"success": False, "error": f"Workspace path '{workspace_path}' does not exist."}
+
+    editor_id = (editor_id or "").lower().strip()
+
+    # 1. Special case: Windows Explorer
+    if editor_id in ("explorer", "folder"):
+        norm_lower = workspace_path.lower().strip()
+        if "recycle bin" in norm_lower or norm_lower in ("recyclebin", "shell:recyclebinfolder"):
+            try:
+                msg = _launch_interactive_console("explorer", "Recycle Bin")
+                return {"success": True, "message": msg}
+            except Exception as e:
+                return {"success": False, "error": f"Failed to open Windows Recycle Bin: {e}"}
+
+        # Handle wildcard / glob patterns (e.g. Firefox profiles with '*')
+        resolved_path = workspace_path
+        if "*" in resolved_path or "?" in resolved_path:
+            import glob
+            matches = glob.glob(resolved_path)
+            if matches:
+                resolved_path = matches[0]
+            else:
+                parts = resolved_path.replace("/", os.sep).split(os.sep)
+                prefix = ""
+                for p in parts:
+                    if "*" in p or "?" in p:
+                        break
+                    prefix = os.path.join(prefix, p) if prefix else p
+                if prefix and os.path.exists(prefix):
+                    resolved_path = prefix
+
+        # Find closest existing ancestor if exact directory doesn't exist
+        curr = os.path.abspath(resolved_path)
+        while curr and not os.path.exists(curr):
+            parent = os.path.dirname(curr)
+            if parent == curr:
+                break
+            curr = parent
+
+        if curr and os.path.exists(curr):
+            resolved_path = curr
+        else:
+            return {"success": False, "error": f"Path '{workspace_path}' does not exist."}
+
+        try:
+            msg = _launch_interactive_console("explorer", resolved_path)
+            return {"success": True, "message": msg}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to open in Explorer: {e}"}
+
+    # 2. For external IDEs and terminals, path must exist
+    if not os.path.exists(workspace_path):
         return {"success": False, "error": f"Workspace path '{workspace_path}' does not exist."}
 
     abs_path = os.path.abspath(workspace_path)
     if not os.path.isdir(abs_path):
         abs_path = os.path.dirname(abs_path)
 
-    editor_id = (editor_id or "").lower().strip()
-
     try:
-        if editor_id in ("explorer", "folder"):
-            msg = _launch_interactive_console("explorer", abs_path)
-            return {"success": True, "message": msg}
-
-        elif editor_id in ("terminal", "wt"):
+        if editor_id in ("terminal", "wt"):
             msg = _launch_interactive_console("terminal", abs_path)
             return {"success": True, "message": msg}
 

@@ -797,6 +797,19 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
     setTimeout(() => setCopiedPath(null), 1800);
   };
 
+  const handleOpenInExplorer = async (path: string) => {
+    try {
+      const res = await EntropyApiClient.openInExplorer(path);
+      if (res && !res.success) {
+        setToastMessage(res.error || 'Failed to reveal in Windows Explorer.');
+        setTimeout(() => setToastMessage(null), 4000);
+      }
+    } catch {
+      setToastMessage('Failed to launch Windows Explorer.');
+      setTimeout(() => setToastMessage(null), 4000);
+    }
+  };
+
   const getTargetIcon = (target: SystemCleanupTarget) => {
     if (target.id === 'recycle_bin') return <Trash2 size={16} className="text-[var(--color-warning)]" />;
     if (target.category === 'browser') return <Globe size={16} className="text-[var(--color-accent-strong)]" />;
@@ -1113,7 +1126,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              EntropyApiClient.openInExplorer(target.paths[0]);
+                              handleOpenInExplorer(target.paths[0]);
                             }}
                             className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-lg transition-colors cursor-pointer"
                             title={target.paths[0] === 'Recycle Bin' ? 'Open Windows Recycle Bin to review deleted files' : 'Reveal in Windows Explorer'}
@@ -1234,21 +1247,34 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                         <div className="text-sm font-semibold font-mono text-[var(--color-text-primary)]">
                           {formatBytes(artifact.size_bytes)}
                         </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCopyPath(artifact.path);
-                          }}
-                          className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-lg transition-colors cursor-pointer"
-                          title="Copy path"
-                        >
-                          {copiedPath === artifact.path ? (
-                            <Check size={14} className="text-[var(--color-success)]" />
-                          ) : (
-                            <Copy size={14} />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenInExplorer(artifact.path);
+                            }}
+                            className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-lg transition-colors cursor-pointer"
+                            title="Reveal folder in Windows Explorer"
+                          >
+                            <ExternalLink size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyPath(artifact.path);
+                            }}
+                            className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-lg transition-colors cursor-pointer"
+                            title="Copy path"
+                          >
+                            {copiedPath === artifact.path ? (
+                              <Check size={14} className="text-[var(--color-success)]" />
+                            ) : (
+                              <Copy size={14} />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1373,7 +1399,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              EntropyApiClient.openInExplorer(cache.path);
+                              handleOpenInExplorer(cache.path);
                             }}
                             className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-lg transition-colors cursor-pointer"
                             title="Reveal folder in Windows Explorer"
