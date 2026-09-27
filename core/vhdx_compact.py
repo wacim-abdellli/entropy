@@ -30,6 +30,55 @@ def _format_size(size_bytes: int) -> str:
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 
+def get_wsl_status() -> Dict[str, Any]:
+    """
+    Check if WSL is installed and report active distributions and their state.
+    """
+    try:
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        res = subprocess.run(
+            ["wsl", "-l", "-v"],
+            capture_output=True,
+            timeout=8,
+            creationflags=creationflags,
+        )
+        if res.returncode != 0:
+            return {"installed": False, "distros": [], "any_running": False}
+
+        raw = res.stdout
+        try:
+            text = raw.decode("utf-16le")
+        except UnicodeDecodeError:
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                text = raw.decode("latin-1", errors="replace")
+
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        distros: list[dict[str, Any]] = []
+        any_running = False
+
+        for line in lines[1:]:  # Skip header
+            cleaned = line.lstrip("*").strip()
+            parts = [p for p in cleaned.split() if p]
+            if len(parts) >= 2:
+                name = parts[0]
+                state = parts[1]
+                is_running = state.lower() == "running"
+                if is_running:
+                    any_running = True
+                distros.append({"name": name, "state": state, "running": is_running})
+
+        return {
+            "installed": True,
+            "distros": distros,
+            "any_running": any_running,
+        }
+    except Exception as e:
+        logger.debug("Failed to query WSL status: %s", e)
+        return {"installed": False, "distros": [], "any_running": False, "error": str(e)}
+
+
 def find_virtual_disks() -> List[Dict[str, Any]]:
     """
     Search for all Docker Desktop and WSL 2 ext4.vhdx virtual hard disks.
@@ -40,6 +89,7 @@ def find_virtual_disks() -> List[Dict[str, Any]]:
 
     disks: List[Dict[str, Any]] = []
     seen_paths = set()
+    wsl_info = get_wsl_status()
 
     # 1. Docker Desktop Virtual Disks
     docker_candidates = [
@@ -61,6 +111,7 @@ def find_virtual_disks() -> List[Dict[str, Any]]:
                     "size_bytes": size,
                     "size_formatted": _format_size(size),
                     "description": "Docker container storage layer and volumes disk",
+                    "wsl_running": wsl_info.get("any_running", False),
                 })
             except OSError:
                 pass
@@ -73,7 +124,6 @@ def find_virtual_disks() -> List[Dict[str, Any]]:
                 if not pkg.is_dir():
                     continue
                 pkg_name = pkg.name.lower()
-                # Known Linux distro package keywords
                 is_distro = any(k in pkg_name for k in ("canonical", "ubuntu", "debian", "kali", "suse", "wsl", "alma", "rocky"))
                 if is_distro:
                     vhdx = pkg / "LocalState" / "ext4.vhdx"
@@ -84,6 +134,10 @@ def find_virtual_disks() -> List[Dict[str, Any]]:
                             try:
                                 size = os.path.getsize(abs_p)
                                 friendly_name = pkg.name.split("_")[0]
+                                is_running = any(
+                                    d["running"] for d in wsl_info.get("distros", [])
+                                    if friendly_name.lower() in d["name"].lower()
+                                )
                                 disks.append({
                                     "id": f"vhdx_{len(disks)}",
                                     "path": abs_p,
@@ -92,6 +146,7 @@ def find_virtual_disks() -> List[Dict[str, Any]]:
                                     "size_bytes": size,
                                     "size_formatted": _format_size(size),
                                     "description": f"WSL 2 Linux virtual hard disk for {friendly_name}",
+                                    "wsl_running": is_running,
                                 })
                             except OSError:
                                 pass
@@ -99,6 +154,7 @@ def find_virtual_disks() -> List[Dict[str, Any]]:
             pass
 
     return disks
+
 
 
 def compact_virtual_disk(vhdx_path: str) -> Dict[str, Any]:

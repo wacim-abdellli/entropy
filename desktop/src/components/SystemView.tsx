@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, Terminal, SquareTerminal, X, XCircle, Zap } from 'lucide-react';
+import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, Terminal, SquareTerminal, X, XCircle, Zap, Sparkles } from 'lucide-react';
 import { CacheConnection, DockerConnection, ProcessConnection, RuntimeConnection, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
@@ -63,6 +63,42 @@ export const SystemView: React.FC<SystemViewProps> = ({
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmCleanSlate, setConfirmCleanSlate] = useState(false);
   const [cleanSlateLoading, setCleanSlateLoading] = useState(false);
+  const [trimming, setTrimming] = useState(false);
+
+  const handleTrimAll = async () => {
+    setTrimming(true);
+    try {
+      const res = await EntropyApiClient.trimWorkingSets();
+      if (res.success) {
+        setNotice(`⚡ Memory Boost: Freed ${res.total_freed_formatted} physical RAM across ${res.trimmed_count} processes! (Non-destructive)`);
+      } else {
+        setNotice(res.error || 'Failed to trim memory.');
+      }
+      await onActionComplete?.();
+    } catch {
+      setNotice('Error boosting memory.');
+    } finally {
+      setTrimming(false);
+      setTimeout(() => setNotice(null), 5000);
+    }
+  };
+
+  const handleTrimProcess = async (pid: number) => {
+    try {
+      const res = await EntropyApiClient.trimSingleProcess(pid);
+      if (res.success) {
+        setNotice(`⚡ Trimmed PID ${pid} (${res.name}): Freed ${res.freed_formatted} RAM.`);
+      } else {
+        setNotice(res.error || 'Failed to trim process.');
+      }
+      await onActionComplete?.();
+    } catch {
+      setNotice('Error trimming process.');
+    } finally {
+      setTimeout(() => setNotice(null), 4000);
+    }
+  };
+
 
   const devProcesses = useMemo(() => processes.filter(isDeveloperProcess), [processes]);
   const totalDevRam = useMemo(() => devProcesses.reduce((acc, p) => acc + (p.memory_bytes || 0), 0), [devProcesses]);
@@ -323,11 +359,22 @@ export const SystemView: React.FC<SystemViewProps> = ({
               >
                 All ({processes.length})
               </button>
+              <button
+                type="button"
+                onClick={handleTrimAll}
+                disabled={trimming}
+                className="h-7 px-2.5 text-xs font-semibold rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 transition-colors cursor-pointer flex items-center gap-1.5 ml-auto disabled:opacity-50"
+                title="Trim dormant physical memory working sets without stopping any app (Non-destructive)"
+                aria-label="Boost RAM: Trim working sets across developer processes"
+              >
+                <Sparkles className={`w-3 h-3 text-blue-400 ${trimming ? 'animate-spin' : ''}`} />
+                {trimming ? 'Boosting…' : 'Boost RAM'}
+              </button>
               {developerProcessCount > 0 && (
                 <button
                   type="button"
                   onClick={() => setConfirmCleanSlate(true)}
-                  className="h-7 px-2.5 text-xs font-semibold rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] hover:bg-[var(--color-success)]/20 transition-colors cursor-pointer flex items-center gap-1.5 ml-auto"
+                  className="h-7 px-2.5 text-xs font-semibold rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] hover:bg-[var(--color-success)]/20 transition-colors cursor-pointer flex items-center gap-1.5 ml-1.5"
                   title="Terminate background dev servers to reclaim RAM"
                   aria-label={`Clean Slate: Reclaim ${bytes(totalDevRam)} of dev server memory`}
                 >
@@ -409,6 +456,16 @@ export const SystemView: React.FC<SystemViewProps> = ({
                       className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-white hover:bg-[var(--color-surface-3)] disabled:opacity-30 cursor-pointer"
                     >
                       <FolderOpen className="w-3.5 h-3.5 mx-auto" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={protectedProcess}
+                      title={protectedProcess ? 'Protected system process' : 'Trim RAM working set (non-destructive)'}
+                      aria-label={`Trim RAM working set for ${process.name} PID ${process.pid}`}
+                      onClick={() => handleTrimProcess(process.pid)}
+                      className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-blue-400 hover:bg-blue-500/15 disabled:opacity-30 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 mx-auto" />
                     </button>
                     <button
                       type="button"

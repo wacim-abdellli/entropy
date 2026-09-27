@@ -43,6 +43,7 @@ hiddenimports = [
     'core.file_locker',
     'core.path_auditor',
     'core.dev_drive',
+    'core.memory_booster',
     'collectors',
     'collectors.git',
     'collectors.projects',

@@ -463,6 +463,7 @@ export interface VirtualDiskItem {
   size_bytes: number;
   size_formatted: string;
   description: string;
+  wsl_running?: boolean;
 }
 
 export interface PerformanceTuningRecommendation {
@@ -608,6 +609,66 @@ export interface DevDriveRelocateResult {
   updated_tools?: string[];
   error?: string;
 }
+
+export interface MemoryBoosterProcessResult {
+  success: boolean;
+  pid: number;
+  name: string;
+  before_bytes: number;
+  after_bytes: number;
+  freed_bytes: number;
+  freed_formatted: string;
+  error?: string;
+}
+
+export interface MemoryBoosterReport {
+  success: boolean;
+  total_freed_bytes: number;
+  total_freed_formatted: string;
+  target_count: number;
+  trimmed_count: number;
+  results: MemoryBoosterProcessResult[];
+  message?: string;
+  error?: string;
+}
+
+export interface GlobalSecretItem {
+  repo_path: string;
+  repo_name: string;
+  path: string;
+  category: 'env' | 'private_key' | 'credential';
+  status: 'tracked' | 'unignored' | 'protected';
+  risk: 'critical' | 'warning' | 'safe';
+}
+
+export interface GlobalSecretsRadarReport {
+  total_repositories: number;
+  vulnerable_repositories: number;
+  tracked_count: number;
+  unignored_count: number;
+  protected_count: number;
+  total_issues: number;
+  items: GlobalSecretItem[];
+}
+
+export interface ShieldSecretsResult {
+  success: boolean;
+  repos_shielded_count: number;
+  total_shielded: number;
+  total_untracked: number;
+  total_ignored: number;
+  results: any[];
+  message: string;
+}
+
+export interface DefenderBatchResult {
+  success: boolean;
+  paths?: string[];
+  count?: number;
+  message?: string;
+  error?: string;
+}
+
 
 
 

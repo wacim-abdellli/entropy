@@ -364,6 +364,96 @@ def shield_all_secrets(repo_path: str) -> Dict[str, Any]:
     }
 
 
+def audit_global_secrets(workspace_paths: list[str]) -> Dict[str, Any]:
+    """
+    Audits all scanned workspaces for exposed, tracked, and unignored secrets.
+    """
+    from collectors.git import collect_git_repository
+
+    all_issues: list[dict[str, Any]] = []
+    vulnerable_repos: set[str] = set()
+    tracked_count = 0
+    unignored_count = 0
+    protected_count = 0
+
+    for wp in workspace_paths:
+        abs_p = os.path.abspath(wp)
+        if not os.path.isdir(abs_p) or not os.path.exists(os.path.join(abs_p, ".git")):
+            continue
+        repo = collect_git_repository(abs_p)
+        if not repo:
+            continue
+        issues = getattr(repo, "secret_issues", [])
+        repo_name = os.path.basename(abs_p)
+        for issue in issues:
+            status = issue.get("status", "unignored")
+            if status == "tracked":
+                tracked_count += 1
+                vulnerable_repos.add(abs_p)
+            elif status == "unignored":
+                unignored_count += 1
+                vulnerable_repos.add(abs_p)
+            else:
+                protected_count += 1
+
+            all_issues.append({
+                "repo_path": abs_p,
+                "repo_name": repo_name,
+                "path": issue.get("path"),
+                "category": issue.get("category", "env"),
+                "status": status,
+                "risk": "critical" if status == "tracked" else ("warning" if status == "unignored" else "safe"),
+            })
+
+    # Sort so tracked (critical) come first, then unignored, then protected
+    risk_order = {"critical": 0, "warning": 1, "safe": 2}
+    all_issues.sort(key=lambda x: (risk_order.get(x["risk"], 3), x["repo_name"], x["path"]))
+
+    return {
+        "total_repositories": len(workspace_paths),
+        "vulnerable_repositories": len(vulnerable_repos),
+        "tracked_count": tracked_count,
+        "unignored_count": unignored_count,
+        "protected_count": protected_count,
+        "total_issues": len(all_issues),
+        "items": all_issues,
+    }
+
+
+def shield_all_workspaces_secrets(workspace_paths: list[str]) -> Dict[str, Any]:
+    """
+    Batch-shields all secrets across all provided repositories.
+    """
+    results: list[dict[str, Any]] = []
+    total_shielded = 0
+    total_untracked = 0
+    total_ignored = 0
+    repos_protected = 0
+
+    for wp in workspace_paths:
+        abs_p = os.path.abspath(wp)
+        if not os.path.isdir(abs_p) or not os.path.exists(os.path.join(abs_p, ".git")):
+            continue
+        res = shield_all_secrets(abs_p)
+        if res.get("total_shielded", 0) > 0 or res.get("untracked_count", 0) > 0:
+            repos_protected += 1
+        total_shielded += res.get("total_shielded", 0)
+        total_untracked += res.get("untracked_count", 0)
+        total_ignored += res.get("ignored_count", 0)
+        results.append(res)
+
+    return {
+        "success": True,
+        "repos_shielded_count": repos_protected,
+        "total_shielded": total_shielded,
+        "total_untracked": total_untracked,
+        "total_ignored": total_ignored,
+        "results": results,
+        "message": f"Successfully shielded {total_shielded} secret(s) across {repos_protected} repository(ies).",
+    }
+
+
+
 def prune_merged_branches(repo_path: str, branches: list[str] | None = None) -> Dict[str, Any]:
     """
     Safely prune local branches that have already been merged into HEAD.

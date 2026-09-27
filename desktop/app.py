@@ -380,6 +380,59 @@ class EntropyDesktopApi:
         from core.tuner import add_defender_exclusion
         return add_defender_exclusion(path)
 
+    def add_defender_exclusions_batch(self, paths: list[str]) -> dict[str, Any]:
+        """Add multiple workspace directories to Windows Defender exclusions in one prompt."""
+        from core.tuner import add_defender_exclusions_batch
+        return add_defender_exclusions_batch(paths)
+
+    def trim_working_sets(self, pids: Optional[list[int]] = None) -> dict[str, Any]:
+        """Trim RAM working sets for developer processes and browsers via native Win32 API."""
+        from core.memory_booster import trim_developer_working_sets
+        return trim_developer_working_sets(pids=pids)
+
+    def trim_single_process(self, pid: int) -> dict[str, Any]:
+        """Trim RAM working set for a single process by PID."""
+        from core.memory_booster import trim_process_working_set
+        return trim_process_working_set(pid=pid)
+
+    def get_global_secrets_radar(self) -> dict[str, Any]:
+        """Audit all scanned workspaces for exposed, tracked, and unignored secrets."""
+        from core.git_control import audit_global_secrets
+        roots = get_scan_roots()
+        all_repos = []
+        for r in roots:
+            abs_r = os.path.abspath(r)
+            if os.path.isdir(os.path.join(abs_r, ".git")):
+                all_repos.append(abs_r)
+            elif os.path.isdir(abs_r):
+                try:
+                    for entry in os.scandir(abs_r):
+                        if entry.is_dir(follow_symlinks=False) and os.path.isdir(os.path.join(entry.path, ".git")):
+                            all_repos.append(entry.path)
+                except Exception:
+                    pass
+        return audit_global_secrets(all_repos)
+
+    def shield_all_workspaces_secrets(self, repo_paths: Optional[list[str]] = None) -> dict[str, Any]:
+        """Shield all secrets across scanned repositories."""
+        from core.git_control import shield_all_workspaces_secrets
+        if repo_paths is None:
+            roots = get_scan_roots()
+            repo_paths = []
+            for r in roots:
+                abs_r = os.path.abspath(r)
+                if os.path.isdir(os.path.join(abs_r, ".git")):
+                    repo_paths.append(abs_r)
+                elif os.path.isdir(abs_r):
+                    try:
+                        for entry in os.scandir(abs_r):
+                            if entry.is_dir(follow_symlinks=False) and os.path.isdir(os.path.join(entry.path, ".git")):
+                                repo_paths.append(entry.path)
+                    except Exception:
+                        pass
+        return shield_all_workspaces_secrets(repo_paths)
+
+
     def get_file_locks(self, path: str) -> dict[str, Any]:
         """Diagnose which processes are locking a file or directory using Restart Manager API."""
         from core.file_locker import find_locking_processes

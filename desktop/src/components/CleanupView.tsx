@@ -24,6 +24,7 @@ import {
   Cpu,
   Unlock,
   ShieldCheck,
+  ShieldAlert,
   FolderCheck,
 } from 'lucide-react';
 import {
@@ -41,6 +42,8 @@ import { FileLockModal } from './FileLockModal';
 import { PathAuditorCard } from './PathAuditorCard';
 import { DevDriveCard } from './DevDriveCard';
 import { CleanupSafetyModal } from './CleanupSafetyModal';
+import { StorageTreemap, TreemapItem } from './StorageTreemap';
+import { SecretsRadarModal } from './SecretsRadarModal';
 
 interface CleanupViewProps {
   overview: EnvironmentOverview;
@@ -49,7 +52,7 @@ interface CleanupViewProps {
   isLoading?: boolean;
 }
 
-type CleanupTab = 'system' | 'artifacts' | 'caches' | 'docker' | 'tuning';
+type CleanupTab = 'system' | 'artifacts' | 'caches' | 'docker' | 'tuning' | 'treemap';
 
 const formatBytes = (bytes: number) => {
   if (bytes <= 0) return '0 B';
@@ -87,7 +90,6 @@ const CleanupSkeletonList: React.FC<{
         <div className="h-full bg-gradient-to-r from-[var(--color-accent)]/40 via-[var(--color-accent)] to-[var(--color-accent)]/40 rounded-full animate-pulse w-3/4" />
       </div>
     </div>
-
     {/* Skeleton item cards */}
     <div className="grid grid-cols-1 gap-2.5">
       {Array.from({ length: count }).map((_, i) => (
@@ -163,6 +165,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [fileLockModalOpen, setFileLockModalOpen] = useState(false);
   const [lockedPathToDiagnose, setLockedPathToDiagnose] = useState('');
   const [safetyModalOpen, setSafetyModalOpen] = useState(false);
+  const [secretsModalOpen, setSecretsModalOpen] = useState(false);
 
   // Shared UI state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -312,6 +315,24 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
     }
   };
 
+  const handleAddDefenderExclusionsBatch = async (paths: string[]) => {
+    setTuningActionBusy('defender_batch');
+    try {
+      const res = await EntropyApiClient.addDefenderExclusionsBatch(paths);
+      if (res.success) {
+        setToastMessage(res.message || `Excluded ${paths.length} workspace(s) from Windows Defender.`);
+        await fetchTuningReport();
+      } else {
+        setToastMessage(res.error || `Failed to add Defender exclusions.`);
+      }
+    } catch (err) {
+      setToastMessage('Error adding Defender exclusions.');
+    } finally {
+      setTuningActionBusy(null);
+      setTimeout(() => setToastMessage(null), 5000);
+    }
+  };
+
   useEffect(() => {
     let ignore = false;
     setSystemLoading(true);
@@ -421,6 +442,80 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
     () => globalCaches.filter((c) => selectedCaches.has(c.path)).reduce((acc, c) => acc + (c.size_bytes || 0), 0),
     [globalCaches, selectedCaches]
   );
+
+  // Proportional Developer Treemap aggregated items
+  const treemapItems: TreemapItem[] = useMemo(() => {
+    const list: TreemapItem[] = [];
+
+    // 1. Virtual Disks (Docker/WSL2 VHDX)
+    for (const d of virtualDisks) {
+      if (d.size_bytes > 0) {
+        list.push({
+          id: d.path,
+          name: d.name,
+          path: d.path,
+          category: 'virtual_disk',
+          categoryLabel: 'Virtual Hard Disk (WSL/Docker)',
+          size_bytes: d.size_bytes,
+          size_formatted: d.size_formatted,
+          description: d.description,
+        });
+      }
+    }
+
+    // 2. Project Build Artifacts (node_modules, target, .venv, bin, obj, etc.)
+    for (const a of artifacts) {
+      if (a.size_bytes > 0) {
+        list.push({
+          id: a.path,
+          name: `${a.name} (${a.label})`,
+          path: a.path,
+          category: 'artifact',
+          categoryLabel: 'Build Artifact',
+          size_bytes: a.size_bytes,
+          size_formatted: formatBytes(a.size_bytes),
+          description: a.project_path,
+          is_safe: true,
+        });
+      }
+    }
+
+    // 3. Global Package Manager Caches (pip, npm, cargo, nuget, etc.)
+    for (const c of globalCaches) {
+      if (c.size_bytes > 0) {
+        list.push({
+          id: c.path,
+          name: c.label,
+          path: c.path,
+          category: 'cache',
+          categoryLabel: 'Global Package Cache',
+          size_bytes: c.size_bytes,
+          size_formatted: formatBytes(c.size_bytes),
+          description: c.description,
+        });
+      }
+    }
+
+    // 4. Windows & System Junk (Temp, Browser caches, Crash dumps, Recycle Bin)
+    for (const s of systemTargets) {
+      if (s.size_bytes > 0) {
+        list.push({
+          id: s.id,
+          name: s.name,
+          path: s.paths?.[0] || s.id,
+          category: 'system',
+          categoryLabel: 'Windows & System Junk',
+          size_bytes: s.size_bytes,
+          size_formatted: formatBytes(s.size_bytes),
+          description: s.description,
+          is_safe: s.risk === 'safe',
+        });
+      }
+    }
+
+    return list;
+  }, [virtualDisks, artifacts, globalCaches, systemTargets]);
+
 
   /* ───────────────────────── Handlers ───────────────────────── */
 
@@ -867,6 +962,16 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
             <button
               type="button"
+              onClick={() => setSecretsModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-xs text-[var(--color-text-secondary)] hover:text-amber-300 border border-[var(--color-border)] flex items-center gap-1.5 cursor-pointer transition-colors"
+              title="Scan and shield all exposed secrets across all local repositories"
+            >
+              <ShieldAlert size={13} className="text-amber-400" />
+              <span>Secrets Radar</span>
+            </button>
+
+            <button
+              type="button"
               onClick={async () => {
                 await onRefresh();
                 await fetchSystemTargets();
@@ -993,6 +1098,23 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                 {tuningReport.recommendations.length}
               </span>
             )}
+          </button>
+
+          {/* Tab 6: Proportional Storage Treemap */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('treemap')}
+            className={`pb-2.5 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+              activeTab === 'treemap'
+                ? 'border-indigo-400 text-indigo-300'
+                : 'border-transparent text-indigo-400/70 hover:text-indigo-300'
+            }`}
+          >
+            <Layers size={14} className={activeTab === 'treemap' ? 'text-indigo-400' : ''} />
+            <span>Storage Treemap</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300">
+              {treemapItems.length}
+            </span>
           </button>
         </div>
       </div>
@@ -1559,6 +1681,15 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--color-surface-3)] text-[var(--color-text-secondary)]">
                                 {disk.size_formatted}
                               </span>
+                              {disk.wsl_running !== undefined && (
+                                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                                  disk.wsl_running
+                                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                    : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                }`}>
+                                  {disk.wsl_running ? 'WSL Active' : 'WSL Stopped'}
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] font-mono text-[var(--color-text-tertiary)] truncate mt-1">
                               {disk.path}
@@ -1766,11 +1897,11 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                         {rec.id === 'defender_exclusions' && rec.payload?.paths && (
                           <button
                             type="button"
-                            onClick={() => rec.payload?.paths?.forEach((p: string) => handleAddDefenderExclusion(p))}
+                            onClick={() => handleAddDefenderExclusionsBatch(rec.payload?.paths || [])}
                             disabled={Boolean(tuningActionBusy)}
                             className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-success)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
                           >
-                            {tuningActionBusy ? <Loader2 size={13} className="animate-spin" /> : <Shield size={13} />}
+                            {tuningActionBusy === 'defender_batch' ? <Loader2 size={13} className="animate-spin" /> : <Shield size={13} />}
                             <span>{rec.action_label}</span>
                           </button>
                         )}
@@ -1788,6 +1919,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ═══ TAB 6: Proportional Storage Treemap ═══ */}
+        {activeTab === 'treemap' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <StorageTreemap items={treemapItems} />
           </div>
         )}
       </div>
@@ -2295,6 +2433,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       <CleanupSafetyModal
         isOpen={safetyModalOpen}
         onClose={() => setSafetyModalOpen(false)}
+      />
+
+      {/* ── Global Developer Secrets Radar Modal ── */}
+      <SecretsRadarModal
+        isOpen={secretsModalOpen}
+        onClose={() => setSecretsModalOpen(false)}
+        onRefreshed={onRefresh}
       />
     </div>
   );

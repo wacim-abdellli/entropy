@@ -175,26 +175,35 @@ def enable_developer_mode() -> Dict[str, Any]:
 
 def add_defender_exclusion(folder_path: str) -> Dict[str, Any]:
     """Add a directory path to Windows Defender antivirus exclusion list with elevation."""
-    abs_p = os.path.abspath(folder_path)
-    if not os.path.isdir(abs_p):
-        return {"success": False, "error": f"Path '{abs_p}' is not a valid directory."}
+    return add_defender_exclusions_batch([folder_path])
 
+
+def add_defender_exclusions_batch(folder_paths: List[str]) -> Dict[str, Any]:
+    """Add multiple directory paths to Windows Defender antivirus exclusions in a single elevated prompt."""
+    valid_paths = [os.path.abspath(p) for p in folder_paths if p and os.path.isdir(os.path.abspath(p))]
+    if not valid_paths:
+        return {"success": False, "error": "No valid directories provided to exclude."}
+
+    # Format PowerShell array literal: @('C:\path1', 'C:\path2')
+    escaped_paths = ", ".join(f"'{p}'" for p in valid_paths)
     cmd = (
         f'Start-Process powershell.exe -ArgumentList "-NoProfile -Command '
-        f'Add-MpPreference -ExclusionPath \'{abs_p}\'" -Verb RunAs -Wait -WindowStyle Hidden'
+        f'Add-MpPreference -ExclusionPath @({escaped_paths})" -Verb RunAs -Wait -WindowStyle Hidden'
     )
     try:
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         subprocess.run(
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", cmd],
             capture_output=True,
-            timeout=30,
+            timeout=45,
             creationflags=creationflags,
         )
         return {
             "success": True,
-            "path": abs_p,
-            "message": f"Successfully added '{abs_p}' to Windows Defender exclusions.",
+            "paths": valid_paths,
+            "count": len(valid_paths),
+            "message": f"Successfully excluded {len(valid_paths)} workspace(s) from Windows Defender real-time scanning.",
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+

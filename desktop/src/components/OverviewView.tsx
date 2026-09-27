@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { EnvironmentOverview, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
+import { SecretsRadarModal } from './SecretsRadarModal';
 
 interface OverviewViewProps {
   overview?: EnvironmentOverview | null;
@@ -81,6 +82,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const [filter, setFilter] = useState<WorkspaceFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
+  const [secretsRadarOpen, setSecretsRadarOpen] = useState(false);
 
   const [confirmCleanSlate, setConfirmCleanSlate] = useState(false);
   const [cleanSlateLoading, setCleanSlateLoading] = useState(false);
@@ -368,6 +370,18 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               >
                 <Zap className="w-3.5 h-3.5 shrink-0" />
                 <span className="whitespace-nowrap">Free {formatSize(totalDevRam)}</span>
+              </button>
+            )}
+
+            {secretsList.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSecretsRadarOpen(true)}
+                className="h-8 px-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-1.5 font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs"
+                title="Audit and shield exposed credentials & .env files across all repos"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="whitespace-nowrap">Shield Secrets ({secretsList.length})</span>
               </button>
             )}
 
@@ -851,6 +865,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
         </div>
       )}
+
+      <SecretsRadarModal
+        isOpen={secretsRadarOpen}
+        onClose={() => setSecretsRadarOpen(false)}
+        onRefreshed={onRefresh}
+      />
     </div>
   );
 };

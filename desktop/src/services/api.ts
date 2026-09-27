@@ -23,6 +23,11 @@ import {
   PathPruneResult,
   DevDriveStatusReport,
   DevDriveRelocateResult,
+  MemoryBoosterReport,
+  MemoryBoosterProcessResult,
+  GlobalSecretsRadarReport,
+  ShieldSecretsResult,
+  DefenderBatchResult,
 } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
@@ -82,6 +87,11 @@ interface PyWebViewApi {
   apply_long_paths?(): Promise<any>;
   apply_developer_mode?(): Promise<any>;
   add_defender_exclusion?(path: string): Promise<any>;
+  add_defender_exclusions_batch?(paths: string[]): Promise<DefenderBatchResult | string>;
+  trim_working_sets?(pids?: number[]): Promise<MemoryBoosterReport | string>;
+  trim_single_process?(pid: number): Promise<MemoryBoosterProcessResult | string>;
+  get_global_secrets_radar?(): Promise<GlobalSecretsRadarReport | string>;
+  shield_all_workspaces_secrets?(repo_paths?: string[]): Promise<ShieldSecretsResult | string>;
   get_file_locks?(path: string): Promise<FileLockDiagnostic | string>;
   unlock_file_path?(path: string, pids?: number[]): Promise<UnlockResult | string>;
   get_path_audit?(): Promise<PathAuditReport | string>;
@@ -1371,5 +1381,151 @@ export class EntropyApiClient {
     }
     return roots;
   }
+
+  /**
+   * Trim developer & browser processes working sets to free physical RAM instantly.
+   */
+  static async trimWorkingSets(pids?: number[]): Promise<MemoryBoosterReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.trim_working_sets) {
+          const res = await bridgeWindow()!.pywebview!.api!.trim_working_sets!(pids);
+          return parseBridgeResponse<MemoryBoosterReport>(res);
+        }
+      } catch (err: unknown) {
+        return {
+          success: false,
+          total_freed_bytes: 0,
+          total_freed_formatted: '0 B',
+          target_count: 0,
+          trimmed_count: 0,
+          results: [],
+          error: errorMessage(err),
+        };
+      }
+    }
+    console.log('[Dev Bridge] Trimming working sets for:', pids);
+    return {
+      success: true,
+      total_freed_bytes: 1024 * 1024 * 1250,
+      total_freed_formatted: '1.22 GB',
+      target_count: 14,
+      trimmed_count: 12,
+      results: [
+        { success: true, pid: 1420, name: 'code.exe', before_bytes: 1024 * 1024 * 480, after_bytes: 1024 * 1024 * 60, freed_bytes: 1024 * 1024 * 420, freed_formatted: '420 MB' },
+        { success: true, pid: 2890, name: 'chrome.exe', before_bytes: 1024 * 1024 * 650, after_bytes: 1024 * 1024 * 120, freed_bytes: 1024 * 1024 * 530, freed_formatted: '530 MB' },
+      ],
+      message: 'Successfully trimmed memory across 12 processes, reclaiming 1.22 GB of physical RAM.',
+    };
+  }
+
+  /**
+   * Trim working set for a single process by PID.
+   */
+  static async trimSingleProcess(pid: number): Promise<MemoryBoosterProcessResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.trim_single_process) {
+          const res = await bridgeWindow()!.pywebview!.api!.trim_single_process!(pid);
+          return parseBridgeResponse<MemoryBoosterProcessResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, pid, name: '', before_bytes: 0, after_bytes: 0, freed_bytes: 0, freed_formatted: '0 B', error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      pid,
+      name: 'node.exe',
+      before_bytes: 1024 * 1024 * 350,
+      after_bytes: 1024 * 1024 * 80,
+      freed_bytes: 1024 * 1024 * 270,
+      freed_formatted: '270 MB',
+    };
+  }
+
+  /**
+   * Batch exclude multiple directories in Windows Defender in a single prompt.
+   */
+  static async addDefenderExclusionsBatch(paths: string[]): Promise<DefenderBatchResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.add_defender_exclusions_batch) {
+          const res = await bridgeWindow()!.pywebview!.api!.add_defender_exclusions_batch!(paths);
+          return parseBridgeResponse<DefenderBatchResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      paths,
+      count: paths.length,
+      message: `Successfully excluded ${paths.length} workspace(s) from Windows Defender.`,
+    };
+  }
+
+  /**
+   * Audit all scanned repositories for secret files, private keys, and environment variables.
+   */
+  static async getGlobalSecretsRadar(): Promise<GlobalSecretsRadarReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_global_secrets_radar) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_global_secrets_radar!();
+          return parseBridgeResponse<GlobalSecretsRadarReport>(res);
+        }
+      } catch (err: unknown) {
+        console.warn('Failed to get global secrets radar:', err);
+      }
+    }
+    return {
+      total_repositories: 3,
+      vulnerable_repositories: 1,
+      tracked_count: 0,
+      unignored_count: 1,
+      protected_count: 2,
+      total_issues: 3,
+      items: [
+        { repo_path: 'C:\\dev\\project-a', repo_name: 'project-a', path: '.env', category: 'env', status: 'unignored', risk: 'warning' },
+        { repo_path: 'C:\\dev\\project-b', repo_name: 'project-b', path: '.env.local', category: 'env', status: 'protected', risk: 'safe' },
+      ],
+    };
+  }
+
+  /**
+   * Batch-shield all exposed or untracked secrets across all repositories.
+   */
+  static async shieldAllWorkspacesSecrets(repoPaths?: string[]): Promise<ShieldSecretsResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.shield_all_workspaces_secrets) {
+          const res = await bridgeWindow()!.pywebview!.api!.shield_all_workspaces_secrets!(repoPaths);
+          return parseBridgeResponse<ShieldSecretsResult>(res);
+        }
+      } catch (err: unknown) {
+        return {
+          success: false,
+          repos_shielded_count: 0,
+          total_shielded: 0,
+          total_untracked: 0,
+          total_ignored: 0,
+          results: [],
+          message: errorMessage(err),
+        };
+      }
+    }
+    return {
+      success: true,
+      repos_shielded_count: 1,
+      total_shielded: 1,
+      total_untracked: 0,
+      total_ignored: 1,
+      results: [],
+      message: 'Successfully shielded 1 secret file(s) across 1 repository.',
+    };
+  }
 }
+
 

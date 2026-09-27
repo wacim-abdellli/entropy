@@ -12,6 +12,8 @@ from core.git_control import (
     add_to_gitignore,
     untrack_git_secret,
     shield_all_secrets,
+    audit_global_secrets,
+    shield_all_workspaces_secrets,
     prune_merged_branches,
     safe_stash_workspace,
     list_stashes,
@@ -267,7 +269,35 @@ class TestGitControl(unittest.TestCase):
         stashes_after_drop = list_stashes(self.test_dir)
         self.assertEqual(len(stashes_after_drop), 0)
 
+    def test_audit_global_secrets(self):
+        # Create git repo with .env file
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        with open(os.path.join(self.test_dir, ".env"), "w") as f:
+            f.write("SECRET_KEY=123\n")
+
+        res = audit_global_secrets([self.test_dir])
+        self.assertEqual(res["total_repositories"], 1)
+        self.assertGreaterEqual(res["unignored_count"], 1)
+        self.assertEqual(len(res["items"]), 1)
+        self.assertEqual(res["items"][0]["path"], ".env")
+
+    def test_shield_all_workspaces_secrets(self):
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True, creationflags=creationflags)
+        with open(os.path.join(self.test_dir, ".env"), "w") as f:
+            f.write("SECRET_KEY=123\n")
+
+        res = shield_all_workspaces_secrets([self.test_dir])
+        self.assertTrue(res["success"])
+        self.assertGreaterEqual(res["total_shielded"], 1)
+
+        # Audit again - should now be 0 unignored
+        audit = audit_global_secrets([self.test_dir])
+        self.assertEqual(audit["unignored_count"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
