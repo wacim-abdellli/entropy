@@ -349,6 +349,16 @@ class EntropyDesktopApi:
         from core.tuner import add_defender_exclusion
         return add_defender_exclusion(path)
 
+    def get_file_locks(self, path: str) -> dict[str, Any]:
+        """Diagnose which processes are locking a file or directory using Restart Manager API."""
+        from core.file_locker import find_locking_processes
+        return find_locking_processes(path)
+
+    def unlock_file_path(self, path: str, pids: Optional[list[int]] = None) -> dict[str, Any]:
+        """Safely terminate locking processes holding a handle or CWD on a file or folder."""
+        from core.file_locker import unlock_path
+        return unlock_path(path, pids=pids)
+
     def get_purgeable_caches(self) -> list[dict[str, Any]]:
         """Get discovered global developer package caches (pip, npm, yarn, cargo, gradle, nuget)."""
         from core.cache_cleaner import get_known_cache_targets

@@ -22,6 +22,7 @@ import {
   Sliders,
   Zap,
   Cpu,
+  Unlock,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -34,6 +35,7 @@ import {
   PerformanceTuningReport,
 } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
+import { FileLockModal } from './FileLockModal';
 
 interface CleanupViewProps {
   overview: EnvironmentOverview;
@@ -151,6 +153,10 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [tuningReport, setTuningReport] = useState<PerformanceTuningReport | null>(null);
   const [tuningLoading, setTuningLoading] = useState(false);
   const [tuningActionBusy, setTuningActionBusy] = useState<string | null>(null);
+
+  // File Lock Unblocker state
+  const [fileLockModalOpen, setFileLockModalOpen] = useState(false);
+  const [lockedPathToDiagnose, setLockedPathToDiagnose] = useState('');
 
   // Shared UI state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -812,19 +818,36 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               )}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={async () => {
-              await onRefresh();
-              await fetchSystemTargets();
-              await fetchGlobalCaches();
-              await fetchDockerUsage();
-            }}
-            className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)] flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <RefreshCw size={13} className={dockerLoading || systemLoading ? 'animate-spin' : ''} />
-            <span>Refresh All</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setLockedPathToDiagnose('');
+                setFileLockModalOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)] flex items-center gap-1.5 cursor-pointer transition-colors"
+              title="Diagnose and unlock files locked by processes"
+            >
+              <Unlock size={13} className="text-[var(--color-accent)]" />
+              <span>Unlock Files</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await onRefresh();
+                await fetchSystemTargets();
+                await fetchGlobalCaches();
+                await fetchDockerUsage();
+                await fetchVirtualDisks();
+                await fetchTuningReport();
+              }}
+              className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)] flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <RefreshCw size={13} className={dockerLoading || systemLoading ? 'animate-spin' : ''} />
+              <span>Refresh All</span>
+            </button>
+          </div>
         </div>
 
         {/* Tab Switcher */}
@@ -2154,6 +2177,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
           </div>
         </div>
       )}
+
+      {/* ── File Lock Unblocker Modal ── */}
+      <FileLockModal
+        isOpen={fileLockModalOpen}
+        onClose={() => setFileLockModalOpen(false)}
+        initialPath={lockedPathToDiagnose}
+      />
     </div>
   );
 };

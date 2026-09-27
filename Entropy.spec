@@ -40,6 +40,7 @@ hiddenimports = [
     'core.docker_control',
     'core.vhdx_compact',
     'core.tuner',
+    'core.file_locker',
     'collectors',
     'collectors.git',
     'collectors.projects',

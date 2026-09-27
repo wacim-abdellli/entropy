@@ -478,6 +478,39 @@ export interface PerformanceTuningReport {
   recommendations: PerformanceTuningRecommendation[];
 }
 
+export interface LockingProcess {
+  pid: number;
+  name: string;
+  exe_path: string;
+  cmdline: string;
+  memory_bytes: number;
+  memory_formatted: string;
+  ports: number[];
+  source: string;
+  is_protected: boolean;
+  can_terminate: boolean;
+}
+
+export interface FileLockDiagnostic {
+  path: string;
+  name: string;
+  is_dir: boolean;
+  exists: boolean;
+  is_locked: boolean;
+  locking_processes: LockingProcess[];
+  message: string;
+}
+
+export interface UnlockResult {
+  success: boolean;
+  path: string;
+  is_now_unlocked: boolean;
+  terminated: { pid: number; name: string }[];
+  failed: { pid: number; name: string; error: string }[];
+  message: string;
+}
+
+
 
 
 

@@ -17,6 +17,8 @@ import {
   CleanupLiveProgress,
   VirtualDiskItem,
   PerformanceTuningReport,
+  FileLockDiagnostic,
+  UnlockResult,
 } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
@@ -74,6 +76,8 @@ interface PyWebViewApi {
   apply_long_paths?(): Promise<any>;
   apply_developer_mode?(): Promise<any>;
   add_defender_exclusion?(path: string): Promise<any>;
+  get_file_locks?(path: string): Promise<FileLockDiagnostic | string>;
+  unlock_file_path?(path: string, pids?: number[]): Promise<UnlockResult | string>;
   get_purgeable_caches?(): Promise<GlobalCacheItem[] | string>;
   purge_caches?(targets: string[]): Promise<CachePurgeResult | string>;
   get_system_cleanup_targets?(): Promise<SystemCleanupTarget[] | string>;
@@ -794,6 +798,62 @@ export class EntropyApiClient {
       }
     }
     return { success: true, message: `Simulated exclusion added for ${folderPath}.` };
+  }
+
+  /**
+   * Diagnose which processes are locking a file or directory using Restart Manager API.
+   */
+  static async getFileLocks(path: string): Promise<FileLockDiagnostic> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_file_locks) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_file_locks!(path);
+          return parseBridgeResponse<FileLockDiagnostic>(res);
+        }
+      } catch (err) {
+        console.warn('Failed to query file locks:', err);
+      }
+    }
+    return {
+      path,
+      name: path.split(/[\\/]/).pop() || path,
+      is_dir: true,
+      exists: true,
+      is_locked: false,
+      locking_processes: [],
+      message: 'No locking processes found (Simulated bridge).',
+    };
+  }
+
+  /**
+   * Safely terminate processes holding a handle or CWD on a file or folder.
+   */
+  static async unlockFilePath(path: string, pids?: number[]): Promise<UnlockResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.unlock_file_path) {
+          const res = await bridgeWindow()!.pywebview!.api!.unlock_file_path!(path, pids);
+          return parseBridgeResponse<UnlockResult>(res);
+        }
+      } catch (err: unknown) {
+        return {
+          success: false,
+          path,
+          is_now_unlocked: false,
+          terminated: [],
+          failed: [],
+          message: errorMessage(err),
+        };
+      }
+    }
+    return {
+      success: true,
+      path,
+      is_now_unlocked: true,
+      terminated: (pids || []).map((p) => ({ pid: p, name: 'process' })),
+      failed: [],
+      message: 'Simulated file unlock.',
+    };
   }
 
   /**
