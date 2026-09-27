@@ -50,13 +50,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [saveRootsNotice, setSaveRootsNotice] = useState(false);
 
   const [aiConfig, setAiConfig] = useState<AiConfig>({
-    provider: 'rules',
+    provider: 'cloud',
+    cloud_api_key: '',
+    cloud_model: 'qwen/qwen3.8-27b',
     groq_api_key: '',
-    groq_model: 'llama-3.3-70b-versatile',
+    groq_model: 'qwen/qwen3.8-27b',
     ollama_url: 'http://localhost:11434',
     ollama_model: 'llama3.2',
   });
-  const [showGroqKey, setShowGroqKey] = useState(false);
+  const [showKey, setShowKey] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
@@ -377,6 +379,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {/* Provider Selection Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            {/* Platform AI */}
+            <button
+              type="button"
+              onClick={() => handleUpdateAiConfig({ provider: 'cloud' })}
+              className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
+                aiConfig.provider === 'cloud' || aiConfig.provider === 'groq'
+                  ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-sm'
+                  : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="text-[var(--color-accent)]" />
+                  <span className="font-semibold text-sm text-[var(--color-text-primary)]">Platform AI</span>
+                </div>
+                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30">
+                  Built-in
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                Cloud intelligence with fast neural reasoning. Included out of the box with zero setup required.
+              </p>
+            </button>
+
             {/* Rules */}
             <button
               type="button"
@@ -393,35 +419,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span className="font-semibold text-sm text-[var(--color-text-primary)]">Offline Rules</span>
                 </div>
                 <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
-                  Default
+                  Offline
                 </span>
               </div>
               <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
                 100% offline, deterministic safety checks. Zero network traffic, zero API keys required.
-              </p>
-            </button>
-
-            {/* Groq Cloud */}
-            <button
-              type="button"
-              onClick={() => handleUpdateAiConfig({ provider: 'groq' })}
-              className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
-                aiConfig.provider === 'groq'
-                  ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-sm'
-                  : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={18} className="text-[var(--color-warning)]" />
-                  <span className="font-semibold text-sm text-[var(--color-text-primary)]">Groq Cloud</span>
-                </div>
-                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]">
-                  Free Tier
-                </span>
-              </div>
-              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-                Ultra-fast cloud inference with Llama 3.3 70B &amp; 8B. Requires a free Groq API key.
               </p>
             </button>
 
@@ -452,53 +454,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {/* Provider Specific Settings Box */}
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-5 space-y-4">
-            {aiConfig.provider === 'rules' && (
-              <div className="flex items-start gap-3">
-                <ShieldCheck size={20} className="text-[var(--color-success)] shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">Offline Rules Engine is Active</h4>
-                  <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
-                    Evaluates repository cleanliness, uncommitted changes, running dev processes, and project lockfiles instantly. Safe, zero latency, and always available without internet connection.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {aiConfig.provider === 'groq' && (
+            {(aiConfig.provider === 'cloud' || aiConfig.provider === 'groq') && (
               <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
-                      Groq API Key
-                    </label>
-                    <a
-                      href="https://console.groq.com/keys"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-[var(--color-accent)] hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Get Free API Key</span>
-                      <ExternalLink size={12} />
-                    </a>
+                <div className="flex items-center gap-2.5 p-3 rounded-lg bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-xs text-[var(--color-success)]">
+                  <CheckCircle2 size={16} className="shrink-0" />
+                  <div>
+                    <strong>Platform AI is Active:</strong> Built-in cloud intelligence is enabled and ready to use. No configuration needed.
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] mb-1.5">
+                    Custom API Key (Optional)
+                  </label>
                   <div className="relative">
                     <input
-                      type={showGroqKey ? 'text' : 'password'}
-                      value={aiConfig.groq_api_key}
-                      onChange={(e) => handleUpdateAiConfig({ groq_api_key: e.target.value })}
-                      placeholder="gsk_..."
+                      type={showKey ? 'text' : 'password'}
+                      value={aiConfig.cloud_api_key || aiConfig.groq_api_key || ''}
+                      onChange={(e) => handleUpdateAiConfig({ cloud_api_key: e.target.value, groq_api_key: e.target.value })}
+                      placeholder="Using built-in Platform AI key (enter custom key only to override)"
                       className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs font-mono text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)] pr-10"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowGroqKey(!showGroqKey)}
+                      onClick={() => setShowKey(!showKey)}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] cursor-pointer"
                     >
-                      {showGroqKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                      {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
                   <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1.5">
-                    Your key is stored locally in <code className="text-xs font-mono text-[var(--color-text-secondary)]">~/.entropy/config.json</code> and never shared.
+                    Leave blank to use the built-in Platform AI key included with Entropy.
                   </p>
                 </div>
 
@@ -507,13 +493,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     Model
                   </label>
                   <select
-                    value={aiConfig.groq_model}
-                    onChange={(e) => handleUpdateAiConfig({ groq_model: e.target.value })}
+                    value={aiConfig.cloud_model || aiConfig.groq_model || 'qwen/qwen3.8-27b'}
+                    onChange={(e) => handleUpdateAiConfig({ cloud_model: e.target.value, groq_model: e.target.value })}
                     className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)] cursor-pointer"
                   >
-                    <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (Recommended, deepest reasoning)</option>
-                    <option value="llama-3.1-8b-instant">llama-3.1-8b-instant (Ultra-fast, lowest latency)</option>
+                    <option value="qwen/qwen3.8-27b">Platform Fast Intelligence (27B - Recommended)</option>
+                    <option value="openai/gpt-oss-120b">Platform Deep Reasoner (120B)</option>
+                    <option value="openai/gpt-oss-20b">Platform Lightweight (20B)</option>
                   </select>
+                </div>
+              </div>
+            )}
+
+            {aiConfig.provider === 'rules' && (
+              <div className="flex items-start gap-3">
+                <ShieldCheck size={20} className="text-[var(--color-success)] shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">Offline Rules Engine is Active</h4>
+                  <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                    Evaluates repository cleanliness, uncommitted changes, running dev processes, and project lockfiles instantly. Safe, zero latency, and always available without internet connection.
+                  </p>
                 </div>
               </div>
             )}

@@ -40,9 +40,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "scan_roots": None,  # Will be populated with get_default_scan_roots() on first run
     "max_depth": 3,
     "ai": {
-        "provider": "rules",  # 'rules' | 'groq' | 'ollama'
+        "provider": "cloud",  # 'cloud' | 'rules' | 'ollama'
+        "cloud_api_key": "",
+        "cloud_model": "qwen/qwen3.8-27b",
         "groq_api_key": "",
-        "groq_model": "llama-3.3-70b-versatile",
+        "groq_model": "qwen/qwen3.8-27b",
         "ollama_url": "http://localhost:11434",
         "ollama_model": "llama3.2",
     },

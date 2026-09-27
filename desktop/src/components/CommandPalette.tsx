@@ -222,7 +222,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     items.push({
       id: 'cmd-ai-advisor',
       title: 'AI Advisor Configuration',
-      subtitle: 'Configure Groq Cloud, local Ollama, or deterministic rules engine',
+      subtitle: 'Configure Entropy Platform AI, local Ollama, or offline rules engine',
       category: 'Action',
       icon: <Bot className="w-4 h-4 text-[var(--color-accent)]" />,
       actionHint: 'Settings',
@@ -402,7 +402,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       {
         id: 'nav-settings',
         title: 'Go to Settings & AI Advisor',
-        subtitle: 'Configure scan roots, LLM providers (Groq/Ollama), and preferences',
+        subtitle: 'Configure scan roots, AI Advisor providers, and preferences',
         category: 'Navigation',
         icon: <Settings className="w-4 h-4 text-[var(--color-text-secondary)]" />,
         actionHint: 'Navigate',

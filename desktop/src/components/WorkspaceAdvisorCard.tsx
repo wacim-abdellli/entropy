@@ -16,6 +16,10 @@ import {
   Lock,
   GitBranch,
   HardDrive,
+  Sparkles,
+  Send,
+  Copy,
+  Bot,
 } from 'lucide-react';
 import { WorkspaceHealth, HealthTip } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
@@ -33,11 +37,13 @@ interface WorkspaceAdvisorCardProps {
 
 export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
   workspacePath,
+  workspaceName,
   gitBranch,
   hasUncommittedChanges,
   ports,
   artifacts,
   onActionCompleted,
+  onNavigateToSettings,
 }) => {
   const [health, setHealth] = useState<WorkspaceHealth | null>(null);
   const [loading, setLoading] = useState(false);
@@ -48,10 +54,44 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
   const [actionNotice, setActionNotice] = useState<{ id: string; success: boolean; text: string } | null>(null);
   const [prevPath, setPrevPath] = useState(workspacePath);
 
+  // Platform AI query state
+  const [userQuery, setUserQuery] = useState('');
+  const [aiThinking, setAiThinking] = useState(false);
+  const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+  const [copiedAnswer, setCopiedAnswer] = useState(false);
+
   if (workspacePath !== prevPath) {
     setPrevPath(workspacePath);
     setLoading(true);
+    setAiAnswer(null);
+    setUserQuery('');
   }
+
+  const handleAskAi = async (queryText?: string) => {
+    const q = (queryText || userQuery).trim();
+    if (!q) return;
+    if (queryText) setUserQuery(queryText);
+    setAiThinking(true);
+    setAiAnswer(null);
+    try {
+      const res = await EntropyApiClient.askAiAdvisor(q, {
+        workspace_name: workspaceName,
+        git_branch: gitBranch,
+        has_uncommitted_changes: hasUncommittedChanges,
+        ports: ports,
+        artifacts: artifacts,
+      });
+      if (res && res.answer) {
+        setAiAnswer(res.answer);
+      } else {
+        setAiAnswer(res?.error || 'No answer received from Platform AI.');
+      }
+    } catch (err: unknown) {
+      setAiAnswer(err instanceof Error ? err.message : 'Failed to consult Platform AI.');
+    } finally {
+      setAiThinking(false);
+    }
+  };
 
   const fetchHealth = useCallback(async () => {
     setLoading(true);
@@ -426,6 +466,105 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
               </div>
             </div>
           )}
+
+          {/* Interactive Platform AI Advisor */}
+          <div className="pt-3 border-t border-[var(--color-border-subtle)] space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Sparkles size={14} className="text-[var(--color-accent)]" />
+                <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+                  Ask Platform AI
+                </span>
+                <span className="text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/20">
+                  Built-in
+                </span>
+              </div>
+              {onNavigateToSettings && (
+                <button
+                  type="button"
+                  onClick={onNavigateToSettings}
+                  className="text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] transition-colors cursor-pointer"
+                >
+                  AI Settings
+                </button>
+              )}
+            </div>
+
+            {/* Quick Chips */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                'Is it safe to delete node_modules?',
+                'What active servers or ports are running?',
+                'How do I safely stash uncommitted work?',
+              ].map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  disabled={aiThinking}
+                  onClick={() => handleAskAi(suggestion)}
+                  className="text-[11px] px-2.5 py-1 rounded-md bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+
+            {/* Query Form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAskAi();
+              }}
+              className="flex items-center gap-2"
+            >
+              <input
+                type="text"
+                value={userQuery}
+                onChange={(e) => setUserQuery(e.target.value)}
+                placeholder="Ask Platform AI anything about this workspace..."
+                className="flex-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)]"
+              />
+              <button
+                type="submit"
+                disabled={aiThinking || !userQuery.trim()}
+                className="px-3 py-1.5 rounded-lg bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40"
+              >
+                {aiThinking ? (
+                  <RefreshCw size={13} className="animate-spin" />
+                ) : (
+                  <Send size={13} />
+                )}
+                <span>Ask</span>
+              </button>
+            </form>
+
+            {/* AI Answer Box */}
+            {aiAnswer && (
+              <div className="p-3.5 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] text-xs space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[var(--color-accent)] font-medium">
+                    <Sparkles size={13} />
+                    <span>Entropy Platform AI</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(aiAnswer);
+                      setCopiedAnswer(true);
+                      setTimeout(() => setCopiedAnswer(false), 2000);
+                    }}
+                    className="flex items-center gap-1 text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                  >
+                    {copiedAnswer ? <Check size={12} className="text-[var(--color-success)]" /> : <Copy size={12} />}
+                    <span>{copiedAnswer ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <div className="text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed font-sans">
+                  {aiAnswer}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

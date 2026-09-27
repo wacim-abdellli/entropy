@@ -372,9 +372,11 @@ export interface WorkspaceHealth {
 }
 
 export interface AiConfig {
-  provider: 'rules' | 'groq' | 'ollama';
-  groq_api_key: string;
-  groq_model: string;
+  provider: 'cloud' | 'rules' | 'ollama' | 'groq';
+  cloud_api_key?: string;
+  cloud_model?: string;
+  groq_api_key?: string;
+  groq_model?: string;
   ollama_url: string;
   ollama_model: string;
 }

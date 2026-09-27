@@ -157,6 +157,11 @@ class TestAdvisorEngine(unittest.TestCase):
         self.assertIn("stale_lockfile", tip_ids)
 
     def test_ai_provider_rules_fallback(self):
+        # Platform AI cloud connection test (built-in key)
+        cloud_res = test_ai_connection("cloud")
+        self.assertTrue(cloud_res["success"])
+        self.assertEqual(cloud_res["provider"], "cloud")
+
         # Offline rules connection test
         res = test_ai_connection("rules")
         self.assertTrue(res["success"])
@@ -166,13 +171,21 @@ class TestAdvisorEngine(unittest.TestCase):
         res = test_ai_connection("unknown_engine")
         self.assertFalse(res["success"])
 
-        # Q&A returns high-density advice
+        # Offline rules Q&A returns high-density advice
+        from core.ai_provider import _generate_rule_based_advice
+        rule_advice = _generate_rule_based_advice(
+            "Can I delete node_modules in this project?",
+            context={"workspace_name": "backend", "has_uncommitted_changes": False},
+        )
+        self.assertIn("backend", rule_advice)
+        self.assertIn("node_modules", rule_advice.lower())
+
+        # Platform AI Q&A returns valid response
         ans = ask_ai_advisor(
             "Can I delete node_modules in this project?",
             context={"workspace_name": "backend", "has_uncommitted_changes": False},
         )
         self.assertTrue(ans["success"])
-        self.assertIn("backend", ans["answer"])
         self.assertIn("node_modules", ans["answer"].lower())
 
 

@@ -1254,9 +1254,11 @@ export class EntropyApiClient {
       }
     }
     return {
-      provider: 'rules',
+      provider: 'cloud',
+      cloud_api_key: '',
+      cloud_model: 'qwen/qwen3.8-27b',
       groq_api_key: '',
-      groq_model: 'llama-3.3-70b-versatile',
+      groq_model: 'qwen/qwen3.8-27b',
       ollama_url: 'http://localhost:11434',
       ollama_model: 'llama3.2',
     };
@@ -1279,9 +1281,11 @@ export class EntropyApiClient {
     return {
       success: true,
       config: {
-        provider: updates.provider || 'rules',
-        groq_api_key: updates.groq_api_key || '',
-        groq_model: updates.groq_model || 'llama-3.3-70b-versatile',
+        provider: updates.provider || 'cloud',
+        cloud_api_key: updates.cloud_api_key || updates.groq_api_key || '',
+        cloud_model: updates.cloud_model || updates.groq_model || 'qwen/qwen3.8-27b',
+        groq_api_key: updates.groq_api_key || updates.cloud_api_key || '',
+        groq_model: updates.groq_model || updates.cloud_model || 'qwen/qwen3.8-27b',
         ollama_url: updates.ollama_url || 'http://localhost:11434',
         ollama_model: updates.ollama_model || 'llama3.2',
       },
