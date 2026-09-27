@@ -224,6 +224,25 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     }
   };
 
+  const handleQuickPush = async (e: React.MouseEvent, workspacePath: string) => {
+    e.stopPropagation();
+    setGitLoadingPath(workspacePath);
+    try {
+      const res = await EntropyApiClient.pushBranch(workspacePath);
+      if (res.success) {
+        setGitNotice(res.message || 'Pushed current branch to remote.');
+      } else {
+        setGitNotice(res.error || 'Failed to push to remote.');
+      }
+      onRefresh();
+    } catch {
+      setGitNotice('Failed to push to remote.');
+    } finally {
+      setGitLoadingPath(null);
+      setTimeout(() => setGitNotice(null), 5000);
+    }
+  };
+
   const handleExecuteCleanSlate = async () => {
     setCleanSlateLoading(true);
     try {
@@ -735,6 +754,19 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       title="Safely stash working tree"
                     >
                       {gitLoadingPath === workspace.path ? '…' : 'Stash'}
+                    </button>
+                  )}
+
+                  {(workspace.commits_ahead || 0) > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleQuickPush(e, workspace.path)}
+                      disabled={gitLoadingPath === workspace.path}
+                      className="px-2 py-1 rounded-md text-[11px] font-medium text-[var(--color-warning)] hover:bg-[var(--color-warning-bg)] transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1 font-mono"
+                      title="Safely push commits to remote tracking branch"
+                    >
+                      <ArrowUp className="w-3 h-3" />
+                      <span>{gitLoadingPath === workspace.path ? '…' : 'Push'}</span>
                     </button>
                   )}
 
