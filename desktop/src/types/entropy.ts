@@ -449,6 +449,36 @@ export interface CleanupLiveProgress {
   } | null;
 }
 
+export interface VirtualDiskItem {
+  id: string;
+  path: string;
+  name: string;
+  category: 'docker' | 'wsl' | string;
+  size_bytes: number;
+  size_formatted: string;
+  description: string;
+}
+
+export interface PerformanceTuningRecommendation {
+  id: string;
+  title: string;
+  impact: 'High' | 'Very High' | 'Medium';
+  category: 'stability' | 'performance';
+  description: string;
+  action_label: string;
+  action_id: string;
+  payload?: Record<string, any>;
+}
+
+export interface PerformanceTuningReport {
+  dev_mode_enabled: boolean;
+  long_paths_enabled: boolean;
+  defender_exclusions_count: number;
+  defender_exclusions: string[];
+  recommendations: PerformanceTuningRecommendation[];
+}
+
+
 
 
 

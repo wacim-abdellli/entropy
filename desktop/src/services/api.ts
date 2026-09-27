@@ -15,6 +15,8 @@ import {
   WorkspaceHealth,
   WorkspaceInspection,
   CleanupLiveProgress,
+  VirtualDiskItem,
+  PerformanceTuningReport,
 } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
@@ -66,6 +68,12 @@ interface PyWebViewApi {
   prune_merged_branches?(workspace_path: string, branches?: string[]): Promise<ActionResult & { pruned?: string[]; failed?: { branch: string; error: string }[] } | string>;
   get_docker_system_df?(): Promise<DockerDiskUsage | string>;
   prune_docker_resources?(target: string): Promise<DockerPruneResult | string>;
+  get_virtual_disks?(): Promise<VirtualDiskItem[] | string>;
+  compact_virtual_disk?(vhdx_path: string): Promise<any>;
+  get_performance_tuning?(): Promise<PerformanceTuningReport | string>;
+  apply_long_paths?(): Promise<any>;
+  apply_developer_mode?(): Promise<any>;
+  add_defender_exclusion?(path: string): Promise<any>;
   get_purgeable_caches?(): Promise<GlobalCacheItem[] | string>;
   purge_caches?(targets: string[]): Promise<CachePurgeResult | string>;
   get_system_cleanup_targets?(): Promise<SystemCleanupTarget[] | string>;
@@ -668,6 +676,124 @@ export class EntropyApiClient {
     }
     console.log('[Dev Bridge] Pruning Docker target:', target);
     return { success: true, target, message: `Pruned Docker ${target}.` };
+  }
+
+  /**
+   * Get discovered WSL 2 and Docker Desktop ext4.vhdx virtual hard disks.
+   */
+  static async getVirtualDisks(): Promise<VirtualDiskItem[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_virtual_disks) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_virtual_disks!();
+          return parseBridgeResponse<VirtualDiskItem[]>(res) || [];
+        }
+      } catch (err) {
+        console.warn('Failed to get virtual disks:', err);
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Safely compact a WSL 2 or Docker Desktop ext4.vhdx virtual hard disk.
+   */
+  static async compactVirtualDisk(vhdxPath: string): Promise<{ success: boolean; freed_bytes?: number; freed_formatted?: string; message?: string; error?: string }> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.compact_virtual_disk) {
+          const res = await bridgeWindow()!.pywebview!.api!.compact_virtual_disk!(vhdxPath);
+          return parseBridgeResponse<any>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: 'Simulated virtual disk compaction.' };
+  }
+
+  /**
+   * Get machine-wide developer performance and configuration tuning diagnosis.
+   */
+  static async getPerformanceTuning(): Promise<PerformanceTuningReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_performance_tuning) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_performance_tuning!();
+          return parseBridgeResponse<PerformanceTuningReport>(res);
+        }
+      } catch (err) {
+        console.warn('Failed to get performance tuning:', err);
+      }
+    }
+    return {
+      dev_mode_enabled: true,
+      long_paths_enabled: false,
+      defender_exclusions_count: 0,
+      defender_exclusions: [],
+      recommendations: [
+        {
+          id: 'enable_long_paths',
+          title: 'Enable Win32 Long Paths (MAX_PATH Removal)',
+          impact: 'High',
+          category: 'stability',
+          description: 'Windows restricts file paths to 260 characters by default. Deep node_modules and virtualenvs can error out without LongPathsEnabled.',
+          action_label: 'Enable Long Paths',
+          action_id: 'apply_long_paths',
+        }
+      ],
+    };
+  }
+
+  /**
+   * Enable Win32 Long Paths (MAX_PATH removal) via elevated registry update.
+   */
+  static async applyLongPaths(): Promise<{ success: boolean; message?: string; error?: string }> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.apply_long_paths) {
+          const res = await bridgeWindow()!.pywebview!.api!.apply_long_paths!();
+          return parseBridgeResponse<any>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: 'Simulated Long Paths enabled.' };
+  }
+
+  /**
+   * Enable Windows Developer Mode via elevated registry update.
+   */
+  static async applyDeveloperMode(): Promise<{ success: boolean; message?: string; error?: string }> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.apply_developer_mode) {
+          const res = await bridgeWindow()!.pywebview!.api!.apply_developer_mode!();
+          return parseBridgeResponse<any>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: 'Simulated Developer Mode enabled.' };
+  }
+
+  /**
+   * Add a workspace directory to Windows Defender exclusions.
+   */
+  static async addDefenderExclusion(folderPath: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.add_defender_exclusion) {
+          const res = await bridgeWindow()!.pywebview!.api!.add_defender_exclusion!(folderPath);
+          return parseBridgeResponse<any>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: `Simulated exclusion added for ${folderPath}.` };
   }
 
   /**

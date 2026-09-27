@@ -318,6 +318,37 @@ class EntropyDesktopApi:
         from core.docker_control import prune_docker_resources
         return prune_docker_resources(target=target)
 
+    def get_virtual_disks(self) -> list[dict[str, Any]]:
+        """Inspect WSL 2 and Docker Desktop ext4.vhdx virtual hard disks."""
+        from core.vhdx_compact import find_virtual_disks
+        return find_virtual_disks()
+
+    def compact_virtual_disk(self, vhdx_path: str) -> dict[str, Any]:
+        """Compact a WSL 2 or Docker Desktop ext4.vhdx virtual hard disk."""
+        from core.vhdx_compact import compact_virtual_disk
+        return compact_virtual_disk(vhdx_path)
+
+    def get_performance_tuning(self) -> dict[str, Any]:
+        """Inspect Developer Mode, Long Paths, and Defender exclusions."""
+        from core.tuner import get_performance_tuning_report
+        roots = get_scan_roots()
+        return get_performance_tuning_report(roots)
+
+    def apply_long_paths(self) -> dict[str, Any]:
+        """Enable Win32 Long Paths (MAX_PATH removal) via elevated registry update."""
+        from core.tuner import enable_long_paths
+        return enable_long_paths()
+
+    def apply_developer_mode(self) -> dict[str, Any]:
+        """Enable Windows Developer Mode via elevated registry update."""
+        from core.tuner import enable_developer_mode
+        return enable_developer_mode()
+
+    def add_defender_exclusion(self, path: str) -> dict[str, Any]:
+        """Add a workspace directory to Windows Defender exclusions."""
+        from core.tuner import add_defender_exclusion
+        return add_defender_exclusion(path)
+
     def get_purgeable_caches(self) -> list[dict[str, Any]]:
         """Get discovered global developer package caches (pip, npm, yarn, cargo, gradle, nuget)."""
         from core.cache_cleaner import get_known_cache_targets

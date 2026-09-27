@@ -69,8 +69,33 @@ def collect_caches() -> List[CacheDirectory]:
         (local_appdata / "yarn" / "Cache", "yarn", "Yarn cache"),
         (local_appdata / "pnpm" / "store", "pnpm", "pnpm store"),
         (roaming_appdata / "Composer" / "cache", "composer", "Composer cache"),
+        (local_appdata / "go-build", "go", "Go build and test cache"),
         (home / "go" / "pkg" / "mod", "go", "Go module cache"),
+        (local_appdata / "pypoetry" / "Cache", "python", "Poetry package cache"),
+        (home / ".cache" / "pipenv", "python", "Pipenv cache"),
+        (home / ".conda" / "pkgs", "conda", "Conda package cache"),
+        (home / "miniconda3" / "pkgs", "conda", "Miniconda package cache"),
+        (home / "anaconda3" / "pkgs", "conda", "Anaconda package cache"),
+        (local_appdata / "Mozilla" / "sccache", "rust", "Rust sccache compiler cache"),
+        (local_appdata / "bun" / "install" / "cache", "bun", "Bun install cache"),
+        (home / ".bun" / "install" / "cache", "bun", "Bun user cache"),
+        (local_appdata / "deno", "deno", "Deno module cache"),
+        (home / ".deno", "deno", "Deno user cache"),
+        (local_appdata / "Android" / "Sdk" / ".temp", "android", "Android SDK temp cache"),
+        (local_appdata / "JetBrains" / "Toolbox" / "download", "jetbrains", "JetBrains Toolbox downloads"),
     ]
+
+    # Dynamically detect JetBrains IDE indexing caches (IntelliJ, PyCharm, WebStorm, Rider, CLion, GoLand)
+    jb_dir = local_appdata / "JetBrains"
+    if jb_dir.is_dir():
+        try:
+            for entry in jb_dir.iterdir():
+                if entry.is_dir():
+                    jb_caches = entry / "caches"
+                    if jb_caches.is_dir():
+                        candidate_locations.append((jb_caches, "jetbrains", f"{entry.name} IDE caches"))
+        except OSError:
+            pass
 
     from concurrent.futures import ThreadPoolExecutor
 

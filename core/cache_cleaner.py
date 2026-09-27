@@ -87,7 +87,35 @@ def get_known_cache_targets() -> List[Dict[str, Any]]:
         ("cargo_git", "Cargo Git Checkouts", str(home / ".cargo" / "git" / "checkouts"), "Cargo cloned git repository checkouts"),
         ("gradle", "Gradle Build Cache", str(home / ".gradle" / "caches"), "Gradle downloaded dependencies and build artifacts"),
         ("nuget", "NuGet Packages Cache", str(home / ".nuget" / "packages"), "NuGet downloaded packages cache"),
+        ("go_build", "Go Build Cache", str(local_appdata / "go-build"), "Go compiler package and test cache"),
+        ("go_mod", "Go Module Cache", str(home / "go" / "pkg" / "mod"), "Go downloaded module archives and source cache"),
+        ("poetry", "Poetry Package Cache", str(local_appdata / "pypoetry" / "Cache"), "Python Poetry package wheel & virtualenv cache"),
+        ("pipenv", "Pipenv Cache", str(home / ".cache" / "pipenv"), "Pipenv virtualenv and lock cache"),
+        ("conda_user", "Conda User Packages", str(home / ".conda" / "pkgs"), "Conda downloaded package tarballs and metadata"),
+        ("conda_mini", "Miniconda Package Cache", str(home / "miniconda3" / "pkgs"), "Miniconda cached tarballs"),
+        ("conda_ana", "Anaconda Package Cache", str(home / "anaconda3" / "pkgs"), "Anaconda cached tarballs"),
+        ("rust_sccache", "Rust sccache Shared Cache", str(local_appdata / "Mozilla" / "sccache"), "Shared compilation cache for C/C++/Rust"),
+        ("bun", "Bun Install Cache", str(local_appdata / "bun" / "install" / "cache"), "Bun package manager downloaded archives"),
+        ("bun_home", "Bun User Cache", str(home / ".bun" / "install" / "cache"), "Bun user package cache"),
+        ("deno", "Deno Module Cache", str(local_appdata / "deno"), "Deno downloaded TypeScript/JavaScript dependencies"),
+        ("deno_home", "Deno User Cache", str(home / ".deno"), "Deno user cache"),
+        ("maven", "Maven Repository Cache", str(home / ".m2" / "repository"), "Maven downloaded JAR artifacts and dependencies"),
+        ("composer", "Composer Cache", str(roaming_appdata / "Composer" / "cache"), "PHP Composer package archive cache"),
+        ("android_temp", "Android SDK Temp Cache", str(local_appdata / "Android" / "Sdk" / ".temp"), "Android Studio temporary SDK downloads"),
+        ("jetbrains_toolbox", "JetBrains Toolbox Downloads", str(local_appdata / "JetBrains" / "Toolbox" / "download"), "JetBrains Toolbox IDE installation and update downloads"),
     ]
+
+    # Dynamically detect JetBrains IDE indexing caches (IntelliJ, PyCharm, WebStorm, Rider, CLion, GoLand)
+    jb_dir = local_appdata / "JetBrains"
+    if jb_dir.is_dir():
+        try:
+            for entry in jb_dir.iterdir():
+                if entry.is_dir():
+                    jb_caches = entry / "caches"
+                    if jb_caches.is_dir():
+                        candidates.append((f"jetbrains_{entry.name.lower()}", f"{entry.name} Caches", str(jb_caches), f"{entry.name} IDE indexing and symbol caches"))
+        except OSError:
+            pass
 
     to_measure = []
     seen_paths = set()

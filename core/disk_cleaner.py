@@ -36,6 +36,12 @@ ALLOWED_DISPOSABLE_NAMES = {
     ".next",
     ".nuxt",
     ".gradle",
+    ".vs",
+    ".turbo",
+    ".parcel-cache",
+    "cmake-build-debug",
+    "cmake-build-release",
+    "coverage",
 }
 
 

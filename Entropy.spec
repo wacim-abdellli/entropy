@@ -38,6 +38,8 @@ hiddenimports = [
     'core.ai_provider',
     'core.disk_cleaner',
     'core.docker_control',
+    'core.vhdx_compact',
+    'core.tuner',
     'collectors',
     'collectors.git',
     'collectors.projects',

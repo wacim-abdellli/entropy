@@ -19,6 +19,9 @@ import {
   Info,
   Terminal,
   FileText,
+  Sliders,
+  Zap,
+  Cpu,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -27,6 +30,8 @@ import {
   GlobalCacheItem,
   SystemCleanupTarget,
   CleanupLiveProgress,
+  VirtualDiskItem,
+  PerformanceTuningReport,
 } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
@@ -37,7 +42,7 @@ interface CleanupViewProps {
   isLoading?: boolean;
 }
 
-type CleanupTab = 'system' | 'artifacts' | 'caches' | 'docker';
+type CleanupTab = 'system' | 'artifacts' | 'caches' | 'docker' | 'tuning';
 
 const formatBytes = (bytes: number) => {
   if (bytes <= 0) return '0 B';
@@ -137,6 +142,16 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [dockerPruningTarget, setDockerPruningTarget] = useState<string | null>(null);
   const [confirmDockerPrune, setConfirmDockerPrune] = useState<{ target: 'builder' | 'dangling_images' | 'system'; label: string } | null>(null);
 
+  // VHDX Virtual Disks state
+  const [virtualDisks, setVirtualDisks] = useState<VirtualDiskItem[]>([]);
+  const [compactingVhdx, setCompactingVhdx] = useState<string | null>(null);
+  const [confirmCompactVhdx, setConfirmCompactVhdx] = useState<VirtualDiskItem | null>(null);
+
+  // Performance Tuning state
+  const [tuningReport, setTuningReport] = useState<PerformanceTuningReport | null>(null);
+  const [tuningLoading, setTuningLoading] = useState(false);
+  const [tuningActionBusy, setTuningActionBusy] = useState<string | null>(null);
+
   // Shared UI state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
@@ -191,6 +206,100 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
     }
   };
 
+  const fetchVirtualDisks = async () => {
+    try {
+      const disks = await EntropyApiClient.getVirtualDisks();
+      setVirtualDisks(disks || []);
+    } catch (err) {
+      console.warn('Failed to query virtual disks:', err);
+    }
+  };
+
+  const fetchTuningReport = async () => {
+    setTuningLoading(true);
+    try {
+      const rep = await EntropyApiClient.getPerformanceTuning();
+      setTuningReport(rep);
+    } catch (err) {
+      console.warn('Failed to query tuning report:', err);
+    } finally {
+      setTuningLoading(false);
+    }
+  };
+
+  const handleCompactVhdx = async (vhdx: VirtualDiskItem) => {
+    setCompactingVhdx(vhdx.path);
+    setConfirmCompactVhdx(null);
+    try {
+      const res = await EntropyApiClient.compactVirtualDisk(vhdx.path);
+      if (res.success) {
+        setToastMessage(res.message || `Compacted ${vhdx.name}.`);
+        await fetchVirtualDisks();
+      } else {
+        setToastMessage(res.error || `Failed to compact ${vhdx.name}.`);
+      }
+    } catch (err) {
+      setToastMessage(`Error compacting ${vhdx.name}.`);
+    } finally {
+      setCompactingVhdx(null);
+      setTimeout(() => setToastMessage(null), 5000);
+    }
+  };
+
+  const handleApplyLongPaths = async () => {
+    setTuningActionBusy('long_paths');
+    try {
+      const res = await EntropyApiClient.applyLongPaths();
+      if (res.success) {
+        setToastMessage(res.message || 'Long Paths enabled.');
+        await fetchTuningReport();
+      } else {
+        setToastMessage(res.error || 'Failed to enable Long Paths.');
+      }
+    } catch (err) {
+      setToastMessage('Error enabling Long Paths.');
+    } finally {
+      setTuningActionBusy(null);
+      setTimeout(() => setToastMessage(null), 5000);
+    }
+  };
+
+  const handleApplyDeveloperMode = async () => {
+    setTuningActionBusy('dev_mode');
+    try {
+      const res = await EntropyApiClient.applyDeveloperMode();
+      if (res.success) {
+        setToastMessage(res.message || 'Developer Mode enabled.');
+        await fetchTuningReport();
+      } else {
+        setToastMessage(res.error || 'Failed to enable Developer Mode.');
+      }
+    } catch (err) {
+      setToastMessage('Error enabling Developer Mode.');
+    } finally {
+      setTuningActionBusy(null);
+      setTimeout(() => setToastMessage(null), 5000);
+    }
+  };
+
+  const handleAddDefenderExclusion = async (path: string) => {
+    setTuningActionBusy(`def_${path}`);
+    try {
+      const res = await EntropyApiClient.addDefenderExclusion(path);
+      if (res.success) {
+        setToastMessage(res.message || `Added to Defender exclusions.`);
+        await fetchTuningReport();
+      } else {
+        setToastMessage(res.error || `Failed to add Defender exclusion.`);
+      }
+    } catch (err) {
+      setToastMessage('Error adding Defender exclusion.');
+    } finally {
+      setTuningActionBusy(null);
+      setTimeout(() => setToastMessage(null), 5000);
+    }
+  };
+
   useEffect(() => {
     let ignore = false;
     setSystemLoading(true);
@@ -242,6 +351,26 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         if (!ignore) {
           setDockerLoading(false);
         }
+      });
+
+    EntropyApiClient.getVirtualDisks()
+      .then((disks) => {
+        if (!ignore && disks) {
+          setVirtualDisks(disks);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load virtual disks:', err);
+      });
+
+    EntropyApiClient.getPerformanceTuning()
+      .then((rep) => {
+        if (!ignore && rep) {
+          setTuningReport(rep);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load performance tuning:', err);
       });
 
     return () => {
@@ -790,6 +919,25 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               </span>
             ) : null}
           </button>
+
+          {/* Tab 5: System Tuning & Speed */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('tuning')}
+            className={`pb-2.5 px-3 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+              activeTab === 'tuning'
+                ? 'border-[var(--color-accent)] text-[var(--color-accent-strong)]'
+                : 'border-transparent text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <Sliders size={14} className={activeTab === 'tuning' ? 'text-[var(--color-accent)]' : ''} />
+            <span>System Tuning</span>
+            {tuningReport && tuningReport.recommendations.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-warning)]/20 text-[var(--color-warning)]">
+                {tuningReport.recommendations.length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -1255,7 +1403,261 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                     </button>
                   </div>
                 </div>
+
+                {/* ── WSL 2 & Docker VHDX Virtual Disks ── */}
+                <div className="pt-6 border-t border-[var(--color-border-subtle)] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider flex items-center gap-2">
+                        <HardDrive size={13} className="text-[var(--color-accent)]" />
+                        <span>WSL 2 &amp; Docker Virtual Hard Disks (VHDX)</span>
+                      </h3>
+                      <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+                        Virtual disk files expand dynamically as images are pulled, but never shrink on their own when deleted.
+                      </p>
+                    </div>
+                  </div>
+
+                  {virtualDisks.length === 0 ? (
+                    <div className="p-5 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-2)]/40 text-xs text-[var(--color-text-tertiary)] flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-[var(--color-success)] shrink-0" />
+                      <span>No uncompacted WSL 2 or Docker VHDX files detected on this drive.</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {virtualDisks.map((disk) => (
+                        <div
+                          key={disk.path}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-1)] gap-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-[var(--color-text-primary)]">{disk.name}</span>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--color-surface-3)] text-[var(--color-text-secondary)]">
+                                {disk.size_formatted}
+                              </span>
+                            </div>
+                            <div className="text-[11px] font-mono text-[var(--color-text-tertiary)] truncate mt-1">
+                              {disk.path}
+                            </div>
+                            <div className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+                              {disk.description}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setConfirmCompactVhdx(disk)}
+                            disabled={compactingVhdx === disk.path}
+                            className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50 shrink-0 self-start sm:self-auto"
+                          >
+                            {compactingVhdx === disk.path ? (
+                              <>
+                                <Loader2 size={13} className="animate-spin" />
+                                <span>Compacting…</span>
+                              </>
+                            ) : (
+                              <>
+                                <HardDrive size={13} />
+                                <span>Compact VHDX</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </>
+            )}
+          </div>
+        )}
+
+        {/* ═══ TAB 5: System Tuning & Speed ═══ */}
+        {activeTab === 'tuning' && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
+                  <Sliders size={16} className="text-[var(--color-accent)]" />
+                  <span>Windows Developer Machine Configuration &amp; Tuning</span>
+                </h2>
+                <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+                  Optimize your operating system for maximum build throughput, unrestricted symlinks, and zero file-locking overhead.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={fetchTuningReport}
+                disabled={tuningLoading}
+                className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer transition-colors flex items-center gap-1.5"
+              >
+                <RefreshCw size={13} className={tuningLoading ? 'animate-spin text-[var(--color-accent)]' : ''} />
+                <span>Re-check Configuration</span>
+              </button>
+            </div>
+
+            {/* Quick Status Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-1)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[var(--color-text-tertiary)] font-medium">Developer Mode</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    tuningReport?.dev_mode_enabled
+                      ? 'bg-[var(--color-success)]/15 text-[var(--color-success)] border border-[var(--color-success)]/30'
+                      : 'bg-[var(--color-warning)]/15 text-[var(--color-warning)] border border-[var(--color-warning)]/30'
+                  }`}>
+                    {tuningReport?.dev_mode_enabled ? 'Active' : 'Disabled'}
+                  </span>
+                </div>
+                <div className="text-sm font-semibold text-[var(--color-text-primary)] mt-2">
+                  Unprivileged Symlinks
+                </div>
+                <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1">
+                  Enables native NTFS symlinks for pnpm &amp; cargo.
+                </p>
+                {!tuningReport?.dev_mode_enabled && (
+                  <button
+                    type="button"
+                    onClick={handleApplyDeveloperMode}
+                    disabled={tuningActionBusy === 'dev_mode'}
+                    className="mt-3 w-full py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {tuningActionBusy === 'dev_mode' ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                    <span>Enable Dev Mode</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-1)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[var(--color-text-tertiary)] font-medium">Win32 Long Paths</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    tuningReport?.long_paths_enabled
+                      ? 'bg-[var(--color-success)]/15 text-[var(--color-success)] border border-[var(--color-success)]/30'
+                      : 'bg-[var(--color-danger)]/15 text-[var(--color-danger)] border border-[var(--color-danger)]/30'
+                  }`}>
+                    {tuningReport?.long_paths_enabled ? 'Enabled' : '260-Char Limit'}
+                  </span>
+                </div>
+                <div className="text-sm font-semibold text-[var(--color-text-primary)] mt-2">
+                  MAX_PATH 260 Limit
+                </div>
+                <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1">
+                  Prevents path-too-long errors in deep node_modules.
+                </p>
+                {!tuningReport?.long_paths_enabled && (
+                  <button
+                    type="button"
+                    onClick={handleApplyLongPaths}
+                    disabled={tuningActionBusy === 'long_paths'}
+                    className="mt-3 w-full py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {tuningActionBusy === 'long_paths' ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                    <span>Enable Long Paths</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-1)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[var(--color-text-tertiary)] font-medium">Defender Exclusions</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-surface-3)] text-[var(--color-text-secondary)]">
+                    {tuningReport?.defender_exclusions_count || 0} active
+                  </span>
+                </div>
+                <div className="text-sm font-semibold text-[var(--color-text-primary)] mt-2">
+                  Antivirus Build Bypass
+                </div>
+                <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1">
+                  Prevents real-time scanning from stalling builds.
+                </p>
+              </div>
+            </div>
+
+            {/* Tuning Recommendations List */}
+            {tuningReport && tuningReport.recommendations.length > 0 ? (
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">
+                  Recommended Adjustments
+                </h3>
+                <div className="grid grid-cols-1 gap-3">
+                  {tuningReport.recommendations.map((rec) => (
+                    <div
+                      key={rec.id}
+                      className="p-5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-1)] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                            rec.impact === 'Very High'
+                              ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30'
+                              : 'bg-[var(--color-warning)]/15 text-[var(--color-warning)] border border-[var(--color-warning)]/30'
+                          }`}>
+                            {rec.impact} Impact
+                          </span>
+                          <span className="text-xs font-semibold text-[var(--color-text-primary)]">{rec.title}</span>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-secondary)] mt-1.5 leading-relaxed">
+                          {rec.description}
+                        </p>
+                        {rec.payload?.paths && (
+                          <div className="mt-2.5 p-2 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] text-[11px] font-mono text-[var(--color-text-tertiary)] space-y-1">
+                            {rec.payload.paths.map((p: string) => (
+                              <div key={p} className="truncate">• {p}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="shrink-0 self-start sm:self-center">
+                        {rec.id === 'enable_long_paths' && (
+                          <button
+                            type="button"
+                            onClick={handleApplyLongPaths}
+                            disabled={tuningActionBusy === 'long_paths'}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                          >
+                            {tuningActionBusy === 'long_paths' ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                            <span>{rec.action_label}</span>
+                          </button>
+                        )}
+                        {rec.id === 'enable_dev_mode' && (
+                          <button
+                            type="button"
+                            onClick={handleApplyDeveloperMode}
+                            disabled={tuningActionBusy === 'dev_mode'}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                          >
+                            {tuningActionBusy === 'dev_mode' ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                            <span>{rec.action_label}</span>
+                          </button>
+                        )}
+                        {rec.id === 'defender_exclusions' && rec.payload?.paths && (
+                          <button
+                            type="button"
+                            onClick={() => rec.payload?.paths?.forEach((p: string) => handleAddDefenderExclusion(p))}
+                            disabled={Boolean(tuningActionBusy)}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-success)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                          >
+                            {tuningActionBusy ? <Loader2 size={13} className="animate-spin" /> : <Shield size={13} />}
+                            <span>{rec.action_label}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-12 text-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-1)]">
+                <CheckCircle2 size={36} className="mx-auto text-[var(--color-success)] mb-2" />
+                <h3 className="text-sm font-semibold">Your Developer Environment is Fully Tuned!</h3>
+                <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                  Long Paths are enabled, Developer Mode is active, and all workspace paths are optimized.
+                </p>
+              </div>
             )}
           </div>
         )}
@@ -1696,6 +2098,58 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                   Cleaning in progress…
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm VHDX Compaction Modal ── */}
+      {confirmCompactVhdx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-md p-6 rounded-2xl bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/30 flex items-center justify-center text-[var(--color-accent)] shrink-0">
+                <HardDrive size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  Compact Virtual Disk ({confirmCompactVhdx.name})
+                </h3>
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Current size on host: {confirmCompactVhdx.size_formatted}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[var(--color-surface-2)]/60 border border-[var(--color-border-subtle)] space-y-2 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+              <div className="flex items-start gap-2">
+                <Info size={14} className="text-[var(--color-accent)] shrink-0 mt-0.5" />
+                <span>
+                  This operation runs <strong>wsl --shutdown</strong> and executes native Windows disk compaction (diskpart) to truncate unused sectors from the VHDX.
+                </span>
+              </div>
+              <div className="text-[11px] text-[var(--color-text-tertiary)] pl-5">
+                Windows will display a standard UAC confirmation prompt to allow diskpart to compact the virtual hard disk.
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmCompactVhdx(null)}
+                className="px-4 py-2 rounded-xl text-xs font-medium border border-[var(--color-border)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleCompactVhdx(confirmCompactVhdx)}
+                className="px-5 py-2 rounded-xl text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white flex items-center gap-2 cursor-pointer transition-all shadow-md"
+              >
+                <HardDrive size={14} />
+                <span>Start Compaction</span>
+              </button>
             </div>
           </div>
         </div>
