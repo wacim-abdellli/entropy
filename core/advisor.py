@@ -295,7 +295,12 @@ def evaluate_workspace_health(
 
     # 5. Active Listening Ports
     ports = []
+    _ignored_port_procs = ("antigravity", "language_server", "cursor", "windsurf", "vscodium", "entropy", "code")
     for p in processes:
+        p_name = (p.get("name") or "").lower()
+        p_exe = (p.get("exe_path") or "").lower()
+        if any(term in p_name or term in p_exe for term in _ignored_port_procs):
+            continue
         if p.get("ports"):
             ports.extend(p["ports"])
     ports = sorted(list(set(ports)))

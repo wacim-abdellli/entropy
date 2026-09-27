@@ -29,6 +29,7 @@ from core.entities import (
 from core.findings import Finding
 from core.graph import EnvironmentGraph, RelationshipType
 from linkers.relationships import _is_subpath
+from core.process_control import is_process_protected
 from report.text import _format_size, _format_time_ago
 
 
@@ -566,6 +567,8 @@ def serialize_environment_overview(
         for r in proc_rels:
             proc_entity = graph.get_entity(r.source_id)
             if isinstance(proc_entity, Process) and proc_entity.ports:
+                if is_process_protected(proc_entity.pid, proc_entity.name, proc_entity.exe_path):
+                    continue
                 ws_ports.extend(proc_entity.ports)
         ws_ports = sorted(list(set(ws_ports)))
 

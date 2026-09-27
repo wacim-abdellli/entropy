@@ -18,7 +18,8 @@ const systemNames = new Set([
   'svchost.exe', 'system', 'system idle process', 'registry', 'smss.exe', 'csrss.exe',
   'wininit.exe', 'services.exe', 'lsass.exe', 'fontdrvhost.exe', 'dwm.exe', 'memory compression', 'sihost.exe',
   'explorer.exe', 'taskmgr.exe',
-  'antigravity.exe', 'antigravity',
+  'antigravity.exe', 'antigravity', 'antigravity ide.exe', 'antigravity ide',
+  'language_server.exe', 'language_server', 'language_server_windows_x64.exe', 'language_server_windows_x64',
   'code.exe', 'code',
   'cursor.exe', 'cursor',
   'windsurf.exe', 'windsurf',
@@ -36,9 +37,12 @@ function bytes(value: number | null | undefined): string {
 
 function isDeveloperProcess(process: ProcessConnection): boolean {
   const name = (process.name || '').toLowerCase();
+  const exe = (process.exe_path || '').toLowerCase();
   if (systemNames.has(name) || systemNames.has(name.replace('.exe', ''))) return false;
+  if (name.includes('antigravity') || name.includes('language_server') || exe.includes('antigravity') || exe.includes('cursor') || exe.includes('microsoft vs code') || exe.includes('windsurf')) return false;
+  if (developerNames.some((term) => name.includes(term))) return true;
   if (process.ports?.length || process.cwd || process.is_shell) return true;
-  return developerNames.some((term) => name.includes(term));
+  return false;
 }
 
 export const SystemView: React.FC<SystemViewProps> = ({

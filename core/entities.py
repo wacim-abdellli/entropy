@@ -121,6 +121,8 @@ class GitRepository(Entity):
     oldest_dirty_timestamp: Optional[float] = None  # Oldest mtime among uncommitted files
     unprotected_env_files: list[str] = field(default_factory=list)  # .env files not ignored by git
     secret_issues: list[dict[str, Any]] = field(default_factory=list)  # Detected secret/credential issues and protection status
+    commits_ahead: int = 0                       # Unpushed local commits (ahead of remote tracking branch)
+    commits_behind: int = 0                      # Unpulled remote commits (behind remote tracking branch)
     merged_branches: list[str] = field(default_factory=list)  # Local branches already merged into HEAD
 
 
@@ -169,6 +171,8 @@ class DependencyEnvironment(Entity):
     dep_type: str = ""               # "node_modules", "venv", "vendor", "target", etc.
     size_bytes: Optional[int] = None
     lockfile_mtime: Optional[float] = None
+    dep_folder_mtime: Optional[float] = None     # Most recent mtime of the dependency folder itself
+    is_stale: bool = False                       # True if lockfile is newer than installed deps
 
 
 # ---------------------------------------------------------------------------

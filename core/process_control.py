@@ -40,6 +40,12 @@ PROTECTED_PROCESS_NAMES = {
     # IDEs, AI coding environments, text editors and browsers (never kill user's workspace UI or AI agent)
     "antigravity.exe",
     "antigravity",
+    "antigravity ide.exe",
+    "antigravity ide",
+    "language_server.exe",
+    "language_server",
+    "language_server_windows_x64.exe",
+    "language_server_windows_x64",
     "code.exe",
     "code",
     "cursor.exe",
@@ -109,27 +115,55 @@ DEV_PROCESS_NAMES = {
     "tsc.exe",
 }
 
+_PROTECTED_KEYWORDS = (
+    "antigravity",
+    "language_server",
+    "cursor",
+    "microsoft vs code",
+    "windsurf",
+    "vscodium",
+    "entropy",
+)
 
-def is_process_protected(pid: int, name: Optional[str] = None) -> bool:
-    """Return True if the specified process PID or executable name is protected."""
+
+def is_process_protected(pid: int, name: Optional[str] = None, exe_path: Optional[str] = None) -> bool:
+    """Return True if the specified process PID, executable name, or exe path is protected."""
     # Never terminate PID 0 or PID 4 (System)
     if pid in (0, 4):
         return True
 
     # Never terminate self (current Entropy process)
-    if pid == os.getpid():
+    if pid != 0 and pid == os.getpid():
         return True
 
-    if name and name.lower() in PROTECTED_PROCESS_NAMES:
-        return True
-
-    try:
-        proc = psutil.Process(pid)
-        proc_name = proc.name().lower()
-        if proc_name in PROTECTED_PROCESS_NAMES:
+    if name:
+        n_lower = name.lower().strip()
+        if n_lower in PROTECTED_PROCESS_NAMES or n_lower.replace(".exe", "") in PROTECTED_PROCESS_NAMES:
             return True
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
-        pass
+        if any(term in n_lower for term in _PROTECTED_KEYWORDS):
+            return True
+
+    if exe_path:
+        e_lower = exe_path.lower().strip()
+        if any(term in e_lower for term in _PROTECTED_KEYWORDS):
+            return True
+
+    if pid > 0:
+        try:
+            proc = psutil.Process(pid)
+            proc_name = proc.name().lower()
+            if proc_name in PROTECTED_PROCESS_NAMES or proc_name.replace(".exe", "") in PROTECTED_PROCESS_NAMES:
+                return True
+            if any(term in proc_name for term in _PROTECTED_KEYWORDS):
+                return True
+            try:
+                proc_exe = (proc.exe() or "").lower()
+                if any(term in proc_exe for term in _PROTECTED_KEYWORDS):
+                    return True
+            except (psutil.AccessDenied, OSError):
+                pass
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+            pass
 
     return False
 

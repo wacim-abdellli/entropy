@@ -184,6 +184,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const git = connections.git;
   const PROTECTED_PROCESS_SET = useMemo(() => new Set([
     'antigravity.exe', 'antigravity',
+    'antigravity ide.exe', 'antigravity ide',
+    'language_server.exe', 'language_server',
+    'language_server_windows_x64.exe', 'language_server_windows_x64',
     'code.exe', 'code',
     'cursor.exe', 'cursor',
     'windsurf.exe', 'windsurf',
@@ -197,7 +200,21 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const processes: ProcessConnection[] = useMemo(() => {
     return rawProcesses.filter((proc: ProcessConnection) => {
       const name = (proc.name || '').toLowerCase();
-      return !PROTECTED_PROCESS_SET.has(name) && !PROTECTED_PROCESS_SET.has(name.replace('.exe', ''));
+      const exe = (proc.exe_path || '').toLowerCase();
+      if (PROTECTED_PROCESS_SET.has(name) || PROTECTED_PROCESS_SET.has(name.replace('.exe', ''))) {
+        return false;
+      }
+      if (
+        name.includes('antigravity') ||
+        name.includes('language_server') ||
+        exe.includes('antigravity') ||
+        exe.includes('cursor') ||
+        exe.includes('microsoft vs code') ||
+        exe.includes('windsurf')
+      ) {
+        return false;
+      }
+      return true;
     });
   }, [rawProcesses, PROTECTED_PROCESS_SET]);
 

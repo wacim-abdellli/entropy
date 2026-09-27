@@ -293,10 +293,14 @@ def run_entropy_inspect(target_dir: str) -> tuple[Optional[Project], Environment
 
     # Processes running from or within this project
     try:
+        from core.process_control import is_process_protected
+
         all_procs = collect_processes()
         norm_proj = os.path.normcase(target_project.path)
         matching_procs = []
         for pr in all_procs:
+            if is_process_protected(pr.pid, pr.name, pr.exe_path):
+                continue
             if pr.cwd and os.path.normcase(pr.cwd).startswith(norm_proj):
                 matching_procs.append(pr)
             elif pr.exe_path and os.path.normcase(pr.exe_path).startswith(norm_proj):

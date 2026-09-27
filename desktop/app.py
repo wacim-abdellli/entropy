@@ -350,6 +350,7 @@ class EntropyDesktopApi:
         from collectors.git import collect_git_repository
         from collectors.artifacts import collect_project_artifacts
         from collectors.processes import collect_processes
+        from core.process_control import is_process_protected
 
         abs_path = os.path.abspath(workspace_path)
         name = os.path.basename(abs_path)
@@ -361,6 +362,8 @@ class EntropyDesktopApi:
         ws_procs = []
         proj_norm = os.path.normcase(abs_path)
         for p in all_procs:
+            if is_process_protected(p.pid, p.name, p.exe_path):
+                continue
             if p.cwd:
                 c_norm = os.path.normcase(os.path.abspath(p.cwd))
                 if c_norm == proj_norm or c_norm.startswith(proj_norm + os.sep):
