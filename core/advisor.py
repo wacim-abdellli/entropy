@@ -93,8 +93,25 @@ def _detect_rebuild_command(project_path: str, artifact_name: str) -> Optional[s
             return "gradlew build"
         return "gradle build"
 
+    if norm_name in ("vendor", "vendor/bundle", ".bundle"):
+        if os.path.exists(os.path.join(project_path, "Gemfile")) or os.path.exists(os.path.join(project_path, "Gemfile.lock")):
+            return "bundle install"
+        if os.path.exists(os.path.join(project_path, "composer.json")):
+            return "composer install"
+        if os.path.exists(os.path.join(project_path, "go.mod")):
+            return "go mod vendor"
+        return "bundle install"
+
     if norm_name in ("__pycache__", ".pytest_cache"):
         return "Automatically regenerated on next test/execution"
+
+    # Default fallback checks
+    if os.path.exists(os.path.join(project_path, "Gemfile")):
+        return "bundle install"
+    if os.path.exists(os.path.join(project_path, "package.json")):
+        return "npm install"
+    if os.path.exists(os.path.join(project_path, "requirements.txt")):
+        return "pip install -r requirements.txt"
 
     return None
 
@@ -289,15 +306,18 @@ def evaluate_workspace_health(
     if stale_deps:
         score -= 10
         dep_names = ", ".join(d.get("dep_type", "dependencies") for d in stale_deps[:2])
+        first_dep_type = stale_deps[0].get("dep_type", "")
+        rebuild_cmd = _detect_rebuild_command(workspace_path, first_dep_type) or "install"
+        action_label = f"Run {rebuild_cmd}" if len(rebuild_cmd) <= 18 else "Rebuild Dependencies"
         tips.append(
             HealthTip(
                 id="stale_lockfile",
                 title=f"Dependencies Out of Sync ({dep_names})",
-                description="Lockfile was updated more recently than installed packages. Run package manager install/build to synchronize.",
+                description=f"Lockfile was updated more recently than installed packages. Run '{rebuild_cmd}' to synchronize.",
                 severity="warning",
-                action_label="Rebuild Dependencies",
+                action_label=action_label,
                 action_type="rebuild_deps",
-                action_payload={"workspace_path": workspace_path},
+                action_payload={"workspace_path": workspace_path, "command": rebuild_cmd},
             )
         )
 

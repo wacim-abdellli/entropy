@@ -313,6 +313,32 @@ class EntropyDesktopApi:
         from core.git_control import push_current_branch
         return push_current_branch(workspace_path)
 
+    def rebuild_dependencies(self, workspace_path: str, command: Optional[str] = None) -> dict[str, Any]:
+        """Launch interactive terminal to rebuild/sync dependencies in the workspace."""
+        abs_path = os.path.abspath(workspace_path)
+        if not os.path.exists(abs_path):
+            return {"success": False, "error": f"Path not found: {workspace_path}"}
+
+        if not command:
+            from core.advisor import _detect_rebuild_command
+            command = _detect_rebuild_command(abs_path, "vendor") or _detect_rebuild_command(abs_path, "node_modules") or "npm install"
+
+        try:
+            safe_title = f"Entropy Rebuild — {os.path.basename(abs_path)}"
+            batch_cmd = f'title {safe_title} && cd /d "{abs_path}" && echo [Entropy] Executing: {command} && echo. && {command}'
+            subprocess.Popen(
+                ["cmd.exe", "/c", "start", safe_title, "cmd.exe", "/k", batch_cmd],
+                shell=True,
+                cwd=abs_path,
+            )
+            return {
+                "success": True,
+                "command": command,
+                "message": f"Started '{command}' in terminal.",
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to launch command: {e}"}
+
     def get_docker_system_df(self) -> dict[str, Any]:
         """Inspect Docker disk space usage breakdown (images, containers, build cache)."""
         from core.docker_control import get_docker_disk_usage

@@ -73,6 +73,7 @@ interface PyWebViewApi {
   shield_all_secrets?(workspace_path: string): Promise<ActionResult & { untracked_count?: number; ignored_count?: number; total_shielded?: number } | string>;
   prune_merged_branches?(workspace_path: string, branches?: string[]): Promise<ActionResult & { pruned?: string[]; failed?: { branch: string; error: string }[] } | string>;
   push_branch?(workspace_path: string): Promise<ActionResult | string>;
+  rebuild_dependencies?(workspace_path: string, command?: string): Promise<ActionResult | string>;
   get_docker_system_df?(): Promise<DockerDiskUsage | string>;
   prune_docker_resources?(target: string): Promise<DockerPruneResult | string>;
   get_virtual_disks?(): Promise<VirtualDiskItem[] | string>;
@@ -666,6 +667,24 @@ export class EntropyApiClient {
     }
     console.log('[Dev Bridge] Pushing branch for:', workspacePath);
     return { success: true, message: 'Safely pushed current branch to remote.' };
+  }
+
+  /**
+   * Launch terminal window to rebuild/sync dependencies in the workspace.
+   */
+  static async rebuildDependencies(workspacePath: string, command?: string): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.rebuild_dependencies) {
+          const res = await bridgeWindow()!.pywebview!.api!.rebuild_dependencies!(workspacePath, command);
+          return parseBridgeResponse<ActionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    console.log('[Dev Bridge] Rebuilding dependencies for:', workspacePath, 'cmd:', command);
+    return { success: true, message: `Started '${command || 'install'}' in terminal.` };
   }
 
   /**

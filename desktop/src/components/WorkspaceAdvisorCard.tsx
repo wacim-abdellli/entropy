@@ -120,6 +120,11 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
         if (port) {
           res = await EntropyApiClient.freePort(port, true);
         }
+      } else if (tip.action_type === 'rebuild_deps') {
+        const cmd = tip.action_payload?.command;
+        res = await EntropyApiClient.rebuildDependencies(workspacePath, cmd);
+      } else if (tip.action_type === 'push_branch') {
+        res = await EntropyApiClient.pushBranch(workspacePath);
       }
 
       setActionNotice({

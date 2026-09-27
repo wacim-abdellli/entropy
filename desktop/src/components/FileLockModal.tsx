@@ -260,18 +260,28 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                 <span
                   className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
                     diagnostic.is_locked
-                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      ? terminableCount > 0
+                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                        : 'bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] border border-[var(--color-border)]'
                       : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                   }`}
                 >
                   {diagnostic.is_locked ? (
-                    <>
-                      <Lock size={12} />
-                      <span>
-                        Locked ({diagnostic.locking_processes.length}{' '}
-                        {diagnostic.locking_processes.length === 1 ? 'Process' : 'Processes'})
-                      </span>
-                    </>
+                    terminableCount > 0 ? (
+                      <>
+                        <Lock size={12} />
+                        <span>
+                          {terminableCount} Locking {terminableCount === 1 ? 'Process' : 'Processes'}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Shield size={12} className="text-amber-400" />
+                        <span>
+                          {diagnostic.locking_processes.length} Shielded {diagnostic.locking_processes.length === 1 ? 'Process' : 'Processes'}
+                        </span>
+                      </>
+                    )
                   ) : (
                     <>
                       <CheckCircle2 size={12} />
