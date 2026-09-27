@@ -799,9 +799,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
   const handleOpenInExplorer = async (path: string) => {
     try {
+      setToastMessage('Opening in File Explorer...');
       const res = await EntropyApiClient.openInExplorer(path);
-      if (res && !res.success) {
-        setToastMessage(res.error || 'Failed to reveal in Windows Explorer.');
+      if (res && res.success) {
+        setToastMessage(res.message || 'Opened in File Explorer.');
+        setTimeout(() => setToastMessage(null), 3000);
+      } else {
+        setToastMessage(res?.error || 'Failed to reveal in Windows Explorer.');
         setTimeout(() => setToastMessage(null), 4000);
       }
     } catch {
@@ -1121,15 +1125,15 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                           )}
                         </div>
 
-                        {target.paths[0] && (
+                        {(target.paths?.[0] || target.id === 'recycle_bin') && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleOpenInExplorer(target.paths[0]);
+                              handleOpenInExplorer(target.paths?.[0] || 'Recycle Bin');
                             }}
                             className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-lg transition-colors cursor-pointer"
-                            title={target.paths[0] === 'Recycle Bin' ? 'Open Windows Recycle Bin to review deleted files' : 'Reveal in Windows Explorer'}
+                            title={target.id === 'recycle_bin' || target.paths?.[0] === 'Recycle Bin' ? 'Open Windows Recycle Bin to review deleted files' : 'Reveal in Windows Explorer'}
                           >
                             <ExternalLink size={14} />
                           </button>

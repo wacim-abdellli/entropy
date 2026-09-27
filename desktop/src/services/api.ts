@@ -290,6 +290,24 @@ export class EntropyApiClient {
    * Open path in native Windows Explorer.
    */
   static async openInExplorer(path: string): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        const api = bridgeWindow()?.pywebview?.api;
+        if (api && typeof (api as any).launch_ide === 'function') {
+          const res = await (api as any).launch_ide(path, 'explorer');
+          const parsed = parseBridgeResponse<ActionResult>(res);
+          if (parsed && typeof parsed.success === 'boolean') {
+            return parsed;
+          }
+        }
+        if (api && typeof api.open_in_explorer === 'function') {
+          const ok = await api.open_in_explorer(path);
+          return { success: Boolean(ok), message: ok ? 'Opened in File Explorer.' : 'Failed to open File Explorer.' };
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
     return EntropyApiClient.launchIde(path, 'explorer');
   }
 

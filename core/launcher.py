@@ -195,41 +195,39 @@ def _launch_interactive_console(shell_type: str, target_path: str) -> str:
         target_lower = (target_path or "").lower().strip()
         if "recycle bin" in target_lower or target_lower in ("recyclebin", "shell:recyclebinfolder"):
             if os.name == "nt":
-                if hasattr(os, "startfile"):
-                    try:
-                        os.startfile("shell:RecycleBinFolder")
+                import ctypes
+                try:
+                    res = ctypes.windll.shell32.ShellExecuteW(0, "open", "explorer.exe", "shell:RecycleBinFolder", None, 1)
+                    if res > 32:
                         return "Opened Windows Recycle Bin."
-                    except Exception as e:
-                        logger.warning("os.startfile failed for Recycle Bin: %s", e)
-                subprocess.Popen(["explorer.exe", "shell:RecycleBinFolder"])
+                except Exception as e:
+                    logger.debug("ShellExecuteW failed for Recycle Bin: %s", e)
+                subprocess.Popen(["explorer.exe", "shell:RecycleBinFolder"], close_fds=True)
                 return "Opened Windows Recycle Bin."
+            else:
+                subprocess.Popen(["xdg-open", "trash://"])
+                return "Opened Trash."
 
         if os.name == "nt":
+            import ctypes
             if os.path.isfile(abs_path):
-                subprocess.Popen(["explorer.exe", f"/select,{abs_path}"])
-                return "Opened File Explorer."
+                arg = f'/select,"{abs_path}"'
             elif os.path.isdir(abs_path):
-                if hasattr(os, "startfile"):
-                    try:
-                        os.startfile(abs_path)
-                        return "Opened File Explorer."
-                    except Exception as e:
-                        logger.warning("os.startfile failed for directory: %s", e)
-                subprocess.Popen(["explorer.exe", abs_path])
-                return "Opened File Explorer."
+                arg = f'"{abs_path}"'
             else:
                 parent = os.path.dirname(abs_path)
-                if os.path.exists(parent):
-                    if hasattr(os, "startfile"):
-                        try:
-                            os.startfile(parent)
-                            return "Opened File Explorer."
-                        except Exception as e:
-                            logger.warning("os.startfile failed for parent directory: %s", e)
-                    subprocess.Popen(["explorer.exe", parent])
+                target = parent if os.path.exists(parent) else abs_path
+                arg = f'"{target}"'
+
+            try:
+                res = ctypes.windll.shell32.ShellExecuteW(0, "open", "explorer.exe", arg, None, 1)
+                if res > 32:
                     return "Opened File Explorer."
-                subprocess.Popen(["explorer.exe", abs_path])
-                return "Opened File Explorer."
+            except Exception as e:
+                logger.debug("ShellExecuteW failed for explorer: %s", e)
+
+            subprocess.Popen(f'explorer.exe {arg}', shell=True, close_fds=True)
+            return "Opened File Explorer."
         else:
             subprocess.Popen(["xdg-open", abs_path])
         return "Opened File Explorer."
