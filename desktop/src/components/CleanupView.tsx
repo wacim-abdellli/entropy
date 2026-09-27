@@ -23,6 +23,8 @@ import {
   Zap,
   Cpu,
   Unlock,
+  ShieldCheck,
+  FolderCheck,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -38,6 +40,7 @@ import { EntropyApiClient } from '../services/api';
 import { FileLockModal } from './FileLockModal';
 import { PathAuditorCard } from './PathAuditorCard';
 import { DevDriveCard } from './DevDriveCard';
+import { CleanupSafetyModal } from './CleanupSafetyModal';
 
 interface CleanupViewProps {
   overview: EnvironmentOverview;
@@ -159,6 +162,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   // File Lock Unblocker state
   const [fileLockModalOpen, setFileLockModalOpen] = useState(false);
   const [lockedPathToDiagnose, setLockedPathToDiagnose] = useState('');
+  const [safetyModalOpen, setSafetyModalOpen] = useState(false);
 
   // Shared UI state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -823,6 +827,16 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setSafetyModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)] flex items-center gap-1.5 cursor-pointer transition-colors"
+              title="Is it safe? Read our data safety breakdown and guarantee"
+            >
+              <ShieldCheck size={13} className="text-emerald-400" />
+              <span>Safety Guide</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => {
                 setLockedPathToDiagnose('');
                 setFileLockModalOpen(true);
@@ -1049,12 +1063,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                               </span>
                             )}
                             {target.risk === 'safe' ? (
-                              <span className="text-[10px] font-medium text-[var(--color-success)] bg-[var(--color-success-bg)] px-2 py-0.5 rounded-full border border-[var(--color-success-border)]">
-                                100% Safe
+                              <span className="text-[10px] font-medium text-[var(--color-success)] bg-[var(--color-success-bg)] px-2 py-0.5 rounded-full border border-[var(--color-success-border)] flex items-center gap-1">
+                                <CheckCircle2 size={10} />
+                                {target.category === 'browser' ? '100% Safe • Logins Intact' : '100% Safe'}
                               </span>
                             ) : (
-                              <span className="text-[10px] font-medium text-[var(--color-warning)] bg-[var(--color-warning-bg)] px-2 py-0.5 rounded-full border border-[var(--color-warning-border)]">
-                                Manual Review
+                              <span className="text-[10px] font-medium text-[var(--color-warning)] bg-[var(--color-warning-bg)] px-2 py-0.5 rounded-full border border-[var(--color-warning-border)] flex items-center gap-1">
+                                <AlertCircle size={10} /> Manual Review Required
                               </span>
                             )}
                           </div>
@@ -1062,7 +1077,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                           <p className="text-xs text-[var(--color-text-secondary)] mt-1">
                             {target.description}
                           </p>
-                          {target.is_running && target.lock_message ? (
+                          {target.id === 'recycle_bin' ? (
+                            <p className="text-[11px] text-amber-400/90 mt-1 flex items-center gap-1.5 font-medium">
+                              <AlertCircle size={12} className="shrink-0" />
+                              <span>Permanently empties files you sent to trash. Click the Explorer icon on the right to review files first.</span>
+                            </p>
+                          ) : target.is_running && target.lock_message ? (
                             <p className="text-[11px] text-[var(--color-warning)] mt-1 flex items-center gap-1.5 font-medium">
                               <AlertCircle size={12} className="shrink-0" />
                               <span>{target.lock_message}</span>
@@ -1088,7 +1108,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                           )}
                         </div>
 
-                        {target.paths[0] && target.paths[0] !== 'Recycle Bin' && (
+                        {target.paths[0] && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1096,7 +1116,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                               EntropyApiClient.openInExplorer(target.paths[0]);
                             }}
                             className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-lg transition-colors cursor-pointer"
-                            title="Reveal in Windows Explorer"
+                            title={target.paths[0] === 'Recycle Bin' ? 'Open Windows Recycle Bin to review deleted files' : 'Reveal in Windows Explorer'}
                           >
                             <ExternalLink size={14} />
                           </button>
@@ -1134,6 +1154,19 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                     ? 'Deselect All'
                     : 'Select All Safe Artifacts'}
                 </button>
+              </div>
+            </div>
+
+            {/* Safety Reassurance Banner */}
+            <div className="p-3.5 rounded-xl border border-sky-500/25 bg-sky-500/5 mb-4 flex items-start gap-3">
+              <FolderCheck size={18} className="text-sky-400 shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <div className="font-semibold text-sky-300 flex items-center gap-2">
+                  <span>Source Code Protected: Only disposable build folders are targeted</span>
+                </div>
+                <p className="text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                  Your source code, git history, branches, and configuration files are 100% shielded. Only whitelisted generated directories (like <code className="font-mono text-sky-300">node_modules</code> or <code className="font-mono text-sky-300">target</code>) can be cleaned, and they can be recreated anytime via your package manager.
+                </p>
               </div>
             </div>
 
@@ -1252,6 +1285,19 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               </div>
             </div>
 
+            {/* Safety Reassurance Banner */}
+            <div className="p-3.5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 mb-4 flex items-start gap-3">
+              <ShieldCheck size={18} className="text-emerald-400 shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <div className="font-semibold text-emerald-300 flex items-center gap-2">
+                  <span>100% Safe to Clear: Package caches will never break your projects</span>
+                </div>
+                <p className="text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                  These are global download archives (tarballs, wheels, crates) stored in AppData. Deleting them reclaims gigabytes without touching your installed dependencies or source code. Future builds re-download packages automatically.
+                </p>
+              </div>
+            </div>
+
             {cachesLoading && globalCaches.length === 0 ? (
               <CleanupSkeletonList
                 title="Scanning Package Manager Caches…"
@@ -1294,7 +1340,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                           className="mt-1 rounded accent-[var(--color-accent)] cursor-pointer"
                         />
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Database size={15} className="text-[var(--color-text-secondary)] shrink-0" />
                             <span className="text-sm font-semibold text-[var(--color-text-primary)]">
                               {cache.label}
@@ -1302,10 +1348,19 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                             <span className="text-[10px] uppercase font-semibold text-[var(--color-text-tertiary)] bg-[var(--color-surface-3)] px-2 py-0.5 rounded-full border border-[var(--color-border-subtle)]">
                               {cache.id}
                             </span>
+                            <span className="text-[10px] font-medium text-[var(--color-success)] bg-[var(--color-success-bg)] px-2 py-0.5 rounded-full border border-[var(--color-success-border)] flex items-center gap-1">
+                              <CheckCircle2 size={10} /> 100% Safe
+                            </span>
                           </div>
                           <div className="text-xs text-[var(--color-text-tertiary)] font-mono truncate mt-1">
                             {cache.path}
                           </div>
+                          <p className="text-[11px] text-[var(--color-text-secondary)] mt-1 flex items-center gap-1.5">
+                            <Info size={11} className="shrink-0 text-[var(--color-accent)]" />
+                            <span>
+                              {cache.description ? `${cache.description}. ` : ''}Existing projects and installed dependencies remain completely untouched.
+                            </span>
+                          </p>
                         </div>
                       </div>
 
@@ -1313,21 +1368,34 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                         <div className="text-sm font-semibold font-mono text-[var(--color-text-primary)]">
                           {formatBytes(cache.size_bytes)}
                         </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCopyPath(cache.path);
-                          }}
-                          className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-lg transition-colors cursor-pointer"
-                          title="Copy path"
-                        >
-                          {copiedPath === cache.path ? (
-                            <Check size={14} className="text-[var(--color-success)]" />
-                          ) : (
-                            <Copy size={14} />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              EntropyApiClient.openInExplorer(cache.path);
+                            }}
+                            className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-lg transition-colors cursor-pointer"
+                            title="Reveal folder in Windows Explorer"
+                          >
+                            <ExternalLink size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyPath(cache.path);
+                            }}
+                            className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-lg transition-colors cursor-pointer"
+                            title="Copy path"
+                          >
+                            {copiedPath === cache.path ? (
+                              <Check size={14} className="text-[var(--color-success)]" />
+                            ) : (
+                              <Copy size={14} />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -2191,6 +2259,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         isOpen={fileLockModalOpen}
         onClose={() => setFileLockModalOpen(false)}
         initialPath={lockedPathToDiagnose}
+      />
+
+      {/* ── Cleanup Safety & FAQ Modal ── */}
+      <CleanupSafetyModal
+        isOpen={safetyModalOpen}
+        onClose={() => setSafetyModalOpen(false)}
       />
     </div>
   );

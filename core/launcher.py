@@ -192,6 +192,11 @@ def _launch_interactive_console(shell_type: str, target_path: str) -> str:
         return _launch_interactive_console("powershell", abs_path)
 
     elif shell_type == "explorer":
+        if "recycle bin" in workspace_path.lower() or workspace_path.lower() in ("recyclebin", "shell:recyclebinfolder"):
+            if os.name == "nt":
+                subprocess.Popen(["explorer.exe", "shell:RecycleBinFolder"])
+                return "Opened Windows Recycle Bin."
+
         if os.name == "nt" and hasattr(os, "startfile"):
             try:
                 os.startfile(abs_path)
