@@ -34,6 +34,8 @@ export interface WorkspaceSummary {
   unprotected_env_files?: string[];
   secret_issues?: SecretIssue[];
   merged_branches?: string[];
+  commits_ahead?: number;
+  commits_behind?: number;
   process_count: number;
   ports?: number[];
 }
@@ -72,6 +74,8 @@ export interface GitConnection {
   remote_host: string | null;
   remote_repo_id: string | null;
   repo_size_bytes: number | null;
+  commits_ahead?: number;
+  commits_behind?: number;
   is_worktree: boolean;
   worktree_parent_repo: string | null;
   dirty_files?: GitDirtyFile[];
@@ -128,6 +132,8 @@ export interface DependencyConnection {
   path: string;
   size_bytes: number | null;
   package_count?: number | null;
+  lockfile_mtime?: number | null;
+  dep_folder_mtime?: number | null;
   is_stale?: boolean;
 }
 
@@ -508,6 +514,99 @@ export interface UnlockResult {
   terminated: { pid: number; name: string }[];
   failed: { pid: number; name: string; error: string }[];
   message: string;
+}
+
+export interface PathEntryItem {
+  raw: string;
+  expanded: string;
+  is_valid: boolean;
+  is_duplicate: boolean;
+  index: number;
+}
+
+export interface BinaryCollision {
+  binary: string;
+  active_path: string;
+  active_version: string | null;
+  shadowed_paths: string[];
+  total_found: number;
+}
+
+export interface PathAuditReport {
+  user_path_length: number;
+  system_path_length: number;
+  safe_length_limit: number;
+  exceeds_limit: boolean;
+  user_entries_count: number;
+  dead_entries_count: number;
+  duplicate_entries_count: number;
+  user_entries: PathEntryItem[];
+  dead_entries: string[];
+  duplicate_entries: string[];
+  collisions: BinaryCollision[];
+  summary: string;
+  health_score: number;
+  status: 'optimal' | 'warning' | 'critical';
+}
+
+export interface PathPruneResult {
+  success: boolean;
+  message: string;
+  backup_path?: string;
+  initial_length?: number;
+  new_length?: number;
+  freed_chars?: number;
+  initial_count?: number;
+  remaining_count?: number;
+  pruned_dead_count?: number;
+  pruned_duplicate_count?: number;
+  pruned_manual_count?: number;
+  error?: string;
+}
+
+export interface DevDriveVolume {
+  drive_letter: string;
+  label: string;
+  file_system: string;
+  is_dev_drive: boolean;
+  total_bytes: number;
+  free_bytes: number;
+}
+
+export interface PackageCacheConfig {
+  tool: string;
+  current_path: string;
+  is_on_dev_drive: boolean;
+  is_on_system_drive: boolean;
+  recommended_path?: string | null;
+}
+
+export interface DevDriveStatusReport {
+  is_supported: boolean;
+  os_build: number;
+  os_version: string;
+  min_required_build: number;
+  support_message: string;
+  mounted_dev_drives: DevDriveVolume[];
+  mounted_volumes: DevDriveVolume[];
+  package_caches: PackageCacheConfig[];
+  has_active_dev_drive: boolean;
+  recommendations: {
+    id: string;
+    title: string;
+    impact: string;
+    description: string;
+    action_label: string;
+    target_drive?: string;
+  }[];
+}
+
+export interface DevDriveRelocateResult {
+  success: boolean;
+  message?: string;
+  target_dir?: string;
+  updated_tools?: string[];
+  error?: string;
 }
 
 

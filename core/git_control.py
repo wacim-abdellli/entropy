@@ -628,3 +628,79 @@ def drop_stash(repo_path: str, index: int = 0) -> Dict[str, Any]:
         logger.error("Failed to drop stash %s in %s: %s", stash_ref, abs_path, e)
         return {"success": False, "repo_path": abs_path, "error": str(e)}
 
+
+def push_current_branch(repo_path: str) -> Dict[str, Any]:
+    """
+    Safely push current branch to its remote tracking branch.
+    Guards: strictly non-force (never uses --force), requires clean fast-forward.
+    """
+    if not repo_path or not os.path.exists(repo_path):
+        return {"success": False, "error": f"Path '{repo_path}' does not exist."}
+
+    abs_path = os.path.abspath(repo_path)
+    git_dir = os.path.join(abs_path, ".git")
+    if not os.path.exists(git_dir):
+        return {"success": False, "error": f"Path '{abs_path}' is not a Git repository."}
+
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    base_cmd = ["git", "-C", abs_path, "-c", "core.autocrlf=false"]
+
+    try:
+        # Check current branch
+        br_res = subprocess.run(
+            base_cmd + ["rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=creationflags,
+        )
+        branch = br_res.stdout.strip()
+        if not branch or branch == "HEAD":
+            return {
+                "success": False,
+                "error": "Cannot push from detached HEAD state. Please create a named branch first.",
+            }
+
+        # Check if upstream tracking branch exists
+        up_res = subprocess.run(
+            base_cmd + ["rev-parse", "--abbrev-ref", "@{u}"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=creationflags,
+        )
+        has_upstream = up_res.returncode == 0
+
+        if has_upstream:
+            push_args = ["push"]
+        else:
+            push_args = ["push", "--set-upstream", "origin", branch]
+
+        res = subprocess.run(
+            base_cmd + push_args,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            creationflags=creationflags,
+        )
+
+        clean_err = _clean_git_error(res.stderr, res.stdout)
+        if res.returncode == 0:
+            return {
+                "success": True,
+                "repo_path": abs_path,
+                "branch": branch,
+                "message": f"Successfully pushed branch '{branch}' to remote.",
+            }
+
+        return {
+            "success": False,
+            "repo_path": abs_path,
+            "branch": branch,
+            "error": clean_err or "Git push failed. Ensure remote repository credentials and internet are available.",
+        }
+    except Exception as e:
+        logger.error("Failed to push branch in %s: %s", abs_path, e)
+        return {"success": False, "repo_path": abs_path, "error": str(e)}
+
+

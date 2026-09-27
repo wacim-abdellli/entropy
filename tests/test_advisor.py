@@ -140,6 +140,22 @@ class TestAdvisorEngine(unittest.TestCase):
         self.assertIn("reclaim_space", tip_ids)
         self.assertEqual(len(health.cleanup_verdicts), 1)
 
+    def test_evaluate_workspace_health_unpushed_and_stale_lockfile(self):
+        git_info = {
+            "commits_ahead": 6,
+            "current_branch": "feature/payment",
+        }
+        health = evaluate_workspace_health(
+            workspace_path=self.tmp_dir,
+            workspace_name="test_proj",
+            git_info=git_info,
+            dependencies=[{"dep_type": "node_modules", "is_stale": True}],
+        )
+        self.assertEqual(health.health_score, 70)
+        tip_ids = [t.id for t in health.tips]
+        self.assertIn("unpushed_commits", tip_ids)
+        self.assertIn("stale_lockfile", tip_ids)
+
     def test_ai_provider_rules_fallback(self):
         # Offline rules connection test
         res = test_ai_connection("rules")

@@ -175,6 +175,7 @@ def evaluate_workspace_health(
     git_info: Optional[Dict[str, Any]] = None,
     processes: Optional[List[Dict[str, Any]]] = None,
     artifacts: Optional[List[Dict[str, Any]]] = None,
+    dependencies: Optional[List[Dict[str, Any]]] = None,
 ) -> WorkspaceHealth:
     """
     Evaluate workstation health for a specific workspace and generate actionable tips.
@@ -187,6 +188,7 @@ def evaluate_workspace_health(
     git_info = git_info or {}
     processes = processes or []
     artifacts = artifacts or []
+    dependencies = dependencies or []
 
     # 1. Unprotected & Tracked Secret Files
     secret_issues = git_info.get("secret_issues", [])
@@ -259,6 +261,45 @@ def evaluate_workspace_health(
                 score -= 5
         else:
             score -= 5
+
+    # 2b. Machine Crash Guardian: Unpushed Commits
+    commits_ahead = git_info.get("commits_ahead", 0)
+    current_branch = git_info.get("current_branch", "HEAD")
+    if commits_ahead > 0:
+        if commits_ahead >= 5:
+            score -= 20
+            severity = "urgent"
+        else:
+            score -= 10
+            severity = "warning"
+        tips.append(
+            HealthTip(
+                id="unpushed_commits",
+                title=f"Push {commits_ahead} Unpushed Commit{'s' if commits_ahead > 1 else ''} to Remote",
+                description=f"You have {commits_ahead} local commit{'s' if commits_ahead > 1 else ''} on '{current_branch}' that exist only on this machine. If your drive crashes or hardware fails, this unpushed work is lost.",
+                severity=severity,
+                action_label="Push to Remote",
+                action_type="push_branch",
+                action_payload={"workspace_path": workspace_path},
+            )
+        )
+
+    # 2c. Stale Lockfile Drift Radar
+    stale_deps = [d for d in dependencies if d.get("is_stale")]
+    if stale_deps:
+        score -= 10
+        dep_names = ", ".join(d.get("dep_type", "dependencies") for d in stale_deps[:2])
+        tips.append(
+            HealthTip(
+                id="stale_lockfile",
+                title=f"Dependencies Out of Sync ({dep_names})",
+                description="Lockfile was updated more recently than installed packages. Run package manager install/build to synchronize.",
+                severity="warning",
+                action_label="Rebuild Dependencies",
+                action_type="rebuild_deps",
+                action_payload={"workspace_path": workspace_path},
+            )
+        )
 
     # 3. Merged Branches Accumulation
     merged_branches = git_info.get("merged_branches", [])

@@ -41,6 +41,8 @@ hiddenimports = [
     'core.vhdx_compact',
     'core.tuner',
     'core.file_locker',
+    'core.path_auditor',
+    'core.dev_drive',
     'collectors',
     'collectors.git',
     'collectors.projects',

@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   Check,
   CheckCircle2,
   Code2,
@@ -34,7 +36,7 @@ interface OverviewViewProps {
   onNavigateToSettings?: () => void;
 }
 
-type WorkspaceFilter = 'all' | 'running' | 'dirty' | 'cleanup' | 'secrets';
+type WorkspaceFilter = 'all' | 'running' | 'dirty' | 'unpushed' | 'cleanup' | 'secrets';
 
 function formatSize(bytes: number | null | undefined): string {
   if (!bytes || bytes <= 0) return '—';
@@ -91,6 +93,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const artifacts = useMemo(() => overview?.system?.artifacts || [], [overview?.system?.artifacts]);
 
   const dirtyList = useMemo(() => workspaces.filter((w) => w.has_uncommitted_changes), [workspaces]);
+  const unpushedList = useMemo(() => workspaces.filter((w) => (w.commits_ahead || 0) > 0), [workspaces]);
   const runningList = useMemo(() => workspaces.filter((w) => w.process_count > 0), [workspaces]);
 
   const workspaceArtifactSizeMap = useMemo(() => {
@@ -147,6 +150,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       list = runningList;
     } else if (filter === 'dirty') {
       list = dirtyList;
+    } else if (filter === 'unpushed') {
+      list = unpushedList;
     } else if (filter === 'cleanup') {
       list = cleanupList;
     } else if (filter === 'secrets') {
@@ -298,6 +303,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] shrink-0" />
                 <span>Unsaved ({dirtyList.length})</span>
               </button>
+              {unpushedList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFilter('unpushed')}
+                  className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+                    filter === 'unpushed'
+                      ? 'bg-[var(--color-surface-3)] text-[var(--color-warning)] font-medium shadow-xs'
+                      : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                  }`}
+                >
+                  <ArrowUp className="w-3 h-3 text-[var(--color-warning)] shrink-0" />
+                  <span>Unpushed ({unpushedList.length})</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setFilter('cleanup')}
@@ -564,6 +583,26 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   ) : (
                     <span className="text-[var(--color-text-tertiary)]">
                       clean
+                    </span>
+                  )}
+
+                  {/* Unpushed / Behind Remote badges */}
+                  {(workspace.commits_ahead || 0) > 0 && (
+                    <span
+                      title={`${workspace.commits_ahead} unpushed commit(s) on '${workspace.git_branch || 'HEAD'}' — local only, not backed up on remote`}
+                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-warning)] bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] rounded shadow-2xs font-mono"
+                    >
+                      <ArrowUp className="w-2.5 h-2.5" />
+                      <span>{workspace.commits_ahead} unpushed</span>
+                    </span>
+                  )}
+                  {(workspace.commits_behind || 0) > 0 && (
+                    <span
+                      title={`${workspace.commits_behind} commit(s) behind remote`}
+                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-[var(--color-accent-strong)] bg-[var(--color-surface-3)] border border-[var(--color-border-subtle)] rounded font-mono"
+                    >
+                      <ArrowDown className="w-2.5 h-2.5" />
+                      <span>{workspace.commits_behind} behind</span>
                     </span>
                   )}
 

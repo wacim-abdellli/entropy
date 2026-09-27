@@ -308,6 +308,11 @@ class EntropyDesktopApi:
         from core.git_control import prune_merged_branches
         return prune_merged_branches(workspace_path, branches)
 
+    def push_branch(self, workspace_path: str) -> dict[str, Any]:
+        """Safely push current branch to its remote tracking branch."""
+        from core.git_control import push_current_branch
+        return push_current_branch(workspace_path)
+
     def get_docker_system_df(self) -> dict[str, Any]:
         """Inspect Docker disk space usage breakdown (images, containers, build cache)."""
         from core.docker_control import get_docker_disk_usage
@@ -358,6 +363,39 @@ class EntropyDesktopApi:
         """Safely terminate locking processes holding a handle or CWD on a file or folder."""
         from core.file_locker import unlock_path
         return unlock_path(path, pids=pids)
+
+    def get_path_audit(self) -> dict[str, Any]:
+        """Audit Windows User and System PATH for dead entries, duplicates, length limits, and binary collisions."""
+        from dataclasses import asdict
+        from core.path_auditor import audit_path_environment
+        report = audit_path_environment()
+        return asdict(report)
+
+    def prune_user_path(
+        self,
+        remove_dead: bool = True,
+        remove_duplicates: bool = True,
+        remove_items: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
+        """Safely prune dead or duplicate paths from User PATH with automatic .reg backup and environment broadcast."""
+        from core.path_auditor import prune_user_path
+        return prune_user_path(
+            remove_dead=remove_dead,
+            remove_duplicates=remove_duplicates,
+            remove_items=remove_items,
+        )
+
+    def get_dev_drive_status(self) -> dict[str, Any]:
+        """Query Windows 11 ReFS Dev Drive capability, active volumes, and package cache alignment."""
+        from dataclasses import asdict
+        from core.dev_drive import get_dev_drive_status
+        report = get_dev_drive_status()
+        return asdict(report)
+
+    def relocate_package_caches(self, target_drive: str) -> dict[str, Any]:
+        """Relocate npm, pip, cargo, and nuget caches to a specified high-speed drive or Dev Drive."""
+        from core.dev_drive import relocate_package_caches
+        return relocate_package_caches(target_drive)
 
     def get_purgeable_caches(self) -> list[dict[str, Any]]:
         """Get discovered global developer package caches (pip, npm, yarn, cargo, gradle, nuget)."""
@@ -411,6 +449,9 @@ class EntropyDesktopApi:
                     ws_procs.append(asdict(p))
 
         artifacts = collect_project_artifacts(abs_path)
+        from collectors.projects import collect_projects_and_dependencies
+        _, ws_deps = collect_projects_and_dependencies(abs_path, max_depth=1)
+        deps_list = [asdict(d) for d in ws_deps]
 
         health = evaluate_workspace_health(
             workspace_path=abs_path,
@@ -418,6 +459,7 @@ class EntropyDesktopApi:
             git_info=git_info,
             processes=ws_procs,
             artifacts=artifacts,
+            dependencies=deps_list,
         )
         return asdict(health)
 

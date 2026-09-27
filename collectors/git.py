@@ -421,4 +421,30 @@ def collect_git_repository(repo_path: str) -> Optional[GitRepository]:
                     path_part = parsed.path.rstrip(".git").strip("/")
                     repo.remote_repo_id = f"{parsed.hostname}/{path_part}"
 
+    # 11. Unpushed / unpulled commit counts (ahead/behind remote tracking branch)
+    if repo.has_remote and repo.current_branch and repo.current_branch not in ("HEAD (detached)", "HEAD"):
+        ahead_str = _run_git_command(repo_path, ["rev-list", "--count", "@{u}..HEAD"])
+        if ahead_str and ahead_str.strip().isdigit():
+            repo.commits_ahead = int(ahead_str.strip())
+        elif repo.has_remote:
+            # If no tracking branch, check if branch exists at origin/<branch>
+            chk = _run_git_command(repo_path, ["rev-parse", "--verify", f"origin/{repo.current_branch}"])
+            if chk:
+                ahead_str2 = _run_git_command(repo_path, ["rev-list", "--count", f"origin/{repo.current_branch}..HEAD"])
+                if ahead_str2 and ahead_str2.strip().isdigit():
+                    repo.commits_ahead = int(ahead_str2.strip())
+            else:
+                # Branch does not exist on remote at all! Check commits ahead of origin/main or origin/master
+                for base in ("origin/main", "origin/master", "main", "master"):
+                    base_chk = _run_git_command(repo_path, ["rev-parse", "--verify", base])
+                    if base_chk:
+                        ahead_base = _run_git_command(repo_path, ["rev-list", "--count", f"{base}..HEAD"])
+                        if ahead_base and ahead_base.strip().isdigit():
+                            repo.commits_ahead = int(ahead_base.strip())
+                        break
+
+        behind_str = _run_git_command(repo_path, ["rev-list", "--count", "HEAD..@{u}"])
+        if behind_str and behind_str.strip().isdigit():
+            repo.commits_behind = int(behind_str.strip())
+
     return repo

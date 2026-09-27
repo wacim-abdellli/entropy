@@ -36,6 +36,8 @@ import {
 } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 import { FileLockModal } from './FileLockModal';
+import { PathAuditorCard } from './PathAuditorCard';
+import { DevDriveCard } from './DevDriveCard';
 
 interface CleanupViewProps {
   overview: EnvironmentOverview;
@@ -1598,6 +1600,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                 </p>
               </div>
             </div>
+
+            {/* Windows PATH Decay & Collision Auditor */}
+            <PathAuditorCard onRefreshParent={fetchTuningReport} />
+
+            {/* Dev Drive (ReFS) Storage Booster */}
+            <DevDriveCard onRefreshParent={fetchTuningReport} />
 
             {/* Tuning Recommendations List */}
             {tuningReport && tuningReport.recommendations.length > 0 ? (

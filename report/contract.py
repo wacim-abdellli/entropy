@@ -590,6 +590,8 @@ def serialize_environment_overview(
             "unprotected_env_files": getattr(git_repo, "unprotected_env_files", []) if git_repo else [],
             "secret_issues": getattr(git_repo, "secret_issues", []) if git_repo else [],
             "merged_branches": getattr(git_repo, "merged_branches", []) if git_repo else [],
+            "commits_ahead": getattr(git_repo, "commits_ahead", 0) if git_repo else 0,
+            "commits_behind": getattr(git_repo, "commits_behind", 0) if git_repo else 0,
             "process_count": len(proc_rels),
             "ports": ws_ports,
         })

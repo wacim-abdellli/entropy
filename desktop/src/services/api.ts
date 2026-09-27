@@ -19,6 +19,10 @@ import {
   PerformanceTuningReport,
   FileLockDiagnostic,
   UnlockResult,
+  PathAuditReport,
+  PathPruneResult,
+  DevDriveStatusReport,
+  DevDriveRelocateResult,
 } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
@@ -68,6 +72,7 @@ interface PyWebViewApi {
   untrack_git_secret?(workspace_path: string, relative_path: string): Promise<ActionResult | string>;
   shield_all_secrets?(workspace_path: string): Promise<ActionResult & { untracked_count?: number; ignored_count?: number; total_shielded?: number } | string>;
   prune_merged_branches?(workspace_path: string, branches?: string[]): Promise<ActionResult & { pruned?: string[]; failed?: { branch: string; error: string }[] } | string>;
+  push_branch?(workspace_path: string): Promise<ActionResult | string>;
   get_docker_system_df?(): Promise<DockerDiskUsage | string>;
   prune_docker_resources?(target: string): Promise<DockerPruneResult | string>;
   get_virtual_disks?(): Promise<VirtualDiskItem[] | string>;
@@ -78,6 +83,10 @@ interface PyWebViewApi {
   add_defender_exclusion?(path: string): Promise<any>;
   get_file_locks?(path: string): Promise<FileLockDiagnostic | string>;
   unlock_file_path?(path: string, pids?: number[]): Promise<UnlockResult | string>;
+  get_path_audit?(): Promise<PathAuditReport | string>;
+  prune_user_path?(remove_dead?: boolean, remove_duplicates?: boolean, remove_items?: string[]): Promise<PathPruneResult | string>;
+  get_dev_drive_status?(): Promise<DevDriveStatusReport | string>;
+  relocate_package_caches?(target_drive: string): Promise<DevDriveRelocateResult | string>;
   get_purgeable_caches?(): Promise<GlobalCacheItem[] | string>;
   purge_caches?(targets: string[]): Promise<CachePurgeResult | string>;
   get_system_cleanup_targets?(): Promise<SystemCleanupTarget[] | string>;
@@ -642,6 +651,24 @@ export class EntropyApiClient {
   }
 
   /**
+   * Safely push current branch to its remote tracking branch.
+   */
+  static async pushBranch(workspacePath: string): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.push_branch) {
+          const res = await bridgeWindow()!.pywebview!.api!.push_branch!(workspacePath);
+          return parseBridgeResponse<ActionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    console.log('[Dev Bridge] Pushing branch for:', workspacePath);
+    return { success: true, message: 'Safely pushed current branch to remote.' };
+  }
+
+  /**
    * Query Docker disk space breakdown (images, containers, volumes, build cache).
    */
   static async getDockerDiskUsage(): Promise<DockerDiskUsage> {
@@ -853,6 +880,148 @@ export class EntropyApiClient {
       terminated: (pids || []).map((p) => ({ pid: p, name: 'process' })),
       failed: [],
       message: 'Simulated file unlock.',
+    };
+  }
+
+  /**
+   * Audit Windows User and System PATH for dead entries, duplicates, length limits, and binary collisions.
+   */
+  static async getPathAudit(): Promise<PathAuditReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_path_audit) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_path_audit!();
+          return parseBridgeResponse<PathAuditReport>(res);
+        }
+      } catch (err) {
+        console.warn('Failed to audit PATH environment:', err);
+      }
+    }
+    return {
+      user_path_length: 1420,
+      system_path_length: 980,
+      safe_length_limit: 2048,
+      exceeds_limit: false,
+      user_entries_count: 24,
+      dead_entries_count: 2,
+      duplicate_entries_count: 3,
+      user_entries: [
+        { raw: 'C:\\Python312\\Scripts', expanded: 'C:\\Python312\\Scripts', is_valid: true, is_duplicate: false, index: 0 },
+        { raw: 'C:\\Python312', expanded: 'C:\\Python312', is_valid: true, is_duplicate: false, index: 1 },
+        { raw: 'C:\\OldSdk\\bin', expanded: 'C:\\OldSdk\\bin', is_valid: false, is_duplicate: false, index: 2 },
+      ],
+      dead_entries: ['C:\\OldSdk\\bin'],
+      duplicate_entries: ['C:\\Python312'],
+      collisions: [
+        {
+          binary: 'python.exe',
+          active_path: 'C:\\Python314\\python.exe',
+          active_version: 'Python 3.14.0a4',
+          shadowed_paths: ['C:\\Users\\pc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe'],
+          total_found: 2,
+        },
+      ],
+      summary: '2 dead paths and 3 duplicate entries detected in User PATH.',
+      health_score: 75,
+      status: 'warning',
+    };
+  }
+
+  /**
+   * Safely prune dead and duplicate paths from User PATH with automatic .reg backup.
+   */
+  static async pruneUserPath(
+    removeDead = true,
+    removeDuplicates = true,
+    removeItems?: string[]
+  ): Promise<PathPruneResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.prune_user_path) {
+          const res = await bridgeWindow()!.pywebview!.api!.prune_user_path!(
+            removeDead,
+            removeDuplicates,
+            removeItems
+          );
+          return parseBridgeResponse<PathPruneResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, message: errorMessage(err), error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      message: 'Pruned 5 entries. Freed 240 characters.',
+      freed_chars: 240,
+      initial_count: 24,
+      remaining_count: 19,
+      pruned_dead_count: 2,
+      pruned_duplicate_count: 3,
+    };
+  }
+
+  /**
+   * Query Windows 11 ReFS Dev Drive capability, active volumes, and package cache alignment.
+   */
+  static async getDevDriveStatus(): Promise<DevDriveStatusReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_dev_drive_status) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_dev_drive_status!();
+          return parseBridgeResponse<DevDriveStatusReport>(res);
+        }
+      } catch (err) {
+        console.warn('Failed to query Dev Drive status:', err);
+      }
+    }
+    return {
+      is_supported: false,
+      os_build: 19045,
+      os_version: 'Windows 10 (Build 19045)',
+      min_required_build: 22621,
+      support_message: 'Dev Drive requires Windows 11 Build 22621+.',
+      mounted_dev_drives: [],
+      mounted_volumes: [
+        { drive_letter: 'C:', label: '', file_system: 'NTFS', is_dev_drive: false, total_bytes: 512 * 1024**3, free_bytes: 120 * 1024**3 },
+      ],
+      package_caches: [
+        { tool: 'npm', current_path: 'C:\\Users\\pc\\AppData\\Local\\npm-cache', is_on_dev_drive: false, is_on_system_drive: true },
+        { tool: 'pip', current_path: 'C:\\Users\\pc\\AppData\\Local\\pip\\cache', is_on_dev_drive: false, is_on_system_drive: true },
+        { tool: 'cargo', current_path: 'C:\\Users\\pc\\.cargo', is_on_dev_drive: false, is_on_system_drive: true },
+        { tool: 'nuget', current_path: 'C:\\Users\\pc\\.nuget\\packages', is_on_dev_drive: false, is_on_system_drive: true },
+      ],
+      has_active_dev_drive: false,
+      recommendations: [
+        {
+          id: 'windows_10_note',
+          title: 'Developer Storage Optimization (Windows 10)',
+          impact: 'Medium',
+          description: 'On Windows 10, accelerate builds by enabling Win32 Long Paths and adding your workspace folders to Windows Defender exclusions.',
+          action_label: 'Optimize Environment',
+        },
+      ],
+    };
+  }
+
+  /**
+   * Relocate package caches to specified drive letter.
+   */
+  static async relocatePackageCaches(targetDrive: string): Promise<DevDriveRelocateResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.relocate_package_caches) {
+          const res = await bridgeWindow()!.pywebview!.api!.relocate_package_caches!(targetDrive);
+          return parseBridgeResponse<DevDriveRelocateResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      message: `Relocated caches to ${targetDrive}\\DevPackages.`,
+      target_dir: `${targetDrive}\\DevPackages`,
+      updated_tools: ['npm', 'pip', 'cargo', 'nuget'],
     };
   }
 

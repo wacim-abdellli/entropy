@@ -195,10 +195,22 @@ def collect_projects_and_dependencies(
                     except OSError:
                         pass
 
-                elif entry.is_dir(follow_symlinks=False):
+            for entry in entries:
+                if entry.is_dir(follow_symlinks=False):
                     dep_kind = DEPENDENCY_DIR_NAMES.get(entry.name)
                     if dep_kind:
                         dep_size = _get_dir_size(entry.path)
+                        dep_mtime: Optional[float] = None
+                        try:
+                            dep_mtime = entry.stat().st_mtime
+                        except OSError:
+                            pass
+                        
+                        is_stale = False
+                        if lockfile_latest_mtime and dep_mtime:
+                            # If lockfile was modified after the dependency folder, dependencies may be out of date
+                            is_stale = lockfile_latest_mtime > dep_mtime
+
                         dep_envs.append(
                             DependencyEnvironment(
                                 entity_id=f"dep:{os.path.abspath(entry.path)}",
@@ -206,6 +218,8 @@ def collect_projects_and_dependencies(
                                 dep_type=dep_kind,
                                 size_bytes=dep_size,
                                 lockfile_mtime=lockfile_latest_mtime,
+                                dep_folder_mtime=dep_mtime,
+                                is_stale=is_stale,
                             )
                         )
 
