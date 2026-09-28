@@ -128,6 +128,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         currentWorkspace
           ? {
               workspace_name: currentWorkspace.name,
+              workspace_path: currentWorkspace.path,
               git_branch: currentWorkspace.git_branch,
               has_uncommitted_changes: currentWorkspace.has_uncommitted_changes,
             }

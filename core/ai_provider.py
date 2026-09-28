@@ -60,20 +60,33 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "ollama_model": "llama3.2",
 }
 
-SYSTEM_PROMPT = """You are Entropy Platform AI, a helpful, knowledgeable, and friendly developer assistant embedded in the Entropy workspace manager.
-You assist software developers with workspace health, safe junk cleanup, git issues, running processes/ports, and performance optimization.
+SYSTEM_PROMPT = """You are Entropy Platform AI — the resident developer assistant and workstation copilot inside the Entropy desktop app on this Windows PC.
 
-HOW TO ANSWER:
-1. Speak naturally, directly, and conversationally — like a friendly senior engineer in a chat.
-2. Be concise, actionable, and clear. Avoid robotic templates, rigid section headers, or bureaucratic preamble.
-3. When answering questions:
-   - Answer the core question directly in the first sentence.
-   - Provide a clear, practical explanation.
-   - For terminal commands, always use standard fenced code blocks (```bash or ```powershell).
-   - If discussing cleanup or deletion, clearly state whether an action is safe or destructive, and provide the exact reinstall or restore command (e.g. `npm install`, `cargo build`, `git stash`).
-4. NEVER recommend deleting source code (.py, .ts, .js, .go, .rs, etc.) or .git repository history.
-5. Whitelisted disposable targets: node_modules, target, .venv, bin, obj, __pycache__, .pytest_cache, dist, build, .next, .nuxt.
-6. Zero artificial AI jargon (never use 'cognitive audit', 'substrate matrix', 'entropy vector', etc.)."""
+CRITICAL LOCAL ACCESS & WORKSTATION AWARENESS:
+1. You HAVE DIRECT REAL-TIME VISIBILITY into the developer's computer, local repositories, file structures, git statuses, and running processes through the Entropy engine.
+2. Real data from the user's workstation is provided in the Developer Context section below.
+3. NEVER say "I cannot access your file system directly", "I don't have access to your PC", or "I cannot run commands". You are NOT a generic isolated chatbot; you are the native assistant of the Entropy application installed on their machine.
+4. When asked for folder trees ("tree my folders", "show tree", "list files", etc.), output the actual directory tree provided in your context.
+5. When asked about repositories, branches, uncommitted files, or running dev servers, refer specifically to their actual projects provided in the context.
+
+ABOUT THE APP (ENTROPY):
+Entropy is an all-in-one developer workspace and machine management tool for Windows.
+- Core Mission: Keep developer machines clean, blazing fast, and organized by turning workstation chaos into actionable clarity.
+- Key Capabilities & Modules:
+  * Workspaces View: Auto-detects repositories across scan roots (Node.js, Python, Rust, Go, Flutter, .NET, etc.). Tracks branch ahead/behind remote, uncommitted edits, merged branches, and dependency freshness.
+  * Safe Cleanup: Reclaims gigabytes safely. Targets whitelisted build artifacts (`node_modules`, `target`, `.venv`, `bin`/`obj`, `.next`, `.nuxt`) with exact 1-click restore commands (`npm install`, `cargo build`). Purges global package manager caches (`npm`, `pip`, `cargo`, `pnpm`, `nuget`) and Windows system junk (Temp, Prefetch, Recycle Bin).
+  * Process & Port Manager: Discovers rogue dev servers (Node, Python, Vite, Docker), identifies listening ports (e.g. :3000, :8080), kills runaway processes safely, or triggers a 1-click "Clean Slate".
+  * Win32 Restart Manager File Unlocker: Identifies which process is locking a file or directory and safely unlocks it.
+  * Secrets Radar: Scans all local repositories for exposed, untracked .env files, API keys, or private tokens with 1-click .gitignore shielding.
+  * Win32 RAM Booster: Uses Windows API working-set trimming to instantly free hundreds of MBs from bloated dev processes.
+  * Windows 11 Dev Drive & Tuning: ReFS Dev Drive detection, package cache relocation for 30%+ build speedups, and Windows Defender exclusions.
+  * Platform AI Assistant (You): Answers any questions about their local codebases, git state, disk usage, or how to use any Entropy feature.
+
+RESPONSE GUIDELINES:
+- Speak naturally, directly, and conversationally — like a knowledgeable, helpful senior tech lead.
+- Keep answers practical, structured, and actionable. Use markdown code blocks for commands.
+- Never recommend deleting source code (.py, .ts, .js, .go, .rs) or .git directory history.
+- Zero robotic AI jargon (never use 'cognitive audit', 'substrate matrix', 'entropy vector')."""
 
 
 def get_ai_config(mask_internal_key: bool = True) -> Dict[str, Any]:
@@ -243,6 +256,140 @@ def test_ai_connection(provider: Optional[str] = None) -> Dict[str, Any]:
     return {"success": False, "provider": target_provider, "error": f"Unknown provider '{target_provider}'."}
 
 
+def generate_ascii_tree(path: str, max_depth: int = 2, max_entries: int = 15, current_depth: int = 0) -> List[str]:
+    """Generate clean, human-readable ASCII directory tree lines for a folder."""
+    if current_depth > max_depth or not os.path.isdir(path):
+        return []
+    lines: List[str] = []
+    try:
+        entries = sorted(os.scandir(path), key=lambda e: (not e.is_dir(), e.name.lower()))
+    except Exception:
+        return []
+
+    ignored_dirs = {
+        '.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build',
+        '.next', '.nuxt', '.pytest_cache', '.gradle', 'target', 'bin', 'obj', '.turbo'
+    }
+    visible = [e for e in entries if not e.name.startswith('.') or e.name in ('.env.example', '.gitignore')]
+
+    items = []
+    for e in visible:
+        if e.name in ignored_dirs:
+            items.append((e, True, f"{e.name}/ [deps/cache]"))
+        elif e.is_dir(follow_symlinks=False):
+            items.append((e, True, f"{e.name}/"))
+        else:
+            items.append((e, False, e.name))
+
+    slice_items = items[:max_entries]
+    for i, (entry, is_d, label) in enumerate(slice_items):
+        is_last = (i == len(slice_items) - 1) and (len(items) <= max_entries)
+        branch = "└── " if is_last else "├── "
+        sub_indent = "    " if is_last else "│   "
+        lines.append(branch + label)
+        if is_d and entry.name not in ignored_dirs and current_depth < max_depth:
+            sub = generate_ascii_tree(entry.path, max_depth=max_depth, max_entries=max_entries, current_depth=current_depth + 1)
+            for sl in sub:
+                lines.append(sub_indent + sl)
+
+    if len(items) > max_entries:
+        lines.append(f"└── ... (+{len(items) - max_entries} more items)")
+    return lines
+
+
+def enrich_ai_context(question: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Enrich the AI context with live workstation data:
+    - Detected repositories across scan roots
+    - Directory trees for requested folders/workspaces
+    - Active processes, branches, and ports
+    """
+    ctx = dict(context or {})
+    q = question.lower()
+
+    # 1. Discover all repositories on this machine if not provided
+    if not ctx.get("all_workspaces"):
+        try:
+            from core.config import get_scan_roots
+            roots = get_scan_roots()
+            workspaces = []
+            seen = set()
+            for root in roots:
+                if not os.path.isdir(root):
+                    continue
+                try:
+                    if os.path.isdir(os.path.join(root, ".git")):
+                        abs_p = os.path.abspath(root)
+                        if abs_p not in seen:
+                            seen.add(abs_p)
+                            workspaces.append({"name": os.path.basename(abs_p), "path": abs_p})
+                    for entry in os.scandir(root):
+                        if entry.is_dir(follow_symlinks=False):
+                            if (
+                                os.path.isdir(os.path.join(entry.path, ".git"))
+                                or os.path.exists(os.path.join(entry.path, "package.json"))
+                                or os.path.exists(os.path.join(entry.path, "pyproject.toml"))
+                                or os.path.exists(os.path.join(entry.path, "Cargo.toml"))
+                            ):
+                                abs_p = os.path.abspath(entry.path)
+                                if abs_p not in seen:
+                                    seen.add(abs_p)
+                                    workspaces.append({"name": entry.name, "path": abs_p})
+                except Exception:
+                    pass
+            ctx["all_workspaces"] = workspaces
+        except Exception:
+            pass
+
+    all_ws = ctx.get("all_workspaces") or []
+
+    # 2. Check if the question is asking for folder tree / directory structure
+    tree_keywords = ("tree", "folder", "structure", "file", "list", "directory", "dir", "path", "layout")
+    is_tree_query = any(k in q for k in tree_keywords)
+
+    target_tree_path = ctx.get("workspace_path")
+
+    # If no specific workspace_path given, check if a workspace name was mentioned in question
+    if not target_tree_path and all_ws:
+        for ws in all_ws:
+            ws_name = ws.get("name", "").lower()
+            if ws_name and ws_name in q:
+                target_tree_path = ws.get("path")
+                break
+
+    # If still no path, but it's a tree query, default to first available repo (or active ws)
+    if not target_tree_path and is_tree_query and all_ws:
+        target_tree_path = all_ws[0].get("path")
+
+    # Generate tree if we have a target or if it's a tree query
+    if target_tree_path and os.path.isdir(target_tree_path) and ("directory_tree" not in ctx or not ctx["directory_tree"]):
+        ws_basename = os.path.basename(target_tree_path)
+        tree_lines = generate_ascii_tree(target_tree_path, max_depth=2, max_entries=15)
+        formatted_tree = f"{ws_basename}/\n" + "\n".join(tree_lines)
+        ctx["directory_tree"] = formatted_tree
+        ctx["workspace_path"] = target_tree_path
+        if not ctx.get("workspace_name"):
+            ctx["workspace_name"] = ws_basename
+
+    # If user asks for tree and there are multiple workspaces, also build a multi-repo summary
+    if is_tree_query and all_ws and len(all_ws) > 1 and "multi_repo_tree" not in ctx:
+        multi_lines = ["Local Repositories & Workspaces on PC:"]
+        for ws in all_ws[:8]:
+            p = ws.get("path", "")
+            n = ws.get("name", "")
+            t = ws.get("project_type", "")
+            b = ws.get("git_branch", "")
+            extra = f" ({t})" if t else ""
+            if b:
+                extra += f" [branch: {b}]"
+            multi_lines.append(f"├── {n}/{extra} -> {p}")
+        if len(all_ws) > 8:
+            multi_lines.append(f"└── ... (+{len(all_ws) - 8} more repositories)")
+        ctx["multi_repo_tree"] = "\n".join(multi_lines)
+
+    return ctx
+
+
 def ask_ai_advisor(question: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Ask the AI Advisor a question with developer context.
@@ -251,23 +398,54 @@ def ask_ai_advisor(question: str, context: Optional[Dict[str, Any]] = None) -> D
     cfg = get_ai_config()
     provider = cfg.get("provider", "cloud")
 
-    context_str = ""
-    if context:
-        ctx_parts = []
-        if context.get("workspace_name"):
-            ctx_parts.append(f"Workspace: {context['workspace_name']}")
-        if context.get("project_type"):
-            ctx_parts.append(f"Type: {context['project_type']}")
-        if context.get("git_branch"):
-            ctx_parts.append(f"Git Branch: {context['git_branch']}")
-        if context.get("has_uncommitted_changes") is not None:
-            ctx_parts.append(f"Uncommitted Changes: {context['has_uncommitted_changes']}")
-        if context.get("ports"):
-            ctx_parts.append(f"Active Ports: {context['ports']}")
-        if context.get("artifacts"):
-            ctx_parts.append(f"Artifact Folders: {context['artifacts']}")
-        context_str = "\n".join(ctx_parts)
+    # Enrich context with live workstation data, detected repos, and directory tree
+    enriched_ctx = enrich_ai_context(question, context)
 
+    ctx_parts = []
+
+    # 1. Multi-repo tree or all workspaces summary
+    if enriched_ctx.get("multi_repo_tree"):
+        ctx_parts.append(enriched_ctx["multi_repo_tree"])
+    elif enriched_ctx.get("all_workspaces"):
+        ws_lines = ["Detected Repositories on this PC:"]
+        for w in enriched_ctx["all_workspaces"][:10]:
+            name = w.get("name", "Unknown")
+            path = w.get("path", "")
+            br = w.get("git_branch", "")
+            br_str = f", branch: {br}" if br else ""
+            dirty_str = " (Uncommitted edits)" if w.get("has_uncommitted_changes") else ""
+            ws_lines.append(f"- {name} at {path}{br_str}{dirty_str}")
+        ctx_parts.append("\n".join(ws_lines))
+
+    # 2. Active workspace details
+    if enriched_ctx.get("workspace_name"):
+        act_lines = [f"Active Workspace: {enriched_ctx['workspace_name']}"]
+        if enriched_ctx.get("workspace_path"):
+            act_lines.append(f"Path: {enriched_ctx['workspace_path']}")
+        if enriched_ctx.get("project_type"):
+            act_lines.append(f"Type: {enriched_ctx['project_type']}")
+        if enriched_ctx.get("git_branch"):
+            act_lines.append(f"Git Branch: {enriched_ctx['git_branch']}")
+        if enriched_ctx.get("commits_ahead"):
+            act_lines.append(f"Commits Ahead (Unpushed): {enriched_ctx['commits_ahead']}")
+        if enriched_ctx.get("commits_behind"):
+            act_lines.append(f"Commits Behind: {enriched_ctx['commits_behind']}")
+        if enriched_ctx.get("has_uncommitted_changes") is not None:
+            act_lines.append(f"Has Uncommitted Changes: {enriched_ctx['has_uncommitted_changes']}")
+        if enriched_ctx.get("ports"):
+            act_lines.append(f"Listening Ports: {enriched_ctx['ports']}")
+        if enriched_ctx.get("artifacts"):
+            act_lines.append(f"Artifact Folders: {enriched_ctx['artifacts']}")
+        ctx_parts.append("\n".join(act_lines))
+
+    # 3. Live Directory Tree
+    if enriched_ctx.get("directory_tree"):
+        ctx_parts.append(
+            f"Live File Tree of {enriched_ctx.get('workspace_name', 'Workspace')}:\n"
+            f"```text\n{enriched_ctx['directory_tree']}\n```"
+        )
+
+    context_str = "\n\n".join(ctx_parts)
     user_message = question
     if context_str:
         user_message = f"Developer Context:\n{context_str}\n\nQuestion: {question}"
@@ -302,7 +480,7 @@ def ask_ai_advisor(question: str, context: Optional[Dict[str, Any]] = None) -> D
                     {"role": "user", "content": user_message},
                 ],
                 "temperature": 0.3,
-                "max_tokens": 800,
+                "max_tokens": 1200,
             }
             req = urllib.request.Request(
                 CLOUD_ENDPOINT,
@@ -364,7 +542,7 @@ def ask_ai_advisor(question: str, context: Optional[Dict[str, Any]] = None) -> D
     # Fallback: Deterministic Rule-Based Advice
     return {
         "success": True,
-        "answer": _generate_rule_based_advice(question, context),
+        "answer": _generate_rule_based_advice(question, enriched_ctx),
         "provider": "rules",
         "model": "offline-rules-engine",
         "fallback_reason": fallback_reason,
@@ -379,6 +557,47 @@ def _generate_rule_based_advice(question: str, context: Optional[Dict[str, Any]]
     ws_name = ctx.get("workspace_name", "this workspace")
     has_dirty = ctx.get("has_uncommitted_changes", False)
     ports = ctx.get("ports", [])
+    tree = ctx.get("directory_tree")
+    multi_tree = ctx.get("multi_repo_tree")
+    all_ws = ctx.get("all_workspaces", [])
+
+    # 1. Tree / Folders query
+    if any(k in q for k in ("tree", "folder", "structure", "file", "list dir", "layout")):
+        out = []
+        if multi_tree:
+            out.append(f"### Detected Repositories & Workspaces on PC\n```text\n{multi_tree}\n```")
+        if tree:
+            out.append(f"### Directory Tree ({ws_name})\n```text\n{tree}\n```")
+        if out:
+            return "\n\n".join(out)
+
+    # 2. Repositories / Workspaces query
+    if any(k in q for k in ("repo", "repos", "repositories", "workspace", "projects")):
+        if all_ws:
+            lines = ["Here are the repositories and workspaces detected on your PC:\n"]
+            for w in all_ws:
+                name = w.get("name", "Unknown")
+                path = w.get("path", "")
+                b = f" (Branch: `{w['git_branch']}`)" if w.get("git_branch") else ""
+                lines.append(f"- **{name}** at `{path}`{b}")
+            lines.append("\nYou can select any of these workspaces to view its Git status, running processes, or reclaimable artifacts.")
+            return "\n".join(lines)
+
+    # 3. App Idea / What is Entropy
+    if any(k in q for k in ("app idea", "what is entropy", "entropy idea", "how does entropy work", "features", "about", "what can you do", "help")):
+        return (
+            "### 🚀 About Entropy — Developer Workstation Orchestrator\n\n"
+            "**Entropy** is an all-in-one developer workspace management and optimization app for Windows designed to keep developer machines clean, fast, and organized.\n\n"
+            "#### Core Capabilities:\n"
+            "1. **Workspace Health & Git Guardian**: Scans code repositories, alerting on uncommitted changes, unpushed commits, and stale dependencies.\n"
+            "2. **Safe Disk Cleanup**: Reclaims gigabytes by removing disposable artifacts (`node_modules`, `target`, `.venv`, `.next`, `bin`/`obj`) with exact 1-click restore commands (`npm install`, `cargo build`).\n"
+            "3. **Package Cache Purging**: Safely clears global caches from npm, pip, cargo, and pnpm without breaking projects.\n"
+            "4. **Windows System Junk**: Cleans Temp folders, crash dumps, and Recycle Bin safely.\n"
+            "5. **Process & Port Control**: Identifies background servers holding ports (like :3000 or :8080) and terminates runaway processes.\n"
+            "6. **Restart Manager File Unlocker**: Detects background processes locking files and unlocks them cleanly.\n"
+            "7. **Secrets Radar**: Finds untracked `.env` files and API keys before they get accidentally committed.\n"
+            "8. **RAM Booster & Windows 11 Dev Drive**: Trims process memory working sets and accelerates builds via ReFS Dev Drive relocation."
+        )
 
     if "delete" in q or "node_modules" in q or "clean" in q:
         dirty_note = (

@@ -94,14 +94,27 @@ export const AiChatView: React.FC<AiChatViewProps> = ({
     setIsThinking(true);
 
     try {
-      const context = activeWs
-        ? {
-            workspace_name: activeWs.name,
-            project_type: activeWs.project_type,
-            git_branch: activeWs.git_branch,
-            has_uncommitted_changes: activeWs.has_uncommitted_changes,
-          }
-        : undefined;
+      const context = {
+        workspace_name: activeWs?.name,
+        workspace_path: activeWs?.path,
+        project_type: activeWs?.project_type,
+        git_branch: activeWs?.git_branch,
+        has_uncommitted_changes: activeWs?.has_uncommitted_changes,
+        commits_ahead: activeWs?.commits_ahead,
+        commits_behind: activeWs?.commits_behind,
+        ports: activeWs?.ports,
+        all_workspaces: workspaces.map((w) => ({
+          name: w.name,
+          path: w.path,
+          project_type: w.project_type,
+          git_branch: w.git_branch,
+          has_uncommitted_changes: w.has_uncommitted_changes,
+          commits_ahead: w.commits_ahead,
+          commits_behind: w.commits_behind,
+          ports: w.ports,
+          total_size_bytes: w.total_size_bytes,
+        })),
+      };
 
       const res = await EntropyApiClient.askAiAdvisor(prompt, context);
       const aiText =
@@ -146,14 +159,24 @@ export const AiChatView: React.FC<AiChatViewProps> = ({
 
   const quickPrompts = [
     {
-      title: 'Safe Cleanup',
-      icon: HardDrive,
-      prompt: 'Is it safe to delete node_modules, target, or .venv folders to free up disk space?',
+      title: 'Tree My Folders',
+      icon: Terminal,
+      prompt: 'tree my folders',
     },
     {
-      title: 'Fix Git Changes',
-      icon: Shield,
-      prompt: 'How do I safely stash or commit my uncommitted changes before switching branches?',
+      title: 'All My Repositories',
+      icon: FolderGit2,
+      prompt: 'What repositories do I have on my PC and what is their Git status?',
+    },
+    {
+      title: 'About Entropy App',
+      icon: Sparkles,
+      prompt: 'What is Entropy and what can it do to optimize my developer workstation?',
+    },
+    {
+      title: 'Safe Disk Cleanup',
+      icon: HardDrive,
+      prompt: 'Is it safe to delete node_modules, target, or .venv folders to free up disk space?',
     },
     {
       title: 'Dev Server Ports',
@@ -161,9 +184,9 @@ export const AiChatView: React.FC<AiChatViewProps> = ({
       prompt: 'How can I identify and stop background development servers holding open ports?',
     },
     {
-      title: 'Windows Optimization',
-      icon: Terminal,
-      prompt: 'What are the best non-destructive ways to speed up build times on Windows 11?',
+      title: 'Fix Git Changes',
+      icon: Shield,
+      prompt: 'How do I safely stash or commit my uncommitted changes before switching branches?',
     },
   ];
 
@@ -206,7 +229,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({
                 className="bg-transparent text-xs text-[var(--color-text-primary)] focus:outline-none cursor-pointer max-w-[140px] truncate"
                 title="Select workspace context for AI queries"
               >
-                <option value="">General (No Workspace Context)</option>
+                <option value="">General (All Workspaces & PC)</option>
                 {workspaces.map((w) => (
                   <option key={w.path} value={w.path}>
                     {w.name}

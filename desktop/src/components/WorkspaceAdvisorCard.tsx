@@ -94,6 +94,7 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
     try {
       const res = await EntropyApiClient.askAiAdvisor(q, {
         workspace_name: workspaceName,
+        workspace_path: workspacePath,
         git_branch: gitBranch,
         has_uncommitted_changes: hasUncommittedChanges,
         ports: ports,
