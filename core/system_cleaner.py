@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 from core.cleanup_progress import progress_tracker
+from core.audit_log import log_system_cleanup
 
 
 def _format_size_helper(bytes_val: int) -> str:
@@ -618,6 +619,7 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
     else:
         message = f"Cleaned {target_spec['name']}. Freed {_format_size_helper(freed_bytes)} ({deleted_count} items removed, {skipped_count} active items safely skipped)."
 
+    log_system_cleanup(target_id, target_spec.get("paths", []), freed_bytes, success=True)
     return {
         "id": target_id,
         "success": True,

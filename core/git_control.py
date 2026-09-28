@@ -676,6 +676,10 @@ def pop_stash(repo_path: str, index: int = 0) -> Dict[str, Any]:
 def drop_stash(repo_path: str, index: int = 0) -> Dict[str, Any]:
     """
     Safely drop/delete a specific stash entry.
+    
+    WARNING: Dropping stash@{0} renumbers all subsequent stash indices.
+    When dropping multiple stashes, callers MUST iterate in reverse index
+    order (highest index first) to avoid targeting the wrong stash.
     """
     if not repo_path or not os.path.exists(repo_path):
         return {"success": False, "error": f"Path '{repo_path}' does not exist."}

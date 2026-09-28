@@ -13,6 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, List, Optional
+import threading
 
 # Add project root to sys.path (support both source tree and PyInstaller frozen bundle)
 if getattr(sys, "frozen", False):
@@ -41,6 +42,7 @@ class EntropyDesktopApi:
 
     def __init__(self) -> None:
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        self._lock = threading.Lock()
         # Pre-warm environment scan using user's persistent scan roots
         initial_roots = get_scan_roots()
         self._prewarm_future = self._executor.submit(self._do_scan_environment, roots=initial_roots)
@@ -101,13 +103,15 @@ class EntropyDesktopApi:
 
     def scan_environment(self, roots: Optional[List[str]] = None, depth: int = 2) -> dict[str, Any]:
         """Scan environment across specified root directories (uses prewarmed cache only if unconfigured)."""
-        if roots is None and self._prewarm_future:
-            try:
-                res = self._prewarm_future.result(timeout=45)
-                self._prewarm_future = None
-                return res
-            except Exception:
-                self._prewarm_future = None
+        if roots is None:
+            with self._lock:
+                if self._prewarm_future:
+                    try:
+                        res = self._prewarm_future.result(timeout=45)
+                        self._prewarm_future = None
+                        return res
+                    except Exception:
+                        self._prewarm_future = None
 
         return self._do_scan_environment(roots=roots, depth=depth)
 
@@ -322,6 +326,29 @@ class EntropyDesktopApi:
         if not command:
             from core.advisor import _detect_rebuild_command
             command = _detect_rebuild_command(abs_path, "vendor") or _detect_rebuild_command(abs_path, "node_modules") or "npm install"
+
+        # SAFETY: Validate command against allowlist to prevent injection
+        ALLOWED_COMMANDS = {
+            'npm install', 'npm ci', 'npm run build',
+            'yarn install', 'yarn',
+            'pnpm install', 'pnpm i',
+            'pip install -r requirements.txt', 'pip install -e .',
+            'python -m pip install -r requirements.txt',
+            'cargo build', 'cargo build --release',
+            'dotnet build', 'dotnet restore',
+            'flutter pub get', 'flutter build',
+            'gradle build', './gradlew build',
+            'composer install',
+            'bundle install',
+            'go mod download', 'go build ./...',
+            'mvn install', 'mvn package',
+        }
+        SHELL_METACHARACTERS = {'&&', '||', ';', '|', '>', '<', '`', '$', '(', ')', '{', '}'}
+        
+        if command not in ALLOWED_COMMANDS:
+            # Check for shell metacharacters as a fallback safety net
+            if any(meta in command for meta in SHELL_METACHARACTERS):
+                return {"success": False, "error": f"Command rejected: contains unsafe shell characters. Allowed commands: {', '.join(sorted(ALLOWED_COMMANDS))}"}
 
         try:
             safe_title = f"Entropy Rebuild — {os.path.basename(abs_path)}"

@@ -36,6 +36,7 @@ hiddenimports = [
     'core.launcher',
     'core.advisor',
     'core.ai_provider',
+    'core.audit_log',
     'core.disk_cleaner',
     'core.docker_control',
     'core.vhdx_compact',

@@ -19,6 +19,7 @@ import stat
 from typing import Any, Dict, List
 
 from core.cleanup_progress import progress_tracker
+from core.audit_log import log_artifact_cleanup
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,7 @@ def clean_artifact_directory(path: str) -> Dict[str, Any]:
 
     try:
         shutil.rmtree(abs_path, onerror=_remove_readonly)
+        log_artifact_cleanup(abs_path, freed_bytes, success=True)
         return {
             "success": True,
             "path": abs_path,
@@ -136,6 +138,7 @@ def clean_artifact_directory(path: str) -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error("Failed to delete directory %s: %s", abs_path, e)
+        log_artifact_cleanup(abs_path, 0, success=False, error=str(e))
         return {
             "success": False,
             "path": abs_path,

@@ -19,7 +19,6 @@ import {
   Sparkles,
   Send,
   Copy,
-  Bot,
 } from 'lucide-react';
 import { WorkspaceHealth, HealthTip } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
@@ -48,6 +47,7 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
   const [health, setHealth] = useState<WorkspaceHealth | null>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [confirmTip, setConfirmTip] = useState<HealthTip | null>(null);
 
   // Action state
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
@@ -131,6 +131,14 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
 
   const handleExecuteTip = async (tip: HealthTip) => {
     if (!tip.action_type) return;
+
+    const DESTRUCTIVE_ACTIONS = ['clean_artifacts', 'prune_branches', 'free_port'];
+    if (DESTRUCTIVE_ACTIONS.includes(tip.action_type || '') && !confirmTip) {
+      setConfirmTip(tip);
+      return;
+    }
+    setConfirmTip(null);
+
     setActiveActionId(tip.id);
     setActionNotice(null);
 
@@ -564,6 +572,66 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {confirmTip && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)]">
+                <AlertTriangle size={20} className="text-[var(--color-warning)]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">Confirm Action</h3>
+                <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                  {confirmTip.action_type === 'clean_artifacts'
+                    ? `This will permanently delete build artifact folders. They can be rebuilt but deleted files bypass the Recycle Bin.`
+                    : confirmTip.action_type === 'prune_branches'
+                    ? `This will delete local git branches that have already been merged. Branch refs will be removed permanently.`
+                    : confirmTip.action_type === 'free_port'
+                    ? `This will terminate the process currently listening on the port. Any unsaved work in that process will be lost.`
+                    : confirmTip.description}
+                </p>
+              </div>
+            </div>
+            <div className="bg-[var(--color-surface-3)] rounded-lg p-3 mb-4">
+              <p className="text-xs font-medium text-[var(--color-text-primary)] mb-1">{confirmTip.title}</p>
+              {confirmTip.action_payload?.paths && (
+                <div className="mt-1.5 space-y-0.5">
+                  {(confirmTip.action_payload.paths as string[]).map((p: string) => (
+                    <p key={p} className="text-[10px] font-mono text-[var(--color-text-tertiary)] truncate">{p}</p>
+                  ))}
+                </div>
+              )}
+              {confirmTip.action_payload?.branches && (
+                <div className="mt-1.5 space-y-0.5">
+                  {(confirmTip.action_payload.branches as string[]).map((b: string) => (
+                    <p key={b} className="text-[10px] font-mono text-[var(--color-text-tertiary)]">{b}</p>
+                  ))}
+                </div>
+              )}
+              {confirmTip.action_payload?.port && (
+                <p className="text-[10px] font-mono text-[var(--color-text-tertiary)] mt-1">Port: {confirmTip.action_payload.port}</p>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmTip(null)}
+                className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-surface-3)] hover:bg-[var(--color-surface-4)] border border-[var(--color-border)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExecuteTip(confirmTip)}
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-danger)] hover:opacity-90 text-white transition-colors cursor-pointer"
+              >
+                {confirmTip.action_type === 'clean_artifacts' ? 'Delete Artifacts' : confirmTip.action_type === 'prune_branches' ? 'Prune Branches' : 'Terminate Process'}
+              </button>
+            </div>
           </div>
         </div>
       )}

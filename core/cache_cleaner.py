@@ -29,6 +29,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from core.cleanup_progress import progress_tracker
+from core.audit_log import log_cache_purge
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +216,7 @@ def purge_system_cache(target_path_or_id: str) -> Dict[str, Any]:
         size_after = _calc_dir_size(target_path)
         freed = max(0, size_before - size_after)
 
+        log_cache_purge(target_path, freed, success=True, cache_name=target_label)
         return {
             "success": True,
             "id": target_path_or_id,
@@ -225,6 +227,7 @@ def purge_system_cache(target_path_or_id: str) -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error("Failed to purge cache at %s: %s", target_path, e)
+        log_cache_purge(target_path, 0, success=False, cache_name=target_label, error=str(e))
         return {
             "success": False,
             "id": target_path_or_id,

@@ -10,34 +10,53 @@ This guide provides high-density context for AI coding assistants (Cursor, Antig
 
 ```
 entropy/
-├── scan.py                   # Python CLI entrypoint & main scanner
+├── scan.py                   # Python CLI entrypoint & scanner orchestrator
 ├── core/                     # Core business logic engines
-│   ├── workspace.py          # Workspace state detector & metadata aggregator
-│   ├── reclaimer.py          # Reclaimable space calculator (node_modules, target, etc.)
-│   ├── scanner.py            # Environment scanner & path traversal engine
-│   └── desktop_bridge.py     # Python <-> pywebview Desktop window launcher
+│   ├── advisor.py            # Safety verdicts & health recommendations
+│   ├── ai_provider.py        # Platform AI, Cloud (Groq), Ollama & Rules provider
+│   ├── audit_log.py          # Persistent append-only deletion audit logger (~/.entropy/audit.log)
+│   ├── config.py             # User settings & persistent scan roots (~/.entropy/config.json)
+│   ├── disk_cleaner.py       # Whitelisted build artifact cleaner (node_modules, target, etc.)
+│   ├── cache_cleaner.py      # Developer package cache purger (npm, pip, cargo, etc.)
+│   ├── system_cleaner.py     # Windows system junk, Recycle Bin & browser cache reclaimer
+│   ├── cleanup_progress.py   # Real-time multi-phase cleanup progress tracker
+│   ├── git_control.py        # Safe Git stash, secret untracking & branch pruning
+│   ├── process_control.py    # Process killer, port releaser & clean slate
+│   ├── launcher.py           # IDE, Terminal & Windows Explorer launcher
+│   ├── memory_booster.py     # Win32 working-set RAM trimmer
+│   ├── path_auditor.py       # Windows user PATH environment variable auditor & pruner
+│   ├── dev_drive.py          # Windows 11 Dev Drive detector & cache relocator
+│   ├── vhdx_compact.py       # WSL 2 & Docker virtual disk compactor
+│   └── tuner.py              # Windows developer mode, long paths & Defender exclusions
 ├── collectors/               # Data collection modules
-│   ├── git_collector.py      # Git status, branch, uncommitted files detector
-│   ├── process_collector.py  # Active dev processes, ports, PID correlation
-│   └── dependency_collector.py # Dependency & build artifact collector
+│   ├── git.py                # Git status, branch, uncommitted files, unpushed commits
+│   ├── processes.py          # Active dev processes, listening ports, PID correlation
+│   ├── projects.py           # Project type detector, dependency environments & directory sizing
+│   ├── artifacts.py          # Disposable build artifact collector
+│   ├── caches.py             # Global package manager cache discovery & sizing
+│   ├── runtimes.py           # Installed developer runtimes & versions
+│   └── docker.py             # Docker daemon status, images, containers & build cache
 ├── linkers/                  # Entity relationship & cross-collector linkers
-├── report/                   # CLI output formatters (terminal table, JSON export)
+├── report/                   # CLI output formatters (terminal table, JSON export, contract)
 ├── desktop/                  # React 19 + TypeScript + Vite + Tailwind CSS 4 Desktop GUI
+│   ├── app.py                # Native Windows WebView2 launcher & IPC bridge
 │   ├── src/
 │   │   ├── App.tsx           # Main desktop container & sidebar routing
 │   │   ├── index.css         # Design system tokens & Tailwind CSS 4 setup
 │   │   ├── components/       # Clean, action-oriented React components
-│   │   │   ├── Sidebar.tsx   # 4-item navigation (Home, Cleanup, Details, Settings)
-│   │   │   ├── OverviewView.tsx # Actionable dashboard with Welcome Hero & cards
-│   │   │   ├── CleanupView.tsx  # Aggregated build target / disk space reclaimer
-│   │   │   ├── WorkspaceView.tsx# Workspace details, git status, and process list
-│   │   │   ├── SystemView.tsx   # CPU/RAM/Disk details and process manager
-│   │   │   ├── SettingsView.tsx # Scan directory configuration & app settings
+│   │   │   ├── Sidebar.tsx   # Navigation & quick workspace switcher
+│   │   │   ├── OverviewView.tsx # Actionable dashboard with workspace table & quick actions
+│   │   │   ├── CleanupView.tsx  # Multi-tab disk reclaimer (System, Artifacts, Caches, Docker, Tuning)
+│   │   │   ├── WorkspaceView.tsx# Workspace details, git status, secrets & process list
+│   │   │   ├── WorkspaceAdvisorCard.tsx # Diagnostic health card with confirmation modal & Platform AI
+│   │   │   ├── SystemView.tsx   # Processes, Runtimes, Containers, Caches & RAM Booster
+│   │   │   ├── SettingsView.tsx # Scan directory configuration & Platform AI settings
 │   │   │   └── CommandPalette.tsx # Global launcher overlay (Ctrl+K)
 │   │   ├── types/
 │   │   │   └── entropy.ts    # TypeScript interface definitions
 │   │   └── services/
-│   │       └── mockData.ts   # Sample data fallback for standalone desktop UI
+│   │       ├── api.ts        # Typed IPC client (EntropyApiClient)
+│   │       └── mockData.ts   # High-fidelity Windows sample data for standalone UI
 │   └── package.json          # Node dependencies & Vite scripts
 └── tests/                    # Python backend unit test suite
 ```
