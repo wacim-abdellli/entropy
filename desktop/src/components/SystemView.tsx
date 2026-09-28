@@ -490,7 +490,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
           className="w-64 h-8 px-2.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-1)] text-xs placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-accent)] outline-none"
         />
       </header>
-      <div className="max-w-6xl mx-auto px-7 py-6 space-y-5">
+      <div className="w-full px-4 sm:px-8 py-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="p-1 rounded-md bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] flex gap-1">
             {tabButton('processes', 'Processes', Activity, processes.length)}

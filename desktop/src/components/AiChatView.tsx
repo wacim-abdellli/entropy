@@ -266,7 +266,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({
       </header>
 
       {/* Main Chat Feed */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 max-w-4xl w-full mx-auto">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 w-full max-w-5xl mx-auto">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-6 animate-in fade-in duration-200">
             <div className="w-16 h-16 rounded-2xl bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/25 flex items-center justify-center text-[var(--color-accent)] shadow-sm">
@@ -289,7 +289,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({
             </div>
 
             {/* Quick Prompt Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl text-left pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-4xl text-left pt-2">
               {quickPrompts.map((qp, idx) => {
                 const Icon = qp.icon;
                 return (
@@ -385,7 +385,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({
             e.preventDefault();
             void handleSend();
           }}
-          className="max-w-4xl w-full mx-auto flex items-center gap-3"
+          className="w-full max-w-5xl mx-auto flex items-center gap-3"
         >
           <div className="relative flex-1">
             <input
@@ -423,7 +423,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({
             <span>Send</span>
           </button>
         </form>
-        <div className="max-w-4xl mx-auto flex items-center justify-between text-[11px] text-[var(--color-text-tertiary)] mt-2 px-1">
+        <div className="w-full max-w-5xl mx-auto flex items-center justify-between text-[11px] text-[var(--color-text-tertiary)] mt-2 px-1">
           <span>Platform AI includes built-in neural reasoning • Zero API key needed</span>
           <span className="hidden sm:inline">Press Enter to send</span>
         </div>

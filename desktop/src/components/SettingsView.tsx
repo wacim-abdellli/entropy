@@ -230,7 +230,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8 space-y-12 w-full max-w-full min-w-0">
         
         {/* Scan Directories Section */}
-        <section className="max-w-3xl">
+        <section className="w-full max-w-5xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <FolderSearch size={22} className="text-[var(--color-text-secondary)]" />
@@ -401,7 +401,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </section>
 
         {/* AI Workspace Advisor Section */}
-        <section className="max-w-3xl">
+        <section className="w-full max-w-5xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Bot size={22} className="text-[var(--color-accent)]" />
@@ -738,7 +738,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </section>
 
         {/* About Section */}
-        <section className="max-w-3xl">
+        <section className="w-full max-w-5xl">
           <div className="flex items-center gap-2 mb-6">
             <Info size={22} className="text-[var(--color-text-secondary)]" />
             <h2 className="text-xl font-medium">About</h2>

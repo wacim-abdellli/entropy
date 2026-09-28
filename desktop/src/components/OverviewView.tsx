@@ -273,7 +273,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full max-w-full bg-[var(--color-surface-0)] text-[var(--color-text-primary)]">
       {/* ── Minimal Linear-style Toolbar ── */}
       <header className="sticky top-0 z-20 px-4 sm:px-8 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-0)]/95 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
+        <div className="w-full flex flex-wrap items-center justify-between gap-3">
           {/* Left: Title & Filter Tabs */}
           <div className="flex items-center gap-3 flex-wrap min-w-0">
             <div className="flex items-center gap-2 shrink-0">
@@ -461,8 +461,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       </header>
 
       {/* ── Workspaces List (Takes Full Prime Screen Space) ── */}
-      <div className="max-w-6xl mx-auto px-6 sm:px-8 py-5">
-        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden divide-y divide-[var(--color-border-subtle)] shadow-xs">
+      <div className="w-full px-4 sm:px-8 py-5">
+        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden divide-y divide-[var(--color-border-subtle)] shadow-xs w-full">
           {/* Subtle real-time scan progress bar when refreshing existing workspaces */}
           {isLoading && workspaces.length > 0 && (
             <div className="h-0.5 w-full bg-[var(--color-accent)]/20 overflow-hidden">
@@ -595,7 +595,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
                     {/* Path */}
                     <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)] font-mono mt-0.5">
-                      <span className="truncate max-w-md" title={workspace.path}>
+                      <span className="truncate max-w-sm sm:max-w-md lg:max-w-xl xl:max-w-3xl 2xl:max-w-5xl" title={workspace.path}>
                         {workspace.path}
                       </span>
                       <button
