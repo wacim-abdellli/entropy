@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { WorkspaceHealth, HealthTip } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
+import { AiResponseRenderer } from './AiResponseRenderer';
 
 interface WorkspaceAdvisorCardProps {
   workspacePath: string;
@@ -567,9 +568,7 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
                     <span>{copiedAnswer ? 'Copied' : 'Copy'}</span>
                   </button>
                 </div>
-                <div className="text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed font-sans">
-                  {aiAnswer}
-                </div>
+                <AiResponseRenderer content={aiAnswer} />
               </div>
             )}
           </div>

@@ -59,14 +59,33 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "ollama_model": "llama3.2",
 }
 
-SYSTEM_PROMPT = """You are Entropy Workspace Advisor, an expert developer environment assistant.
-Your job is to provide concise, actionable, and 100% safe advice to software developers managing their machines.
-Guidelines:
-- Never recommend deleting source code, .git repositories, or unversioned work.
-- Always recommend safe non-destructive commands (e.g. git stash, git branch -d, npm install).
-- Explain technical consequences simply without synthetic AI jargon (no 'cognitive audit', 'substrate matrix').
-- Keep responses short, direct, and structured with clear markdown bullet points.
-"""
+SYSTEM_PROMPT = """You are Entropy Platform AI, an elite workstation orchestrator and developer machine assistant.
+Provide direct, evidence-backed, 100% safe guidance to software developers.
+
+CORE SAFETY RULES:
+- Never recommend deleting source code, git history (.git), or unversioned files.
+- Whitelisted for deletion: generated build artifacts (e.g. node_modules, target, .venv, bin, obj, __pycache__, .pytest_cache).
+- Always provide non-destructive recovery commands (e.g. npm install, git stash, cargo build).
+- Zero artificial AI jargon (never use 'cognitive audit', 'substrate matrix', 'entropy vector', etc.).
+
+RESPONSE STRUCTURE (Strictly follow this layout):
+1. Verdict (First line):
+   **Verdict:** [Safe to delete | Caution | Action required | Informational] — [Concise 1-sentence answer]
+2. Key Analysis (Bullet points with bold keys):
+   - **Reason:** [Direct technical explanation]
+   - **Recovery:** [How to restore or reinstall if needed]
+   - **Safety Check:** [Prerequisite, e.g. check .gitignore or git status]
+3. Recommended Action (Numbered step-by-step with fenced code block if command exists):
+   **Recommended Action:**
+   1. [Step 1]
+   2. [Step 2]
+   ```bash
+   [exact command]
+   ```
+4. Safety Note:
+   **Note:** [Reassurance about git status or project stability]
+
+Keep the response crisp, accurate, and under 150 words. Avoid unnecessary filler or preamble."""
 
 
 def get_ai_config() -> Dict[str, Any]:
@@ -349,42 +368,68 @@ def _generate_rule_based_advice(question: str, context: Optional[Dict[str, Any]]
     ports = ctx.get("ports", [])
 
     if "delete" in q or "node_modules" in q or "clean" in q:
-        dirty_warning = (
-            "\n- **Caution:** Uncommitted files detected in working tree. Run `git stash` before deleting to preserve your edits."
+        dirty_note = (
+            "Uncommitted changes detected in working tree. Stash your edits before deleting to preserve uncommitted work."
             if has_dirty
-            else "\n- **Safe:** Working tree is clean. Deleting will not affect uncommitted code."
+            else "Working tree is clean. Deleting build artifacts will not affect your source code."
         )
         return (
-            f"### Safety Verdict for `{ws_name}`\n"
-            f"- **Build Artifacts:** Disposable dependencies (`node_modules`, `target`, `.venv`) can be safely deleted to reclaim space.{dirty_warning}\n"
-            f"- **Rebuild:** You can recreate dependencies at any time using your standard package manager (`npm install`, `pnpm install`, or `cargo build`).\n"
-            f"- **Recommendation:** If you are not actively developing in this workspace, clean build targets via the Entropy **Cleanup** tab."
+            f"**Verdict:** Safe to delete — build artifacts like `node_modules` in `{ws_name}` are disposable and can be reinstalled anytime.\n\n"
+            f"- **Reason:** `node_modules` contains downloaded third-party packages, not project source files.\n"
+            f"- **Recovery:** You can recreate the directory anytime using your package manager.\n"
+            f"- **Safety Check:** Ensure `node_modules` is listed in your `.gitignore` file so Git does not track dependency files.\n\n"
+            f"**Recommended Action:**\n"
+            f"1. Delete the directory safely via the Cleanup tab or terminal.\n"
+            f"2. Reinstall dependencies whenever you resume development:\n"
+            f"```bash\n"
+            f"npm install\n"
+            f"```\n\n"
+            f"**Note:** {dirty_note}"
         )
 
     if "port" in q or "server" in q or "process" in q:
         if ports:
             ports_str = ", :".join(str(p) for p in ports)
             return (
-                f"### Active Dev Server Notice\n"
-                f"- **Active Ports:** Workspace `{ws_name}` has active dev servers listening on `:{ports_str}`.\n"
-                f"- **Recommendation:** If this server was left running unintentionally, click **Free Port** or use **Clean Slate** to reclaim RAM."
+                f"**Verdict:** Action required — active development processes are listening on `:{ports_str}` in `{ws_name}`.\n\n"
+                f"- **Reason:** Background servers hold socket locks and consume working set RAM.\n"
+                f"- **Recovery:** Terminating dev servers does not alter source files or git history.\n"
+                f"- **Safety Check:** Save active edits in your running app before stopping the server.\n\n"
+                f"**Recommended Action:**\n"
+                f"1. Stop the server using the **Free Port** button in the workspace processes section.\n"
+                f"2. Alternatively, release all idle development processes via **Clean Slate**.\n\n"
+                f"**Note:** Terminating orphaned servers will immediately free memory and release port bindings."
             )
         return (
-            f"### Process Status for `{ws_name}`\n"
-            f"- 0 active background processes or listening ports detected in this directory.\n"
-            f"- The workspace is idle and safe for maintenance."
+            f"**Verdict:** Informational — no active background processes or listening ports detected in `{ws_name}`.\n\n"
+            f"- **Reason:** The workspace is currently idle with 0 open TCP ports.\n"
+            f"- **Recovery:** Development servers can be launched normally from terminal or IDE.\n"
+            f"- **Safety Check:** Workspace is safe for refactoring, maintenance, or dependency updates.\n\n"
+            f"**Note:** All system resources for this workspace are currently released."
         )
 
     if "git" in q or "branch" in q or "commit" in q:
+        dirty_desc = "Uncommitted modifications detected in working tree." if has_dirty else "Working tree is clean."
         return (
-            f"### Version Control Health\n"
-            f"- **Dirty Files:** {'Uncommitted changes need review.' if has_dirty else 'Clean working tree.'}\n"
-            f"- **Best Practice:** Keep commits small and push to remote regularly. Stash work-in-progress before testing destructive package operations."
+            f"**Verdict:** {'Caution — uncommitted work needs review' if has_dirty else 'Clean working tree'}.\n\n"
+            f"- **Reason:** {dirty_desc}\n"
+            f"- **Recovery:** Use `git stash` to preserve modifications or commit them to the local branch.\n"
+            f"- **Safety Check:** Always verify `git status` before testing destructive package operations.\n\n"
+            f"**Recommended Action:**\n"
+            f"1. Review modified files or stash current edits:\n"
+            f"```bash\n"
+            f"git stash push -m 'WIP before maintenance'\n"
+            f"```\n\n"
+            f"**Note:** Stashed changes can be restored anytime with `git stash pop`."
         )
 
     return (
-        f"### Workspace Optimization for `{ws_name}`\n"
-        f"- **Reclaim RAM:** Run **Clean Slate** from the Overview tab to terminate orphaned dev servers.\n"
-        f"- **Disk Hygiene:** Clear stale build caches in the **Cleanup** tab (`node_modules`, `.next`, `target`).\n"
-        f"- **Secret Protection:** Ensure all `.env` files are tracked in `.gitignore` to prevent accidental credential leaks."
+        f"**Verdict:** Workspace optimization guidance for `{ws_name}`.\n\n"
+        f"- **Reason:** Regular workspace maintenance preserves disk speed and prevents port collisions.\n"
+        f"- **Recovery:** All recommended cleanup actions target disposable build caches, not source code.\n"
+        f"- **Safety Check:** Ensure secrets and `.env` files are ignored in `.gitignore`.\n\n"
+        f"**Recommended Action:**\n"
+        f"1. Clear stale dependencies in the **Cleanup** tab to reclaim storage.\n"
+        f"2. Terminate idle development servers to recover system memory.\n\n"
+        f"**Note:** Your git repository and commit history remain completely untouched."
     )
