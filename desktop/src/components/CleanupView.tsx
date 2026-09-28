@@ -36,6 +36,7 @@ import {
   CleanupLiveProgress,
   VirtualDiskItem,
   PerformanceTuningReport,
+  DisposableArtifact,
 } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 import { FileLockModal } from './FileLockModal';
@@ -134,7 +135,15 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [closingTargetId, setClosingTargetId] = useState<string | null>(null);
 
   // Artifacts state
-  const artifacts = useMemo(() => overview?.system?.artifacts || [], [overview?.system?.artifacts]);
+  const [localArtifacts, setLocalArtifacts] = useState<DisposableArtifact[]>(overview?.system?.artifacts || []);
+
+  useEffect(() => {
+    if (overview?.system?.artifacts) {
+      setLocalArtifacts(overview.system.artifacts);
+    }
+  }, [overview?.system?.artifacts]);
+
+  const artifacts = localArtifacts;
   const [selectedArtifacts, setSelectedArtifacts] = useState<Set<string>>(new Set());
   const [isCleaning, setIsCleaning] = useState(false);
   const [confirmCleanOpen, setConfirmCleanOpen] = useState(false);
@@ -206,11 +215,18 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       const res = await EntropyApiClient.cleanSystemTargetForceClose(target.id);
       if (res.success) {
         setToastMessage(res.message || `Closed ${target.process_app_name || target.name} and freed ${formatBytes(res.freed_bytes)}.`);
-        await fetchSystemTargets(false);
-        await onRefresh();
+        setSystemTargets((prev) =>
+          prev.map((t) =>
+            t.id === target.id
+              ? { ...t, size_bytes: 0, item_count: 0, size_formatted: '0 B', is_running: false }
+              : t
+          )
+        );
+        void fetchSystemTargets(false);
+        void onRefresh();
       } else {
         setToastMessage(res.error || res.message || `Failed to clean ${target.name}.`);
-        await fetchSystemTargets(false);
+        void fetchSystemTargets(false);
       }
     } catch (err) {
       setToastMessage(`Error closing app: ${String(err)}`);
@@ -659,9 +675,17 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         },
       });
 
+      const cleanedIds = new Set(targets);
+      setSystemTargets((prev) =>
+        prev.map((t) =>
+          cleanedIds.has(t.id)
+            ? { ...t, size_bytes: 0, item_count: 0, size_formatted: '0 B' }
+            : t
+        )
+      );
       setSelectedSystemTargets(new Set());
-      await fetchSystemTargets(false);
-      await onRefresh();
+      void fetchSystemTargets(false);
+      void onRefresh();
     } catch (err) {
       console.error('System cleanup failed:', err);
       if (pollInterval) {
@@ -757,8 +781,15 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         },
       });
 
+      const pathsSet = new Set(pathsToClean);
+      if (result.results && Array.isArray(result.results)) {
+        const succeeded = new Set((result.results as Array<{ success: boolean; path: string }>).filter((r) => r.success).map((r) => r.path));
+        setLocalArtifacts((prev) => prev.filter((a) => !succeeded.has(a.path)));
+      } else {
+        setLocalArtifacts((prev) => prev.filter((a) => !pathsSet.has(a.path)));
+      }
       setSelectedArtifacts(new Set());
-      await onRefresh();
+      void onRefresh();
     } catch (error) {
       console.error('Artifact cleanup failed:', error);
       if (pollInterval) {
@@ -854,9 +885,17 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         },
       });
 
+      const purgedPaths = new Set(targets);
+      setGlobalCaches((prev) =>
+        prev.map((c) =>
+          purgedPaths.has(c.path)
+            ? { ...c, size_bytes: 0, entry_count: 0, size_formatted: '0 B' }
+            : c
+        )
+      );
       setSelectedCaches(new Set());
-      await fetchGlobalCaches();
-      await onRefresh();
+      void fetchGlobalCaches();
+      void onRefresh();
     } catch (err) {
       console.error('Cache purge failed:', err);
       if (pollInterval) {
@@ -1044,7 +1083,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
             <Folder size={14} className={activeTab === 'artifacts' ? 'text-[var(--color-accent)]' : ''} />
             <span>Project Artifacts</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[var(--color-surface-2)] flex items-center gap-1">
-              {isLoading && artifacts.length === 0 ? (
+              {!overview && isLoading && artifacts.length === 0 ? (
                 <RefreshCw size={9} className="animate-spin text-[var(--color-accent)]" />
               ) : (
                 artifacts.length
@@ -1365,7 +1404,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               </div>
             </div>
 
-            {isLoading && artifacts.length === 0 ? (
+            {!overview && isLoading && artifacts.length === 0 ? (
               <CleanupSkeletonList
                 title="Scanning Workspace Artifacts…"
                 subtitle="Analyzing node_modules, target, .venv, and build caches across workspaces"

@@ -182,8 +182,8 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
       });
 
       if (res.success) {
-        await onActionCompleted?.();
-        await fetchHealth();
+        void onActionCompleted?.();
+        void fetchHealth();
       }
     } catch (err: unknown) {
       setActionNotice({

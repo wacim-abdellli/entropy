@@ -215,7 +215,6 @@ export function App() {
   }, []);
 
   const refreshCurrentContext = useCallback(async function doRefresh() {
-    setIsLoading(true);
     setError(null);
 
     try {
@@ -235,16 +234,6 @@ export function App() {
       }
     } catch (err: unknown) {
       console.error('Failed to refresh current context:', err);
-      setError({
-        title: 'Refresh failed',
-        message: 'The action completed, but Entropy could not refresh the latest machine state.',
-        details: errorMessage(err),
-        onRetry: () => {
-          void doRefresh();
-        },
-      });
-    } finally {
-      setIsLoading(false);
     }
   }, [selectedWorkspacePath, scanRoots]);
 

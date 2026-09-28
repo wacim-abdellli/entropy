@@ -338,7 +338,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
           type: 'success',
           text: `Cleaned ${res.success_count || cleanModal.paths.length} dependency folder(s). Reclaimed ${formatSize(res.total_freed_bytes || cleanModal.totalSize)}.`,
         });
-        await onActionComplete?.();
+        void onActionComplete?.();
       } else {
         setActionResult({
           type: 'error',
