@@ -46,14 +46,15 @@ def get_default_platform_key() -> str:
         return ""
 
 
+DEFAULT_PLATFORM_KEY = get_default_platform_key()
 DEFAULT_PLATFORM_MODEL = "qwen/qwen3.8-27b"
 CLOUD_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "provider": "cloud",  # 'cloud' | 'rules' | 'ollama'
-    "cloud_api_key": "",
+    "cloud_api_key": DEFAULT_PLATFORM_KEY,
     "cloud_model": DEFAULT_PLATFORM_MODEL,
-    "groq_api_key": "",
+    "groq_api_key": DEFAULT_PLATFORM_KEY,
     "groq_model": DEFAULT_PLATFORM_MODEL,
     "ollama_url": "http://localhost:11434",
     "ollama_model": "llama3.2",
@@ -110,6 +111,11 @@ def get_ai_config() -> Dict[str, Any]:
         merged["cloud_api_key"] = merged["groq_api_key"]
     if not merged.get("groq_api_key") and merged.get("cloud_api_key"):
         merged["groq_api_key"] = merged["cloud_api_key"]
+
+    # Pre-populate with default platform key if not explicitly set
+    if not merged.get("cloud_api_key") and not merged.get("groq_api_key"):
+        merged["cloud_api_key"] = DEFAULT_PLATFORM_KEY
+        merged["groq_api_key"] = DEFAULT_PLATFORM_KEY
 
     model = merged.get("cloud_model") or merged.get("groq_model") or DEFAULT_PLATFORM_MODEL
     # Upgrade deprecated/unavailable models automatically
@@ -189,11 +195,10 @@ def test_ai_connection(provider: Optional[str] = None) -> Dict[str, Any]:
             )
             with urllib.request.urlopen(req, timeout=10) as resp:
                 if resp.status == 200:
-                    status_desc = "Built-in Platform AI" if is_default else "Custom Key"
                     return {
                         "success": True,
                         "provider": "cloud",
-                        "message": f"Connected to Entropy Platform AI ({status_desc}). Latency is optimal.",
+                        "message": "Connected to Entropy Platform AI. Latency is optimal.",
                     }
         except urllib.error.HTTPError as e:
             return {
