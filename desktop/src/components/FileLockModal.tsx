@@ -98,7 +98,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
       } else {
         setActionMessage(res.message || 'Failed to terminate process.');
       }
-    } catch (err) {
+    } catch {
       setActionMessage('Failed to free lock.');
     } finally {
       setIsUnlocking(false);
@@ -121,7 +121,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
       } else {
         setActionMessage(res.message || 'Could not terminate all processes.');
       }
-    } catch (err) {
+    } catch {
       setActionMessage('Error unlocking file.');
     } finally {
       setIsUnlocking(false);

@@ -113,8 +113,24 @@ def _calc_dir_footprint(path: str, max_depth: int = 4, timeout_seconds: float = 
     return total_bytes, total_files
 
 
+def _get_logical_drives() -> List[str]:
+    """Get list of active drive roots like ['C:\\', 'D:\\']."""
+    if os.name != "nt":
+        return ["/"]
+    drives = []
+    try:
+        bitmask = ctypes.windll.kernel32.GetLogicalDrives()
+        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+            if bitmask & 1:
+                drives.append(f"{letter}:\\")
+            bitmask >>= 1
+    except Exception:
+        drives = ["C:\\"]
+    return drives or ["C:\\"]
+
+
 def _query_recycle_bin() -> tuple[int, int]:
-    """Query total size in bytes and number of items in Windows Recycle Bin across drives."""
+    """Query total size in bytes and number of items in Windows Recycle Bin across all drives."""
     if os.name != "nt":
         return 0, 0
 
@@ -126,12 +142,21 @@ def _query_recycle_bin() -> tuple[int, int]:
                 ("i64NumItems", ctypes.c_int64),
             ]
 
-        rb_info = SHQUERYRBINFO()
-        rb_info.cbSize = ctypes.sizeof(rb_info)
-        # Query primary drive C:\
-        res = ctypes.windll.shell32.SHQueryRecycleBinW("C:\\", ctypes.byref(rb_info))
-        if res == 0:
-            return max(0, int(rb_info.i64Size)), max(0, int(rb_info.i64NumItems))
+        total_bytes = 0
+        total_items = 0
+
+        for drive in _get_logical_drives():
+            try:
+                rb_info = SHQUERYRBINFO()
+                rb_info.cbSize = ctypes.sizeof(rb_info)
+                res = ctypes.windll.shell32.SHQueryRecycleBinW(drive, ctypes.byref(rb_info))
+                if res == 0:
+                    total_bytes += max(0, int(rb_info.i64Size))
+                    total_items += max(0, int(rb_info.i64NumItems))
+            except Exception:
+                continue
+
+        return total_bytes, total_items
     except Exception as e:
         logger.debug("Failed to query recycle bin: %s", e)
 
@@ -447,6 +472,13 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
             deleted_count=deleted_count,
             log_line=f"Purged Recycle Bin: freed {_format_size_helper(freed_bytes)} ({deleted_count} items)." if ok else f"Recycle Bin error: {msg}",
         )
+        log_system_cleanup(
+            "recycle_bin",
+            ["Windows Recycle Bin (All Drives)"],
+            freed_bytes if ok else 0,
+            success=ok,
+            error=None if ok else msg,
+        )
         return {
             "id": target_id,
             "success": ok,
@@ -619,10 +651,17 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
     else:
         message = f"Cleaned {target_spec['name']}. Freed {_format_size_helper(freed_bytes)} ({deleted_count} items removed, {skipped_count} active items safely skipped)."
 
-    log_system_cleanup(target_id, target_spec.get("paths", []), freed_bytes, success=True)
+    cleanup_ok = not (is_proc_running and freed_bytes == 0 and skipped_count > 0)
+    log_system_cleanup(
+        target_id,
+        target_spec.get("paths", []),
+        freed_bytes,
+        success=cleanup_ok,
+        error=None if cleanup_ok else f"Locked by active {app_name} process",
+    )
     return {
         "id": target_id,
-        "success": True,
+        "success": cleanup_ok,
         "freed_bytes": freed_bytes,
         "deleted_count": deleted_count,
         "skipped_count": skipped_count,

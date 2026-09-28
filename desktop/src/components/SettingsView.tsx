@@ -16,7 +16,6 @@ import {
   EyeOff,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
   ShieldCheck,
   Cpu,
 } from 'lucide-react';

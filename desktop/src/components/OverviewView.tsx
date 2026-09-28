@@ -177,7 +177,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         Number(b.has_uncommitted_changes) - Number(a.has_uncommitted_changes) ||
         (b.last_modified || 0) - (a.last_modified || 0)
     );
-  }, [workspaces, filter, runningList, dirtyList, cleanupList, searchQuery]);
+  }, [workspaces, filter, runningList, dirtyList, cleanupList, unpushedList, secretsList, searchQuery]);
 
   const handleCopyPath = (e: React.MouseEvent, path: string) => {
     e.stopPropagation();

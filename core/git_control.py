@@ -37,6 +37,14 @@ def _clean_git_error(stderr: str, stdout: str) -> str:
     return "\n".join(filtered).strip()
 
 
+def _git_env() -> Dict[str, str]:
+    """Provide headless Git environment avoiding hanging prompts or background locks."""
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    env["GIT_OPTIONAL_LOCKS"] = "0"
+    return env
+
+
 def safe_stash_workspace(workspace_path: str, message: str | None = None) -> Dict[str, Any]:
     """
     Safely stashes uncommitted local changes in a Git workspace.
@@ -232,12 +240,15 @@ def untrack_git_secret(repo_path: str, relative_path: str) -> Dict[str, Any]:
 
         untracked_from_index = False
         if chk_res.returncode == 0:
+            target_path = os.path.join(abs_path, clean_rel)
+            rm_cmd = ["rm", "--cached", "-r", clean_rel] if os.path.isdir(target_path) else ["rm", "--cached", clean_rel]
             rm_res = subprocess.run(
-                base_cmd + ["rm", "--cached", clean_rel],
+                base_cmd + rm_cmd,
                 capture_output=True,
                 text=True,
                 timeout=15,
                 creationflags=creationflags,
+                env=_git_env(),
             )
             if rm_res.returncode != 0:
                 clean_err = _clean_git_error(rm_res.stderr, rm_res.stdout)
@@ -492,13 +503,29 @@ def prune_merged_branches(repo_path: str, branches: list[str] | None = None) -> 
                 if clean_b and clean_b not in PROTECTED_BRANCHES and clean_b != current_branch:
                     target_branches.append(clean_b)
         else:
-            # Query merged branches from git
+            # Query merged branches against primary default branch, never bare HEAD
+            default_ref = None
+            for candidate in ["origin/main", "origin/master", "main", "master"]:
+                chk = subprocess.run(
+                    base_cmd + ["rev-parse", "--verify", candidate],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    creationflags=creationflags,
+                    env=_git_env(),
+                )
+                if chk.returncode == 0:
+                    default_ref = candidate
+                    break
+
+            merge_check_args = ["branch", "--merged", default_ref] if default_ref else ["branch", "--merged"]
             merged_res = subprocess.run(
-                base_cmd + ["branch", "--merged"],
+                base_cmd + merge_check_args,
                 capture_output=True,
                 text=True,
                 timeout=10,
                 creationflags=creationflags,
+                env=_git_env(),
             )
             if merged_res.returncode == 0:
                 for line in merged_res.stdout.splitlines():
@@ -530,6 +557,7 @@ def prune_merged_branches(repo_path: str, branches: list[str] | None = None) -> 
                 text=True,
                 timeout=15,
                 creationflags=creationflags,
+                env=_git_env(),
             )
             if del_res.returncode == 0:
                 pruned.append(b)

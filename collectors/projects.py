@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections import deque
 from typing import List, Optional, Set, Tuple
 
 from core.entities import (
@@ -142,10 +143,10 @@ def collect_projects_and_dependencies(
     current_time = time.time()
 
     # Queue of (path, current_depth)
-    dirs_to_visit = [(os.path.abspath(scan_root), 0)]
+    dirs_to_visit: deque[Tuple[str, int]] = deque([(os.path.abspath(scan_root), 0)])
 
     while dirs_to_visit:
-        current_dir, depth = dirs_to_visit.pop(0)
+        current_dir, depth = dirs_to_visit.popleft()
 
         if depth > max_depth:
             continue

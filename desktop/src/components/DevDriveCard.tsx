@@ -1,16 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   AlertCircle,
-  ArrowRight,
   CheckCircle2,
   HardDrive,
   Info,
-  Layers,
   Loader2,
   Package,
   RefreshCw,
   Rocket,
-  Shield,
   Zap,
 } from 'lucide-react';
 import { DevDriveStatusReport, DevDriveRelocateResult } from '../types/entropy';

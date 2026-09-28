@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Home, Trash2, Monitor, Settings, RefreshCw, Command } from 'lucide-react';
+import { Search, Home, Trash2, Monitor, Settings, RefreshCw, Command, LucideIcon } from 'lucide-react';
 import { EntropyLogo } from './EntropyLogo';
 import { WorkspaceSummary } from '../types/entropy';
 
@@ -27,7 +27,7 @@ const formatTimeAgo = (ts: number) => {
   return `${Math.floor(mins / 60)}h ago`;
 };
 
-const nav: { id: ActiveNav; label: string; icon: React.FC<any> }[] = [
+const nav: { id: ActiveNav; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Workspaces', icon: Home },
   { id: 'cleanup', label: 'System Cleanup', icon: Trash2 },
   { id: 'details', label: 'System Details', icon: Monitor },

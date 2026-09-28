@@ -327,35 +327,39 @@ class EntropyDesktopApi:
             from core.advisor import _detect_rebuild_command
             command = _detect_rebuild_command(abs_path, "vendor") or _detect_rebuild_command(abs_path, "node_modules") or "npm install"
 
-        # SAFETY: Validate command against allowlist to prevent injection
+        # SAFETY: Strictly validate command against allowlist to prevent arbitrary code execution
         ALLOWED_COMMANDS = {
             'npm install', 'npm ci', 'npm run build',
             'yarn install', 'yarn',
             'pnpm install', 'pnpm i',
+            'bun install',
             'pip install -r requirements.txt', 'pip install -e .',
             'python -m pip install -r requirements.txt',
+            'python -m venv .venv', 'python -m venv venv',
+            'poetry install', 'pipenv install',
             'cargo build', 'cargo build --release',
             'dotnet build', 'dotnet restore',
             'flutter pub get', 'flutter build',
-            'gradle build', './gradlew build',
+            'gradle build', './gradlew build', 'gradlew build',
             'composer install',
             'bundle install',
-            'go mod download', 'go build ./...',
+            'go mod download', 'go mod vendor', 'go build ./...',
             'mvn install', 'mvn package',
         }
-        SHELL_METACHARACTERS = {'&&', '||', ';', '|', '>', '<', '`', '$', '(', ')', '{', '}'}
-        
+
         if command not in ALLOWED_COMMANDS:
-            # Check for shell metacharacters as a fallback safety net
-            if any(meta in command for meta in SHELL_METACHARACTERS):
-                return {"success": False, "error": f"Command rejected: contains unsafe shell characters. Allowed commands: {', '.join(sorted(ALLOWED_COMMANDS))}"}
+            return {
+                "success": False,
+                "error": f"Command '{command}' is not allowed. Supported rebuild commands: {', '.join(sorted(ALLOWED_COMMANDS))}"
+            }
 
         try:
-            safe_title = f"Entropy Rebuild — {os.path.basename(abs_path)}"
+            safe_name = "".join(c for c in os.path.basename(abs_path) if c.isalnum() or c in ("-", "_", " ")).strip() or "Workspace"
+            safe_title = f"Entropy Rebuild — {safe_name}"
             batch_cmd = f'title {safe_title} && cd /d "{abs_path}" && echo [Entropy] Executing: {command} && echo. && {command}'
             subprocess.Popen(
                 ["cmd.exe", "/c", "start", safe_title, "cmd.exe", "/k", batch_cmd],
-                shell=True,
+                shell=False,
                 cwd=abs_path,
             )
             return {
@@ -666,7 +670,7 @@ def _run_desktop() -> None:
 
             def _force_dark_title_bar(form_self):
                 try:
-                    hwnd = form_self.Handle.ToInt32()
+                    hwnd = int(form_self.Handle.ToInt64())
                     val = ctypes.c_int(1)
                     # DWMWA_USE_IMMERSIVE_DARK_MODE (20 on Win 10 20H1+, 19 on older)
                     ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(val), ctypes.sizeof(val))

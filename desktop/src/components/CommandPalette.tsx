@@ -8,7 +8,6 @@ import {
   Settings,
   AlertTriangle,
   Globe,
-  Terminal,
   SquareTerminal,
   FolderOpen,
   Code2,

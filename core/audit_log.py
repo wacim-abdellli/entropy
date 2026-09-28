@@ -4,13 +4,11 @@ Entropy Audit Logger — Persistent, append-only deletion audit trail.
 Records every destructive operation (artifact cleanup, cache purge, system cleaning)
 to ~/.entropy/audit.log for forensic recovery and accountability.
 
-Each log entry is a single JSON line containing:
-- timestamp (ISO 8601)
-- action (what type of cleanup)
-- paths (what was targeted)
-- freed_bytes (how much disk space was reclaimed)
-- outcome (success/failure)
-- details (additional context)
+Features:
+- Thread-safe append via threading.Lock
+- Unicode & surrogate character resilience
+- Automatic 20MB file rotation
+- Query helper for UI inspection
 """
 
 from __future__ import annotations
@@ -18,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -26,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 AUDIT_DIR = Path.home() / ".entropy"
 AUDIT_FILE = AUDIT_DIR / "audit.log"
+_MAX_AUDIT_BYTES = 20 * 1024 * 1024  # 20 MB cap before rotation
+_audit_lock = threading.Lock()
 
 
 def _ensure_audit_dir() -> None:
@@ -36,6 +37,18 @@ def _ensure_audit_dir() -> None:
         logger.warning("Cannot create audit directory %s: %s", AUDIT_DIR, e)
 
 
+def _rotate_audit_if_needed() -> None:
+    """Rotate audit log if it exceeds the maximum size limit."""
+    try:
+        if AUDIT_FILE.exists() and AUDIT_FILE.stat().st_size > _MAX_AUDIT_BYTES:
+            rotated = AUDIT_DIR / "audit.log.1"
+            if rotated.exists():
+                rotated.unlink(missing_ok=True)
+            AUDIT_FILE.rename(rotated)
+    except Exception as e:
+        logger.debug("Audit log rotation skipped: %s", e)
+
+
 def log_deletion(
     action: str,
     paths: List[str],
@@ -44,7 +57,7 @@ def log_deletion(
     details: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
-    Append a single deletion audit entry to ~/.entropy/audit.log.
+    Append a single deletion audit entry to ~/.entropy/audit.log in a thread-safe manner.
     
     Args:
         action: Type of cleanup (e.g., 'artifact_cleanup', 'cache_purge', 'system_cleanup').
@@ -54,19 +67,26 @@ def log_deletion(
         details: Optional dict with additional context (error messages, counts, etc.).
     """
     _ensure_audit_dir()
+    clean_paths = [str(p).encode("utf-8", "surrogateescape").decode("utf-8", "replace") for p in paths]
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "action": action,
-        "paths": paths,
-        "freed_bytes": freed_bytes,
-        "outcome": outcome,
+        "action": str(action),
+        "paths": clean_paths,
+        "freed_bytes": int(freed_bytes) if isinstance(freed_bytes, (int, float)) else 0,
+        "outcome": str(outcome),
         "details": details or {},
     }
-    try:
-        with open(AUDIT_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except OSError as e:
-        logger.warning("Failed to write audit log entry: %s", e)
+
+    payload = json.dumps(entry, ensure_ascii=True) + "\n"
+
+    with _audit_lock:
+        try:
+            _rotate_audit_if_needed()
+            with open(AUDIT_FILE, "a", encoding="utf-8", errors="replace") as f:
+                f.write(payload)
+                f.flush()
+        except Exception as e:
+            logger.warning("Failed to write audit log entry: %s", e)
 
 
 def log_artifact_cleanup(
@@ -76,11 +96,12 @@ def log_artifact_cleanup(
     error: Optional[str] = None,
 ) -> None:
     """Log a single artifact directory deletion."""
+    outcome = "success" if success else "failed"
     log_deletion(
         action="artifact_cleanup",
         paths=[path],
         freed_bytes=freed_bytes if success else 0,
-        outcome="success" if success else "failed",
+        outcome=outcome,
         details={"folder": os.path.basename(path), "error": error} if error else {"folder": os.path.basename(path)},
     )
 
@@ -93,11 +114,12 @@ def log_cache_purge(
     error: Optional[str] = None,
 ) -> None:
     """Log a cache directory purge."""
+    outcome = "success" if success else "failed"
     log_deletion(
         action="cache_purge",
         paths=[target_path],
         freed_bytes=freed_bytes if success else 0,
-        outcome="success" if success else "failed",
+        outcome=outcome,
         details={"cache_name": cache_name, "error": error} if error else {"cache_name": cache_name},
     )
 
@@ -110,10 +132,33 @@ def log_system_cleanup(
     error: Optional[str] = None,
 ) -> None:
     """Log a system junk cleanup operation."""
+    outcome = "success" if success else "failed"
     log_deletion(
         action="system_cleanup",
         paths=paths,
         freed_bytes=freed_bytes if success else 0,
-        outcome="success" if success else "failed",
+        outcome=outcome,
         details={"target_id": target_id, "error": error} if error else {"target_id": target_id},
     )
+
+
+def get_recent_audit_records(limit: int = 50) -> List[Dict[str, Any]]:
+    """Retrieve the most recent audit records from ~/.entropy/audit.log."""
+    if not AUDIT_FILE.exists():
+        return []
+
+    records: List[Dict[str, Any]] = []
+    with _audit_lock:
+        try:
+            with open(AUDIT_FILE, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+                for line in reversed(lines[-limit:]):
+                    stripped = line.strip()
+                    if stripped:
+                        try:
+                            records.append(json.loads(stripped))
+                        except Exception:
+                            continue
+        except Exception as e:
+            logger.debug("Failed to read audit log records: %s", e)
+    return records

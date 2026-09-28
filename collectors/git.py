@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
@@ -18,21 +19,29 @@ from core.entities import GitRepository
 logger = logging.getLogger(__name__)
 
 
-def _get_dir_size(path: str) -> int:
-    """Calculate the size of a directory in bytes without following symlinks."""
+def _get_dir_size(path: str, timeout_seconds: float = 1.0) -> int:
+    """Calculate the size of a directory in bytes without following symlinks, capped by timeout."""
     total_size = 0
-    try:
-        with os.scandir(path) as it:
-            for entry in it:
-                try:
-                    if entry.is_file(follow_symlinks=False):
-                        total_size += entry.stat(follow_symlinks=False).st_size
-                    elif entry.is_dir(follow_symlinks=False):
-                        total_size += _get_dir_size(entry.path)
-                except OSError:
-                    pass
-    except OSError:
-        pass
+    start_time = time.time()
+    stack = [path]
+
+    while stack:
+        if time.time() - start_time > timeout_seconds:
+            break
+        current = stack.pop()
+        try:
+            with os.scandir(current) as it:
+                for entry in it:
+                    try:
+                        if entry.is_file(follow_symlinks=False):
+                            total_size += entry.stat(follow_symlinks=False).st_size
+                        elif entry.is_dir(follow_symlinks=False):
+                            stack.append(entry.path)
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+
     return total_size
 
 
@@ -40,6 +49,9 @@ def _run_git_command(repo_path: str, args: List[str], timeout: int = 5) -> Optio
     """Run a git command in the repository path and return stripped stdout."""
     try:
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        git_env = dict(os.environ)
+        git_env["GIT_TERMINAL_PROMPT"] = "0"
+        git_env["GIT_OPTIONAL_LOCKS"] = "0"
         result = subprocess.run(
             ["git"] + args,
             cwd=repo_path,
@@ -48,6 +60,7 @@ def _run_git_command(repo_path: str, args: List[str], timeout: int = 5) -> Optio
             timeout=timeout,
             check=False,
             creationflags=creationflags,
+            env=git_env,
         )
         if result.returncode == 0:
             return result.stdout.strip()

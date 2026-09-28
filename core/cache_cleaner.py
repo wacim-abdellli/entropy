@@ -70,7 +70,7 @@ def _calc_dir_size(path: str, timeout_seconds: float = 2.0) -> int:
     return total_size
 
 
-def get_known_cache_targets() -> List[Dict[str, Any]]:
+def get_known_cache_targets(measure_sizes: bool = True) -> List[Dict[str, Any]]:
     """Return list of known global package cache definitions and paths on this machine."""
     home = Path.home()
     local_appdata = Path(os.environ.get("LOCALAPPDATA", str(home / "AppData" / "Local")))
@@ -130,8 +130,11 @@ def get_known_cache_targets() -> List[Dict[str, Any]]:
     if not to_measure:
         return []
 
-    with ThreadPoolExecutor(max_workers=min(6, len(to_measure))) as executor:
-        sizes = list(executor.map(lambda item: _calc_dir_size(item[2]), to_measure))
+    if measure_sizes:
+        with ThreadPoolExecutor(max_workers=min(6, len(to_measure))) as executor:
+            sizes = list(executor.map(lambda item: _calc_dir_size(item[2]), to_measure))
+    else:
+        sizes = [0] * len(to_measure)
 
     discovered = []
     for (cid, label, abs_p, desc), size in zip(to_measure, sizes):
@@ -156,8 +159,8 @@ def is_safe_cache_path(path: str) -> tuple[bool, str]:
     if not os.path.isdir(abs_p):
         return False, f"Directory '{abs_p}' does not exist."
 
-    # Validate against known cache paths
-    known_targets = get_known_cache_targets()
+    # Validate against known cache paths without triggering redundant disk size crawls
+    known_targets = get_known_cache_targets(measure_sizes=False)
     known_paths = {t["path"].lower() for t in known_targets}
 
     if abs_p.lower() not in known_paths:
@@ -175,8 +178,8 @@ def purge_system_cache(target_path_or_id: str) -> Dict[str, Any]:
     Safely purge a recognized global developer cache directory.
     Empties all files and folders inside it, then recreates the empty root.
     """
-    # Check if target is an ID
-    known_targets = get_known_cache_targets()
+    # Lookup target metadata without measuring sizes
+    known_targets = get_known_cache_targets(measure_sizes=False)
     target_path = None
     target_label = target_path_or_id
 
@@ -199,6 +202,15 @@ def purge_system_cache(target_path_or_id: str) -> Dict[str, Any]:
         }
 
     size_before = _calc_dir_size(target_path)
+    purge_errors: list[str] = []
+
+    def on_purge_error(func, error_path, excinfo):
+        try:
+            os.chmod(error_path, stat.S_IWRITE)
+            func(error_path)
+        except Exception as e:
+            purge_errors.append(f"{os.path.basename(error_path)}: {e}")
+            logger.debug("Could not remove item %s: %s", error_path, e)
 
     try:
         # Delete contents inside target directory
@@ -206,15 +218,30 @@ def purge_system_cache(target_path_or_id: str) -> Dict[str, Any]:
             entry_path = os.path.join(target_path, entry)
             try:
                 if os.path.isdir(entry_path) and not os.path.islink(entry_path):
-                    shutil.rmtree(entry_path, onerror=_remove_readonly)
+                    shutil.rmtree(entry_path, onerror=on_purge_error)
                 else:
                     os.chmod(entry_path, stat.S_IWRITE)
                     os.unlink(entry_path)
             except Exception as e:
+                purge_errors.append(f"{entry}: {e}")
                 logger.debug("Could not remove item %s: %s", entry_path, e)
 
         size_after = _calc_dir_size(target_path)
         freed = max(0, size_before - size_after)
+
+        # Check if files remained due to locks
+        remaining_items = len(os.listdir(target_path)) if os.path.exists(target_path) else 0
+        if remaining_items > 0 and purge_errors:
+            err_summary = "; ".join(purge_errors[:2])
+            log_cache_purge(target_path, freed, success=False, cache_name=target_label, error=err_summary)
+            return {
+                "success": False,
+                "id": target_path_or_id,
+                "label": target_label,
+                "path": target_path,
+                "freed_bytes": freed,
+                "error": f"Partially purged {target_label} ({freed / (1024*1024):.1f} MB freed). Some items locked by active dev tools ({err_summary}).",
+            }
 
         log_cache_purge(target_path, freed, success=True, cache_name=target_label)
         return {

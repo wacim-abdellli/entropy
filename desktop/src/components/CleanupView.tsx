@@ -21,7 +21,6 @@ import {
   FileText,
   Sliders,
   Zap,
-  Cpu,
   Unlock,
   ShieldCheck,
   ShieldAlert,
@@ -253,7 +252,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       } else {
         setToastMessage(res.error || `Failed to compact ${vhdx.name}.`);
       }
-    } catch (err) {
+    } catch {
       setToastMessage(`Error compacting ${vhdx.name}.`);
     } finally {
       setCompactingVhdx(null);
@@ -271,7 +270,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       } else {
         setToastMessage(res.error || 'Failed to enable Long Paths.');
       }
-    } catch (err) {
+    } catch {
       setToastMessage('Error enabling Long Paths.');
     } finally {
       setTuningActionBusy(null);
@@ -289,26 +288,8 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       } else {
         setToastMessage(res.error || 'Failed to enable Developer Mode.');
       }
-    } catch (err) {
+    } catch {
       setToastMessage('Error enabling Developer Mode.');
-    } finally {
-      setTuningActionBusy(null);
-      setTimeout(() => setToastMessage(null), 5000);
-    }
-  };
-
-  const handleAddDefenderExclusion = async (path: string) => {
-    setTuningActionBusy(`def_${path}`);
-    try {
-      const res = await EntropyApiClient.addDefenderExclusion(path);
-      if (res.success) {
-        setToastMessage(res.message || `Added to Defender exclusions.`);
-        await fetchTuningReport();
-      } else {
-        setToastMessage(res.error || `Failed to add Defender exclusion.`);
-      }
-    } catch (err) {
-      setToastMessage('Error adding Defender exclusion.');
     } finally {
       setTuningActionBusy(null);
       setTimeout(() => setToastMessage(null), 5000);
@@ -325,7 +306,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       } else {
         setToastMessage(res.error || `Failed to add Defender exclusions.`);
       }
-    } catch (err) {
+    } catch {
       setToastMessage('Error adding Defender exclusions.');
     } finally {
       setTuningActionBusy(null);

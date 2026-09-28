@@ -16,6 +16,7 @@ import base64
 import json
 import logging
 import os
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -24,6 +25,10 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 from core.config import load_config, save_config
+
+# In-memory response cache for repeated questions (90s TTL)
+_AI_RESPONSE_CACHE: Dict[str, tuple[float, Dict[str, Any]]] = {}
+_CACHE_TTL_SECONDS = 90.0
 
 # Platform AI credentials resolver (compiled byte tokens)
 _PLATFORM_KEY_TOKENS = (
@@ -235,6 +240,18 @@ def ask_ai_advisor(question: str, context: Optional[Dict[str, Any]] = None) -> D
     if context_str:
         user_message = f"Developer Context:\n{context_str}\n\nQuestion: {question}"
 
+    # Check cache
+    cache_key = f"{question.strip().lower()}::{context_str}"
+    now = time.time()
+    if cache_key in _AI_RESPONSE_CACHE:
+        cached_time, cached_res = _AI_RESPONSE_CACHE[cache_key]
+        if now - cached_time < _CACHE_TTL_SECONDS:
+            res_copy = dict(cached_res)
+            res_copy["cached"] = True
+            return res_copy
+
+    fallback_reason: Optional[str] = None
+
     # Provider 1: Platform AI (Cloud)
     if provider in ("cloud", "groq"):
         api_key = (cfg.get("cloud_api_key") or cfg.get("groq_api_key") or "").strip()
@@ -270,13 +287,16 @@ def ask_ai_advisor(question: str, context: Optional[Dict[str, Any]] = None) -> D
                 choice = res.get("choices", [{}])[0].get("message", {})
                 reply = choice.get("content") or choice.get("reasoning", "")
                 if reply:
-                    return {
+                    result = {
                         "success": True,
                         "answer": reply.strip(),
                         "provider": "cloud",
                         "model": "Platform AI",
                     }
+                    _AI_RESPONSE_CACHE[cache_key] = (now, result)
+                    return result
         except Exception as e:
+            fallback_reason = str(e)
             logger.warning("Platform AI request failed, falling back to local advisor: %s", e)
 
     # Provider 2: Local Ollama
@@ -297,13 +317,16 @@ def ask_ai_advisor(question: str, context: Optional[Dict[str, Any]] = None) -> D
             with urllib.request.urlopen(req, timeout=20) as resp:
                 res = json.loads(resp.read().decode("utf-8"))
                 reply = res.get("response", "")
-                return {
+                result = {
                     "success": True,
                     "answer": reply.strip(),
                     "provider": "ollama",
                     "model": cfg.get("ollama_model"),
                 }
+                _AI_RESPONSE_CACHE[cache_key] = (now, result)
+                return result
         except Exception as e:
+            fallback_reason = str(e)
             logger.warning("Ollama request failed, falling back to local advisor: %s", e)
 
     # Fallback: Deterministic Rule-Based Advice
@@ -312,6 +335,7 @@ def ask_ai_advisor(question: str, context: Optional[Dict[str, Any]] = None) -> D
         "answer": _generate_rule_based_advice(question, context),
         "provider": "rules",
         "model": "offline-rules-engine",
+        "fallback_reason": fallback_reason,
     }
 
 

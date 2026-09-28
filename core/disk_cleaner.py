@@ -31,6 +31,7 @@ ALLOWED_DISPOSABLE_NAMES = {
     "__pycache__",
     ".pytest_cache",
     "build",
+    "dist",
     ".dart_tool",
     "bin",
     "obj",
@@ -127,24 +128,53 @@ def clean_artifact_directory(path: str) -> Dict[str, Any]:
     except Exception:
         pass
 
+    rm_errors: list[str] = []
+
+    def on_rm_error(func, error_path, excinfo):
+        try:
+            os.chmod(error_path, stat.S_IWRITE)
+            func(error_path)
+        except Exception as e:
+            rm_errors.append(f"{os.path.basename(error_path)}: {e}")
+            logger.debug("Failed to reset permissions on %s: %s", error_path, e)
+
     try:
-        shutil.rmtree(abs_path, onerror=_remove_readonly)
-        log_artifact_cleanup(abs_path, freed_bytes, success=True)
-        return {
-            "success": True,
-            "path": abs_path,
-            "freed_bytes": freed_bytes,
-            "message": f"Successfully deleted '{os.path.basename(abs_path)}' ({freed_bytes / (1024*1024):.1f} MB freed).",
-        }
+        shutil.rmtree(abs_path, onerror=on_rm_error)
     except Exception as e:
-        logger.error("Failed to delete directory %s: %s", abs_path, e)
-        log_artifact_cleanup(abs_path, 0, success=False, error=str(e))
+        rm_errors.append(str(e))
+
+    # Verify whether target directory was truly deleted or locked files remain
+    if os.path.exists(abs_path):
+        remaining_bytes = 0
+        try:
+            for root, _, files in os.walk(abs_path):
+                for f in files:
+                    try:
+                        fp = os.path.join(root, f)
+                        if not os.path.islink(fp):
+                            remaining_bytes += os.path.getsize(fp)
+                    except (OSError, IOError):
+                        pass
+        except Exception:
+            pass
+
+        actual_freed = max(0, freed_bytes - remaining_bytes)
+        err_msg = "; ".join(rm_errors[:2]) if rm_errors else "Files inside directory are currently locked."
+        log_artifact_cleanup(abs_path, actual_freed, success=False, error=err_msg)
         return {
             "success": False,
             "path": abs_path,
-            "freed_bytes": 0,
-            "error": f"Deletion failed: {e}",
+            "freed_bytes": actual_freed,
+            "error": f"Partial deletion of '{os.path.basename(abs_path)}': {err_msg}. Close any processes using this folder and retry.",
         }
+
+    log_artifact_cleanup(abs_path, freed_bytes, success=True)
+    return {
+        "success": True,
+        "path": abs_path,
+        "freed_bytes": freed_bytes,
+        "message": f"Successfully deleted '{os.path.basename(abs_path)}' ({freed_bytes / (1024*1024):.1f} MB freed).",
+    }
 
 
 def clean_multiple_artifacts(paths: List[str]) -> Dict[str, Any]:

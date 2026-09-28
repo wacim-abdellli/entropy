@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ArrowLeft,
-  ArrowDown,
   ArrowUp,
   GitBranch,
   Code2,
-  Terminal,
   SquareTerminal,
   FolderOpen,
   ExternalLink,
@@ -198,9 +196,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     'chrome.exe', 'msedge.exe', 'firefox.exe', 'brave.exe', 'explorer.exe', 'taskmgr.exe'
   ]), []);
 
-  const rawProcesses: ProcessConnection[] = connections.processes || [];
   const processes: ProcessConnection[] = useMemo(() => {
-    return rawProcesses.filter((proc: ProcessConnection) => {
+    const list = connections.processes || [];
+    return list.filter((proc: ProcessConnection) => {
       const name = (proc.name || '').toLowerCase();
       const exe = (proc.exe_path || '').toLowerCase();
       if (PROTECTED_PROCESS_SET.has(name) || PROTECTED_PROCESS_SET.has(name.replace('.exe', ''))) {
@@ -218,17 +216,20 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       }
       return true;
     });
-  }, [rawProcesses, PROTECTED_PROCESS_SET]);
+  }, [connections.processes, PROTECTED_PROCESS_SET]);
 
   const dependencies = connections.dependencies || [];
   const dirtyFiles = git?.dirty_files || [];
 
+  const secretIssuesList = git?.secret_issues;
+  const unprotectedEnvList = git?.unprotected_env_files;
+
   const secretIssues: SecretIssue[] = useMemo(() => {
-    if (git?.secret_issues && git.secret_issues.length > 0) {
-      return git.secret_issues;
+    if (secretIssuesList && secretIssuesList.length > 0) {
+      return secretIssuesList;
     }
-    if (git?.unprotected_env_files && git.unprotected_env_files.length > 0) {
-      return git.unprotected_env_files.map((p) => ({
+    if (unprotectedEnvList && unprotectedEnvList.length > 0) {
+      return unprotectedEnvList.map((p) => ({
         path: p,
         name: p.split(/[\\/]/).pop() || p,
         category: 'env' as const,
@@ -238,7 +239,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       }));
     }
     return [];
-  }, [git?.secret_issues, git?.unprotected_env_files]);
+  }, [secretIssuesList, unprotectedEnvList]);
 
   const trackedSecrets = useMemo(() => secretIssues.filter((s) => s.status === 'tracked'), [secretIssues]);
   const unignoredSecrets = useMemo(() => secretIssues.filter((s) => s.status === 'unignored'), [secretIssues]);
@@ -976,7 +977,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     {secretIssues.map((issue) => {
                       const isTracked = issue.status === 'tracked';
                       const isUnignored = issue.status === 'unignored';
-                      const isProtected = issue.status === 'protected';
 
                       return (
                         <div

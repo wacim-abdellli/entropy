@@ -16,8 +16,10 @@
   --color-text-secondary: #a9afbb;
   --color-text-tertiary: #8c95a3;
   --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
   --color-accent-muted: rgba(59, 130, 246, 0.14);
   --color-accent-strong: #60a5fa;
+  --color-overlay: rgba(0, 0, 0, 0.6);
   --color-success: #34d399;
   --color-success-bg: rgba(52, 211, 153, 0.1);
   --color-success-border: rgba(52, 211, 153, 0.24);

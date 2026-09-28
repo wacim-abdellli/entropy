@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   Copy,
-  FolderX,
-  Layers,
   Loader2,
   RefreshCw,
   ShieldCheck,
   Split,
-  Trash2,
   Wrench,
 } from 'lucide-react';
 import { PathAuditReport, PathPruneResult } from '../types/entropy';
@@ -268,9 +266,9 @@ export const PathAuditorCard: React.FC<PathAuditorCardProps> = ({ onRefreshParen
                       type="button"
                       onClick={() => copyToClipboard(c.active_path)}
                       className="p-1 hover:text-[var(--color-text-primary)] transition-colors"
-                      title="Copy path"
+                      title={copiedText === c.active_path ? "Copied!" : "Copy path"}
                     >
-                      <Copy size={12} />
+                      {copiedText === c.active_path ? <Check size={12} className="text-[var(--color-success)]" /> : <Copy size={12} />}
                     </button>
                   </div>
 

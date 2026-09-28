@@ -78,6 +78,26 @@ PROTECTED_PROCESS_NAMES = {
     "vivaldi.exe",
 }
 
+# Terminal shells and console hosts (never kill user's interactive shell sessions)
+TERMINAL_SHELL_NAMES = {
+    "powershell.exe",
+    "powershell",
+    "pwsh.exe",
+    "pwsh",
+    "cmd.exe",
+    "cmd",
+    "wt.exe",
+    "wt",
+    "windowsterminal.exe",
+    "windowsterminal",
+    "bash.exe",
+    "bash",
+    "conhost.exe",
+    "conhost",
+    "wsl.exe",
+    "wsl",
+}
+
 # Known developer processes and runtimes that can be cleanly terminated
 DEV_PROCESS_NAMES = {
     "node.exe",
@@ -126,7 +146,12 @@ _PROTECTED_KEYWORDS = (
 )
 
 
-def is_process_protected(pid: int, name: Optional[str] = None, exe_path: Optional[str] = None) -> bool:
+def is_process_protected(
+    pid: int,
+    name: Optional[str] = None,
+    exe_path: Optional[str] = None,
+    include_shells: bool = True,
+) -> bool:
     """Return True if the specified process PID, executable name, or exe path is protected."""
     # Never terminate PID 0 or PID 4 (System)
     if pid in (0, 4):
@@ -136,9 +161,11 @@ def is_process_protected(pid: int, name: Optional[str] = None, exe_path: Optiona
     if pid != 0 and pid == os.getpid():
         return True
 
+    protected_set = PROTECTED_PROCESS_NAMES | (TERMINAL_SHELL_NAMES if include_shells else set())
+
     if name:
         n_lower = name.lower().strip()
-        if n_lower in PROTECTED_PROCESS_NAMES or n_lower.replace(".exe", "") in PROTECTED_PROCESS_NAMES:
+        if n_lower in protected_set or n_lower.replace(".exe", "") in protected_set:
             return True
         if any(term in n_lower for term in _PROTECTED_KEYWORDS):
             return True
@@ -152,7 +179,7 @@ def is_process_protected(pid: int, name: Optional[str] = None, exe_path: Optiona
         try:
             proc = psutil.Process(pid)
             proc_name = proc.name().lower()
-            if proc_name in PROTECTED_PROCESS_NAMES or proc_name.replace(".exe", "") in PROTECTED_PROCESS_NAMES:
+            if proc_name in protected_set or proc_name.replace(".exe", "") in protected_set:
                 return True
             if any(term in proc_name for term in _PROTECTED_KEYWORDS):
                 return True
@@ -216,8 +243,20 @@ def terminate_process(pid: int, force: bool = False) -> Dict[str, Any]:
             "error": f"Cannot terminate '{proc_name}' (PID {pid}): It is a protected system process.",
         }
 
+    # Capture child process subtree to prevent orphaned worker processes
+    try:
+        children = proc.children(recursive=True)
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        children = []
+
     # Step 1: Attempt graceful termination
     try:
+        for child in children:
+            try:
+                child.terminate()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
         proc.terminate()
         # Wait up to 2.0 seconds for graceful exit
         proc.wait(timeout=2.0)
@@ -230,6 +269,12 @@ def terminate_process(pid: int, force: bool = False) -> Dict[str, Any]:
     except psutil.TimeoutExpired:
         if force:
             try:
+                for child in children:
+                    try:
+                        child.kill()
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+
                 proc.kill()
                 proc.wait(timeout=1.5)
                 return {

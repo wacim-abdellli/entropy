@@ -13,7 +13,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { EntropyApiClient } from '../services/api';
-import { GlobalSecretsRadarReport, GlobalSecretItem } from '../types/entropy';
+import { GlobalSecretsRadarReport } from '../types/entropy';
 
 interface SecretsRadarModalProps {
   isOpen: boolean;

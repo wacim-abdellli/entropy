@@ -1,12 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  HardDrive,
-  Folder,
   Layers,
-  Trash2,
   ExternalLink,
-  Info,
-  Maximize2,
   Copy,
   Check,
 } from 'lucide-react';
@@ -200,7 +195,6 @@ function computeSquarifiedTreemap(
 export const StorageTreemap: React.FC<StorageTreemapProps> = ({
   items,
   onSelectItem,
-  onCleanItem,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 900, height: 500 });

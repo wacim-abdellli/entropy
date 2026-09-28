@@ -27,7 +27,12 @@ entropy/
 │   ├── path_auditor.py       # Windows user PATH environment variable auditor & pruner
 │   ├── dev_drive.py          # Windows 11 Dev Drive detector & cache relocator
 │   ├── vhdx_compact.py       # WSL 2 & Docker virtual disk compactor
-│   └── tuner.py              # Windows developer mode, long paths & Defender exclusions
+│   ├── tuner.py              # Windows developer mode, long paths & Defender exclusions
+│   ├── entities.py           # Core domain entity models & dataclasses
+│   ├── graph.py              # In-memory EnvironmentGraph representation
+│   ├── findings.py           # Anomaly heuristics & graph-based diagnosis rules
+│   ├── file_locker.py        # Win32 Restart Manager file locking diagnostics
+│   └── docker_control.py     # Docker container control & daemon management
 ├── collectors/               # Data collection modules
 │   ├── git.py                # Git status, branch, uncommitted files, unpushed commits
 │   ├── processes.py          # Active dev processes, listening ports, PID correlation
@@ -37,13 +42,17 @@ entropy/
 │   ├── runtimes.py           # Installed developer runtimes & versions
 │   └── docker.py             # Docker daemon status, images, containers & build cache
 ├── linkers/                  # Entity relationship & cross-collector linkers
+│   └── relationships.py      # Cross-domain semantic linker
 ├── report/                   # CLI output formatters (terminal table, JSON export, contract)
+│   ├── contract.py           # JSON serialization contract for desktop & tooling
+│   ├── inspect.py            # Deep workspace forensic inspector
+│   └── text.py               # Terminal report table formatter
 ├── desktop/                  # React 19 + TypeScript + Vite + Tailwind CSS 4 Desktop GUI
 │   ├── app.py                # Native Windows WebView2 launcher & IPC bridge
 │   ├── src/
 │   │   ├── App.tsx           # Main desktop container & sidebar routing
 │   │   ├── index.css         # Design system tokens & Tailwind CSS 4 setup
-│   │   ├── components/       # Clean, action-oriented React components
+│   │   ├── components/       # Action-oriented React components
 │   │   │   ├── Sidebar.tsx   # Navigation & quick workspace switcher
 │   │   │   ├── OverviewView.tsx # Actionable dashboard with workspace table & quick actions
 │   │   │   ├── CleanupView.tsx  # Multi-tab disk reclaimer (System, Artifacts, Caches, Docker, Tuning)
@@ -51,7 +60,14 @@ entropy/
 │   │   │   ├── WorkspaceAdvisorCard.tsx # Diagnostic health card with confirmation modal & Platform AI
 │   │   │   ├── SystemView.tsx   # Processes, Runtimes, Containers, Caches & RAM Booster
 │   │   │   ├── SettingsView.tsx # Scan directory configuration & Platform AI settings
-│   │   │   └── CommandPalette.tsx # Global launcher overlay (Ctrl+K)
+│   │   │   ├── CommandPalette.tsx # Global launcher overlay (Ctrl+K)
+│   │   │   ├── StorageTreemap.tsx # Interactive storage breakdown visualization
+│   │   │   ├── PathAuditorCard.tsx# PATH environment variable health & collision resolver
+│   │   │   ├── DevDriveCard.tsx # Windows 11 Dev Drive detection & acceleration
+│   │   │   ├── SecretsRadarModal.tsx # Cross-workspace secret scanner modal
+│   │   │   ├── FileLockModal.tsx# Process file-locking unlocker modal
+│   │   │   ├── CleanupSafetyModal.tsx # Destructive cleanup confirmation dialog
+│   │   │   └── EntropyLogo.tsx  # Brand SVG logo icon
 │   │   ├── types/
 │   │   │   └── entropy.ts    # TypeScript interface definitions
 │   │   └── services/

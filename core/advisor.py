@@ -77,7 +77,7 @@ def _detect_rebuild_command(project_path: str, artifact_name: str) -> Optional[s
         if os.path.exists(os.path.join(project_path, "Pipfile")):
             return "pipenv install"
         if os.path.exists(os.path.join(project_path, "requirements.txt")):
-            return "python -m venv .venv && pip install -r requirements.txt"
+            return "python -m venv .venv"
         return "python -m venv .venv"
 
     if norm_name in ("bin", "obj"):
@@ -103,7 +103,7 @@ def _detect_rebuild_command(project_path: str, artifact_name: str) -> Optional[s
         return "bundle install"
 
     if norm_name in ("__pycache__", ".pytest_cache"):
-        return "Automatically regenerated on next test/execution"
+        return None
 
     # Default fallback checks
     if os.path.exists(os.path.join(project_path, "Gemfile")):
@@ -370,7 +370,7 @@ def evaluate_workspace_health(
         tips.append(
             HealthTip(
                 id="live_ports",
-                title=f"Dev Server Active on Port {', :'.join(str(pt) for pt in ports)}",
+                title=f"Dev Server Active on Port {', '.join(f':{pt}' for pt in ports)}",
                 description="Background server is actively listening for HTTP traffic.",
                 severity="info",
                 action_label="Free Ports" if len(ports) == 1 else None,

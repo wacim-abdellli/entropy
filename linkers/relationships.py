@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from functools import lru_cache
 from typing import Dict, List, Optional
 
 from core.entities import (
@@ -31,18 +32,30 @@ from core.process_control import PROTECTED_PROCESS_NAMES, is_process_protected
 logger = logging.getLogger(__name__)
 
 
+@lru_cache(maxsize=8192)
+def _normalize_fast(p: str) -> str:
+    """Pre-normalize and cache path comparisons to avoid Win32 GetFullPathNameW syscall storms."""
+    try:
+        norm = os.path.normcase(os.path.abspath(p))
+        if norm.endswith(os.sep) and len(norm) > 3:
+            norm = norm[:-1]
+        return norm
+    except Exception:
+        return ""
+
+
 def _is_subpath(child: Optional[str], parent: Optional[str]) -> bool:
     """Check if child path is equal to or located inside parent directory."""
-    if not child or not parent or not child.strip() or not parent.strip():
+    if not child or not parent:
         return False
-    try:
-        norm_child = os.path.normcase(os.path.abspath(child))
-        norm_parent = os.path.normcase(os.path.abspath(parent))
-        if norm_child == norm_parent:
-            return True
-        return norm_child.startswith(norm_parent + os.sep)
-    except Exception:
+    norm_child = _normalize_fast(child)
+    norm_parent = _normalize_fast(parent)
+    if not norm_child or not norm_parent:
         return False
+    if norm_child == norm_parent:
+        return True
+    prefix = norm_parent if norm_parent.endswith(os.sep) else norm_parent + os.sep
+    return norm_child.startswith(prefix)
 
 
 def _classify_project_activity(
@@ -148,7 +161,7 @@ def build_environment_graph(scan: ScanResult) -> EnvironmentGraph:
     # 4. Link Process -> Project (STRONGLY INFERABLE)
     for proc in scan.processes:
         # Never associate IDEs, text editors, AI coding tools, browsers, or system utilities as project dev processes
-        if is_process_protected(proc.pid, proc.name, proc.exe_path):
+        if is_process_protected(proc.pid, proc.name, proc.exe_path, include_shells=False):
             continue
 
         matched_project = None
@@ -245,28 +258,32 @@ def build_environment_graph(scan: ScanResult) -> EnvironmentGraph:
         if os.path.normcase(p.path) in git_by_path
     ]
 
-    for i in range(len(git_projects)):
-        p1, g1 = git_projects[i]
-        if not g1.remote_repo_id:
-            continue
-        for j in range(i + 1, len(git_projects)):
-            p2, g2 = git_projects[j]
-            if not g2.remote_repo_id:
-                continue
+    # Group projects by remote repository ID in O(N) linear time
+    remote_groups: dict[str, list[tuple[Project, GitRepository]]] = {}
+    for p, g in git_projects:
+        if g.remote_repo_id:
+            remote_groups.setdefault(g.remote_repo_id.lower(), []).append((p, g))
 
-            if g1.remote_repo_id.lower() == g2.remote_repo_id.lower() and p1.path != p2.path:
-                is_wt = g1.is_worktree or g2.is_worktree
-                ev_text = (
-                    f"Both projects share the same remote repository via Git Worktree: {g1.remote_repo_id}"
-                    if is_wt
-                    else f"Both projects clone the same remote repository: {g1.remote_repo_id}"
-                )
-                graph.add_relationship(
-                    source_id=p1.entity_id,
-                    target_id=p2.entity_id,
-                    rel_type=RelationshipType.SHARES_REMOTE,
-                    observability=Observability.DIRECTLY_OBSERVABLE,
-                    evidence=ev_text,
-                )
+    for rid, group in remote_groups.items():
+        if len(group) < 2:
+            continue
+        for i in range(len(group)):
+            p1, g1 = group[i]
+            for j in range(i + 1, len(group)):
+                p2, g2 = group[j]
+                if p1.path != p2.path:
+                    is_wt = g1.is_worktree or g2.is_worktree
+                    ev_text = (
+                        f"Both projects share the same remote repository via Git Worktree: {g1.remote_repo_id}"
+                        if is_wt
+                        else f"Both projects clone the same remote repository: {g1.remote_repo_id}"
+                    )
+                    graph.add_relationship(
+                        source_id=p1.entity_id,
+                        target_id=p2.entity_id,
+                        rel_type=RelationshipType.SHARES_REMOTE,
+                        observability=Observability.DIRECTLY_OBSERVABLE,
+                        evidence=ev_text,
+                    )
 
     return graph
