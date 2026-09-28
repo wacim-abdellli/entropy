@@ -66,10 +66,30 @@ class TestSystemCleaner(unittest.TestCase):
         self.assertFalse(res["success"])
         self.assertIn("Unknown target ID", res["error"])
 
+    def test_clean_unknown_target_force_close(self):
+        from core.system_cleaner import clean_system_target_force_close
+        res = clean_system_target_force_close("invalid_target_xyz")
+        self.assertFalse(res["success"])
+        self.assertIn("Unknown target ID", res["error"])
+
     def test_clean_multiple_targets_graceful(self):
         res = clean_multiple_system_targets([])
         self.assertTrue(res["success"])
         self.assertEqual(res["total_freed_bytes"], 0)
+
+    def test_clean_multiple_targets_force_close_empty(self):
+        res = clean_multiple_system_targets([], force_close=True)
+        self.assertTrue(res["success"])
+        self.assertEqual(res["total_freed_bytes"], 0)
+
+    def test_inspect_single_target_fields(self):
+        from core.system_cleaner import _inspect_single_target
+        spec = [s for s in KNOWN_TARGETS_SPECS if s["id"] == "win_temp"][0]
+        res = _inspect_single_target(spec)
+        if res:
+            self.assertIn("process_app_name", res)
+            self.assertIn("is_default_selected", res)
+            self.assertIn("size_bytes", res)
 
 
 if __name__ == "__main__":

@@ -101,7 +101,8 @@ interface PyWebViewApi {
   get_purgeable_caches?(): Promise<GlobalCacheItem[] | string>;
   purge_caches?(targets: string[]): Promise<CachePurgeResult | string>;
   get_system_cleanup_targets?(): Promise<SystemCleanupTarget[] | string>;
-  clean_system_targets?(targets: string[]): Promise<SystemCleanupResult | string>;
+  clean_system_targets?(targets: string[], force_close?: boolean): Promise<SystemCleanupResult | string>;
+  clean_system_target_force_close?(target_id: string): Promise<any>;
   get_cleanup_progress?(): Promise<CleanupLiveProgress | string>;
   get_workspace_health?(workspace_path: string): Promise<WorkspaceHealth | string>;
   get_ai_config?(): Promise<AiConfig | string>;
@@ -1139,11 +1140,11 @@ export class EntropyApiClient {
   /**
    * Safely clean selected system junk targets (Windows Temp, browser caches, crash dumps).
    */
-  static async cleanSystemTargets(targets: string[]): Promise<SystemCleanupResult> {
+  static async cleanSystemTargets(targets: string[], forceClose = false): Promise<SystemCleanupResult> {
     if (isPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.clean_system_targets) {
-          const res = await bridgeWindow()!.pywebview!.api!.clean_system_targets!(targets);
+          const res = await bridgeWindow()!.pywebview!.api!.clean_system_targets!(targets, forceClose);
           return parseBridgeResponse<SystemCleanupResult>(res);
         }
       } catch (err: unknown) {
@@ -1176,6 +1177,45 @@ export class EntropyApiClient {
         deleted_count: 12,
         skipped_count: 1,
       })),
+    };
+  }
+
+  /**
+   * Safely close any locking application and clean a system target.
+   */
+  static async cleanSystemTargetForceClose(targetId: string): Promise<{
+    id: string;
+    success: boolean;
+    freed_bytes: number;
+    deleted_count: number;
+    skipped_count: number;
+    message?: string;
+    error?: string;
+  }> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.clean_system_target_force_close) {
+          const res = await bridgeWindow()!.pywebview!.api!.clean_system_target_force_close!(targetId);
+          return parseBridgeResponse<any>(res);
+        }
+      } catch (err: unknown) {
+        return {
+          id: targetId,
+          success: false,
+          freed_bytes: 0,
+          deleted_count: 0,
+          skipped_count: 0,
+          error: errorMessage(err),
+        };
+      }
+    }
+    return {
+      id: targetId,
+      success: true,
+      freed_bytes: 40 * 1024 * 1024,
+      deleted_count: 6,
+      skipped_count: 0,
+      message: `Closed app and cleaned ${targetId}`,
     };
   }
 

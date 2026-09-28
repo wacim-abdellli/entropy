@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   FolderCheck,
+  PowerOff,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -130,6 +131,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [isCleaningSystem, setIsCleaningSystem] = useState(false);
   const [confirmSystemCleanOpen, setConfirmSystemCleanOpen] = useState(false);
   const [systemLoading, setSystemLoading] = useState(true);
+  const [closingTargetId, setClosingTargetId] = useState<string | null>(null);
 
   // Artifacts state
   const artifacts = useMemo(() => overview?.system?.artifacts || [], [overview?.system?.artifacts]);
@@ -181,18 +183,40 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
     }
   }, [liveProgress?.recent_logs]);
 
-  const fetchSystemTargets = async () => {
+  const fetchSystemTargets = async (autoSelect = true) => {
     setSystemLoading(true);
     try {
       const items = await EntropyApiClient.getSystemCleanupTargets();
       setSystemTargets(items || []);
-      // Auto-select all default-selected items (excludes Recycle Bin by default)
-      const defaults = new Set((items || []).filter((i) => i.is_default_selected).map((i) => i.id));
-      setSelectedSystemTargets(defaults);
+      if (autoSelect) {
+        // Auto-select all default-selected items (excludes Recycle Bin & running apps by default)
+        const defaults = new Set((items || []).filter((i) => i.is_default_selected).map((i) => i.id));
+        setSelectedSystemTargets(defaults);
+      }
     } catch (err) {
       console.warn('Failed to load system cleanup targets:', err);
     } finally {
       setSystemLoading(false);
+    }
+  };
+
+  const handleCloseAndCleanTarget = async (target: SystemCleanupTarget) => {
+    setClosingTargetId(target.id);
+    try {
+      const res = await EntropyApiClient.cleanSystemTargetForceClose(target.id);
+      if (res.success) {
+        setToastMessage(res.message || `Closed ${target.process_app_name || target.name} and freed ${formatBytes(res.freed_bytes)}.`);
+        await fetchSystemTargets(false);
+        await onRefresh();
+      } else {
+        setToastMessage(res.error || res.message || `Failed to clean ${target.name}.`);
+        await fetchSystemTargets(false);
+      }
+    } catch (err) {
+      setToastMessage(`Error closing app: ${String(err)}`);
+    } finally {
+      setClosingTargetId(null);
+      setTimeout(() => setToastMessage(null), 5000);
     }
   };
 
@@ -401,6 +425,16 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const selectedSystemBytes = useMemo(
     () => systemTargets.filter((t) => selectedSystemTargets.has(t.id)).reduce((acc, t) => acc + (t.size_bytes || 0), 0),
     [systemTargets, selectedSystemTargets]
+  );
+
+  const lockedSystemTargets = useMemo(
+    () => systemTargets.filter((t) => t.is_running && (t.size_bytes || 0) > 0),
+    [systemTargets]
+  );
+
+  const lockedSystemBytes = useMemo(
+    () => lockedSystemTargets.reduce((acc, t) => acc + (t.size_bytes || 0), 0),
+    [lockedSystemTargets]
   );
 
   // Artifact calculations
@@ -626,7 +660,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       });
 
       setSelectedSystemTargets(new Set());
-      await fetchSystemTargets();
+      await fetchSystemTargets(false);
       await onRefresh();
     } catch (err) {
       console.error('System cleanup failed:', err);
@@ -1148,6 +1182,22 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                     <div className="h-full bg-[var(--color-accent)] animate-pulse w-full" />
                   </div>
                 )}
+                {lockedSystemTargets.length > 0 && (
+                  <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 mb-3 flex items-start gap-3">
+                    <AlertCircle size={18} className="text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <div className="font-semibold text-amber-300">
+                        {lockedSystemTargets.length === 1
+                          ? `${lockedSystemTargets[0].name} (${formatBytes(lockedSystemTargets[0].size_bytes)}) is open and locked by Windows`
+                          : `${lockedSystemTargets.length} applications (${formatBytes(lockedSystemBytes)}) are open and locked by Windows`}
+                      </div>
+                      <p className="text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                        Windows kernel prohibits deleting browser database and cache files while the program is open.
+                        Click <strong className="text-amber-300">Close &amp; Clean</strong> on any active card below to close the app and wipe its cache immediately.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-2.5">
                   {systemTargets.map((target) => {
                   const isSelected = selectedSystemTargets.has(target.id);
@@ -1227,6 +1277,31 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                             </div>
                           )}
                         </div>
+
+                        {target.is_running && target.size_bytes > 0 && (
+                          <button
+                            type="button"
+                            disabled={closingTargetId === target.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCloseAndCleanTarget(target);
+                            }}
+                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+                            title={`Close ${target.process_app_name || target.name} and reclaim its cache`}
+                          >
+                            {closingTargetId === target.id ? (
+                              <>
+                                <RefreshCw size={12} className="animate-spin text-amber-300" />
+                                <span>Closing…</span>
+                              </>
+                            ) : (
+                              <>
+                                <PowerOff size={12} className="text-amber-300" />
+                                <span>Close &amp; Clean</span>
+                              </>
+                            )}
+                          </button>
+                        )}
 
                         {(target.paths?.[0] || target.id === 'recycle_bin') && (
                           <button

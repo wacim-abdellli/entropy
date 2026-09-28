@@ -415,6 +415,7 @@ export interface SystemCleanupTarget {
   is_default_selected: boolean;
   is_running?: boolean;
   locking_process?: string | null;
+  process_app_name?: string | null;
   lock_message?: string | null;
   size_bytes: number;
   item_count: number;

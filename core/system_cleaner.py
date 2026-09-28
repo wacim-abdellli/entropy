@@ -344,6 +344,9 @@ def _inspect_single_target(spec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 for root, dirs, files in os.walk(temp_dir):
                     if time.time() - start_t > 3.0:
                         break
+                    root_lower = root.lower()
+                    if "_mei" in root_lower or "ebwebview" in root_lower:
+                        continue
                     for f in files:
                         p = os.path.join(root, f)
                         try:
@@ -400,6 +403,11 @@ def _inspect_single_target(spec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     app_name = spec.get("process_app_name", spec["name"])
     lock_message = f"{app_name} is currently open. Close {app_name} to clean its active cache." if is_proc_running else None
 
+    is_default = spec["is_default_selected"] and size_bytes > 0 and not is_proc_running
+    # Never auto-select negligible residual temp logs (< 64 KB) by default
+    if spec["id"] == "win_temp" and size_bytes < 65536:
+        is_default = False
+
     return {
         "id": spec["id"],
         "name": spec["name"],
@@ -408,9 +416,10 @@ def _inspect_single_target(spec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "description": spec["description"],
         "risk": spec["risk"],
         "safety_notice": spec["safety_notice"],
-        "is_default_selected": spec["is_default_selected"] and size_bytes > 0 and not is_proc_running,
+        "is_default_selected": is_default,
         "is_running": is_proc_running,
         "locking_process": proc_names[0] if is_proc_running and proc_names else None,
+        "process_app_name": app_name,
         "lock_message": lock_message,
         "size_bytes": size_bytes,
         "item_count": item_count,
@@ -501,6 +510,9 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
 
             # Delete files >24h
             for root, dirs, files in os.walk(temp_dir, topdown=False):
+                root_lower = root.lower()
+                if "_mei" in root_lower or "ebwebview" in root_lower:
+                    continue
                 for f in files:
                     p = os.path.join(root, f)
                     try:
@@ -531,6 +543,9 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
                 for d in dirs:
                     d_path = os.path.join(root, d)
                     if d_path != temp_dir:
+                        d_lower = d_path.lower()
+                        if "_mei" in d_lower or "ebwebview" in d_lower:
+                            continue
                         try:
                             os.rmdir(d_path)
                         except (PermissionError, OSError):
@@ -669,7 +684,58 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
     }
 
 
-def clean_multiple_system_targets(target_ids: List[str]) -> Dict[str, Any]:
+def clean_system_target_force_close(target_id: str) -> Dict[str, Any]:
+    """
+    Safely close any locking application associated with a system target,
+    wait for Windows to release file locks, and clean the target.
+    """
+    target_spec = next((s for s in KNOWN_TARGETS_SPECS if s["id"] == target_id), None)
+    if not target_spec:
+        return {"id": target_id, "success": False, "error": f"Unknown target ID '{target_id}'."}
+
+    proc_names = target_spec.get("process_names", [])
+    app_name = target_spec.get("process_app_name", target_spec["name"])
+
+    if proc_names:
+        try:
+            import psutil
+            names = {p.lower() for p in proc_names}
+            to_close: list[psutil.Process] = []
+            for proc in psutil.process_iter(['name']):
+                try:
+                    pname = proc.info['name']
+                    if pname and pname.lower() in names:
+                        to_close.append(proc)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+
+            if to_close:
+                progress_tracker.update(
+                    log_line=f"Closing {app_name} to release cache file locks...",
+                )
+                for p in to_close:
+                    try:
+                        p.terminate()
+                    except Exception:
+                        pass
+
+                # Wait up to 1.5 seconds for graceful exit
+                gone, alive = psutil.wait_procs(to_close, timeout=1.5)
+                for p in alive:
+                    try:
+                        p.kill()
+                    except Exception:
+                        pass
+
+                # Brief pause for Windows kernel to release open file locks
+                time.sleep(0.5)
+        except Exception as e:
+            logger.debug("Failed closing processes for %s: %s", target_id, e)
+
+    return clean_system_target(target_id)
+
+
+def clean_multiple_system_targets(target_ids: List[str], force_close: bool = False) -> Dict[str, Any]:
     """
     Clean multiple system targets in sequence.
     Updates progress_tracker in real time for live UI feedback.
@@ -688,7 +754,10 @@ def clean_multiple_system_targets(target_ids: List[str]) -> Dict[str, Any]:
         percent = int((idx / max(1, total_targets)) * 100)
         progress_tracker.set_phase(f"Cleaning {target_name} ({idx + 1}/{total_targets})", percent=percent)
 
-        res = clean_system_target(t_id)
+        if force_close:
+            res = clean_system_target_force_close(t_id)
+        else:
+            res = clean_system_target(t_id)
         results.append(res)
         if res.get("success"):
             total_freed += res.get("freed_bytes", 0)

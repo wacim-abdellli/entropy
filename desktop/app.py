@@ -522,10 +522,15 @@ class EntropyDesktopApi:
         from core.system_cleaner import get_system_cleanup_targets
         return get_system_cleanup_targets()
 
-    def clean_system_targets(self, targets: list[str]) -> dict[str, Any]:
+    def clean_system_targets(self, targets: list[str], force_close: bool = False) -> dict[str, Any]:
         """Safely clean selected system-wide targets (Windows Temp, browser caches, dumps)."""
         from core.system_cleaner import clean_multiple_system_targets
-        return clean_multiple_system_targets(targets)
+        return clean_multiple_system_targets(targets, force_close=force_close)
+
+    def clean_system_target_force_close(self, target_id: str) -> dict[str, Any]:
+        """Safely close any locking application and clean a system target."""
+        from core.system_cleaner import clean_system_target_force_close
+        return clean_system_target_force_close(target_id)
 
     def get_cleanup_progress(self) -> dict[str, Any]:
         """Get live real-time progress snapshot of running cleanup operations."""
