@@ -52,44 +52,31 @@ CLOUD_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "provider": "cloud",  # 'cloud' | 'rules' | 'ollama'
-    "cloud_api_key": DEFAULT_PLATFORM_KEY,
+    "cloud_api_key": "",
     "cloud_model": DEFAULT_PLATFORM_MODEL,
-    "groq_api_key": DEFAULT_PLATFORM_KEY,
+    "groq_api_key": "",
     "groq_model": DEFAULT_PLATFORM_MODEL,
     "ollama_url": "http://localhost:11434",
     "ollama_model": "llama3.2",
 }
 
-SYSTEM_PROMPT = """You are Entropy Platform AI, an elite workstation orchestrator and developer machine assistant.
-Provide direct, evidence-backed, 100% safe guidance to software developers.
+SYSTEM_PROMPT = """You are Entropy Platform AI, a helpful, knowledgeable, and friendly developer assistant embedded in the Entropy workspace manager.
+You assist software developers with workspace health, safe junk cleanup, git issues, running processes/ports, and performance optimization.
 
-CORE SAFETY RULES:
-- Never recommend deleting source code, git history (.git), or unversioned files.
-- Whitelisted for deletion: generated build artifacts (e.g. node_modules, target, .venv, bin, obj, __pycache__, .pytest_cache).
-- Always provide non-destructive recovery commands (e.g. npm install, git stash, cargo build).
-- Zero artificial AI jargon (never use 'cognitive audit', 'substrate matrix', 'entropy vector', etc.).
-
-RESPONSE STRUCTURE (Strictly follow this layout):
-1. Verdict (First line):
-   **Verdict:** [Safe to delete | Caution | Action required | Informational] — [Concise 1-sentence answer]
-2. Key Analysis (Bullet points with bold keys):
-   - **Reason:** [Direct technical explanation]
-   - **Recovery:** [How to restore or reinstall if needed]
-   - **Safety Check:** [Prerequisite, e.g. check .gitignore or git status]
-3. Recommended Action (Numbered step-by-step with fenced code block if command exists):
-   **Recommended Action:**
-   1. [Step 1]
-   2. [Step 2]
-   ```bash
-   [exact command]
-   ```
-4. Safety Note:
-   **Note:** [Reassurance about git status or project stability]
-
-Keep the response crisp, accurate, and under 150 words. Avoid unnecessary filler or preamble."""
+HOW TO ANSWER:
+1. Speak naturally, directly, and conversationally — like a friendly senior engineer in a chat.
+2. Be concise, actionable, and clear. Avoid robotic templates, rigid section headers, or bureaucratic preamble.
+3. When answering questions:
+   - Answer the core question directly in the first sentence.
+   - Provide a clear, practical explanation.
+   - For terminal commands, always use standard fenced code blocks (```bash or ```powershell).
+   - If discussing cleanup or deletion, clearly state whether an action is safe or destructive, and provide the exact reinstall or restore command (e.g. `npm install`, `cargo build`, `git stash`).
+4. NEVER recommend deleting source code (.py, .ts, .js, .go, .rs, etc.) or .git repository history.
+5. Whitelisted disposable targets: node_modules, target, .venv, bin, obj, __pycache__, .pytest_cache, dist, build, .next, .nuxt.
+6. Zero artificial AI jargon (never use 'cognitive audit', 'substrate matrix', 'entropy vector', etc.)."""
 
 
-def get_ai_config() -> Dict[str, Any]:
+def get_ai_config(mask_internal_key: bool = True) -> Dict[str, Any]:
     """Load AI provider settings from ~/.entropy/config.json."""
     cfg = load_config()
     ai_cfg = cfg.get("ai")
@@ -112,11 +99,6 @@ def get_ai_config() -> Dict[str, Any]:
     if not merged.get("groq_api_key") and merged.get("cloud_api_key"):
         merged["groq_api_key"] = merged["cloud_api_key"]
 
-    # Pre-populate with default platform key if not explicitly set
-    if not merged.get("cloud_api_key") and not merged.get("groq_api_key"):
-        merged["cloud_api_key"] = DEFAULT_PLATFORM_KEY
-        merged["groq_api_key"] = DEFAULT_PLATFORM_KEY
-
     model = merged.get("cloud_model") or merged.get("groq_model") or DEFAULT_PLATFORM_MODEL
     # Upgrade deprecated/unavailable models automatically
     if not model or model.startswith("llama-3"):
@@ -124,15 +106,32 @@ def get_ai_config() -> Dict[str, Any]:
     merged["cloud_model"] = model
     merged["groq_model"] = model
 
+    # If key is the built-in platform key or empty, mark that platform AI is active
+    raw_key = (merged.get("cloud_api_key") or merged.get("groq_api_key") or "").strip()
+    is_platform_default = (raw_key == DEFAULT_PLATFORM_KEY) or (not raw_key)
+    merged["is_using_platform_key"] = is_platform_default
+
+    # Never expose the built-in platform key outside the backend
+    if mask_internal_key and is_platform_default:
+        merged["cloud_api_key"] = ""
+        merged["groq_api_key"] = ""
+
     return merged
 
 
 def save_ai_config(updates: Dict[str, Any]) -> Dict[str, Any]:
     """Save updated AI provider settings to ~/.entropy/config.json."""
-    current = get_ai_config()
+    current = get_ai_config(mask_internal_key=False)
     normalized_updates = dict(updates)
     if normalized_updates.get("provider") == "groq":
         normalized_updates["provider"] = "cloud"
+
+    # Don't persist built-in platform key to disk
+    if normalized_updates.get("cloud_api_key") == DEFAULT_PLATFORM_KEY:
+        normalized_updates["cloud_api_key"] = ""
+    if normalized_updates.get("groq_api_key") == DEFAULT_PLATFORM_KEY:
+        normalized_updates["groq_api_key"] = ""
+
     if "cloud_api_key" in normalized_updates:
         normalized_updates["groq_api_key"] = normalized_updates["cloud_api_key"]
     elif "groq_api_key" in normalized_updates:
@@ -144,12 +143,21 @@ def save_ai_config(updates: Dict[str, Any]) -> Dict[str, Any]:
         normalized_updates["cloud_model"] = normalized_updates["groq_model"]
 
     current.update(normalized_updates)
+
+    # For storage, don't write default platform key into config.json
+    storage_copy = dict(current)
+    if storage_copy.get("cloud_api_key") == DEFAULT_PLATFORM_KEY:
+        storage_copy["cloud_api_key"] = ""
+    if storage_copy.get("groq_api_key") == DEFAULT_PLATFORM_KEY:
+        storage_copy["groq_api_key"] = ""
+
     try:
-        save_config({"ai": current})
-        return {"success": True, "config": current}
+        save_config({"ai": storage_copy})
+        sanitized = get_ai_config(mask_internal_key=True)
+        return {"success": True, "config": sanitized}
     except Exception as e:
         logger.error("Failed to save AI config: %s", e)
-        return {"success": False, "error": str(e), "config": current}
+        return {"success": False, "error": str(e), "config": get_ai_config(mask_internal_key=True)}
 
 
 def test_ai_connection(provider: Optional[str] = None) -> Dict[str, Any]:
@@ -364,7 +372,7 @@ def ask_ai_advisor(question: str, context: Optional[Dict[str, Any]] = None) -> D
 
 
 def _generate_rule_based_advice(question: str, context: Optional[Dict[str, Any]] = None) -> str:
-    """Generate high-density rule-based advice when offline or no API key is provided."""
+    """Generate friendly, natural chat advice when offline or operating in rules mode."""
     q = question.lower()
     ctx = context or {}
 
@@ -374,67 +382,53 @@ def _generate_rule_based_advice(question: str, context: Optional[Dict[str, Any]]
 
     if "delete" in q or "node_modules" in q or "clean" in q:
         dirty_note = (
-            "Uncommitted changes detected in working tree. Stash your edits before deleting to preserve uncommitted work."
+            "\n\n> ⚠️ **Heads up:** You have uncommitted edits in this workspace. Make sure to commit or stash your work before running cleanup commands."
             if has_dirty
-            else "Working tree is clean. Deleting build artifacts will not affect your source code."
+            else "\n\nYour working tree is completely clean, so deleting build caches will not affect any of your source code."
         )
         return (
-            f"**Verdict:** Safe to delete — build artifacts like `node_modules` in `{ws_name}` are disposable and can be reinstalled anytime.\n\n"
-            f"- **Reason:** `node_modules` contains downloaded third-party packages, not project source files.\n"
-            f"- **Recovery:** You can recreate the directory anytime using your package manager.\n"
-            f"- **Safety Check:** Ensure `node_modules` is listed in your `.gitignore` file so Git does not track dependency files.\n\n"
-            f"**Recommended Action:**\n"
-            f"1. Delete the directory safely via the Cleanup tab or terminal.\n"
-            f"2. Reinstall dependencies whenever you resume development:\n"
+            f"Yes, it is completely safe to delete `node_modules` in **{ws_name}**.\n\n"
+            f"The `node_modules` directory only contains third-party dependencies downloaded from npm, not your project's custom source code. "
+            f"You can delete it anytime to reclaim disk space, and reinstall everything whenever you need by running:\n\n"
             f"```bash\n"
             f"npm install\n"
             f"```\n\n"
-            f"**Note:** {dirty_note}"
+            f"As long as `node_modules` is listed in your `.gitignore` (which is standard practice), Git will ignore it.{dirty_note}"
         )
 
     if "port" in q or "server" in q or "process" in q:
         if ports:
             ports_str = ", :".join(str(p) for p in ports)
             return (
-                f"**Verdict:** Action required — active development processes are listening on `:{ports_str}` in `{ws_name}`.\n\n"
-                f"- **Reason:** Background servers hold socket locks and consume working set RAM.\n"
-                f"- **Recovery:** Terminating dev servers does not alter source files or git history.\n"
-                f"- **Safety Check:** Save active edits in your running app before stopping the server.\n\n"
-                f"**Recommended Action:**\n"
-                f"1. Stop the server using the **Free Port** button in the workspace processes section.\n"
-                f"2. Alternatively, release all idle development processes via **Clean Slate**.\n\n"
-                f"**Note:** Terminating orphaned servers will immediately free memory and release port bindings."
+                f"You have active development processes listening on port(s) `:{ports_str}` in **{ws_name}**.\n\n"
+                f"These background servers hold network sockets and consume system RAM. "
+                f"If you're done working with them, you can safely stop them using the **Free Port** button or by clicking **Clean Slate** in the System tab.\n\n"
+                f"Terminating local dev servers will not change or delete any of your files or Git history."
             )
         return (
-            f"**Verdict:** Informational — no active background processes or listening ports detected in `{ws_name}`.\n\n"
-            f"- **Reason:** The workspace is currently idle with 0 open TCP ports.\n"
-            f"- **Recovery:** Development servers can be launched normally from terminal or IDE.\n"
-            f"- **Safety Check:** Workspace is safe for refactoring, maintenance, or dependency updates.\n\n"
-            f"**Note:** All system resources for this workspace are currently released."
+            f"No active background servers or open ports were found in **{ws_name}**.\n\n"
+            f"The workspace is currently idle with 0 active network listeners, so all system memory and ports are already released."
         )
 
-    if "git" in q or "branch" in q or "commit" in q:
-        dirty_desc = "Uncommitted modifications detected in working tree." if has_dirty else "Working tree is clean."
+    if "git" in q or "branch" in q or "commit" in q or "stash" in q:
+        if has_dirty:
+            return (
+                f"You have uncommitted modifications in **{ws_name}**.\n\n"
+                f"If you want to save your progress without committing just yet, you can stash your changes safely:\n\n"
+                f"```bash\n"
+                f"git stash push -m 'WIP before maintenance'\n"
+                f"```\n\n"
+                f"When you're ready to bring your changes back, simply run `git stash pop`."
+            )
         return (
-            f"**Verdict:** {'Caution — uncommitted work needs review' if has_dirty else 'Clean working tree'}.\n\n"
-            f"- **Reason:** {dirty_desc}\n"
-            f"- **Recovery:** Use `git stash` to preserve modifications or commit them to the local branch.\n"
-            f"- **Safety Check:** Always verify `git status` before testing destructive package operations.\n\n"
-            f"**Recommended Action:**\n"
-            f"1. Review modified files or stash current edits:\n"
-            f"```bash\n"
-            f"git stash push -m 'WIP before maintenance'\n"
-            f"```\n\n"
-            f"**Note:** Stashed changes can be restored anytime with `git stash pop`."
+            f"Your working tree in **{ws_name}** is clean with no uncommitted changes.\n\n"
+            f"All your work is safely tracked in Git. You're ready to pull, switch branches, or build without risk of losing work."
         )
 
     return (
-        f"**Verdict:** Workspace optimization guidance for `{ws_name}`.\n\n"
-        f"- **Reason:** Regular workspace maintenance preserves disk speed and prevents port collisions.\n"
-        f"- **Recovery:** All recommended cleanup actions target disposable build caches, not source code.\n"
-        f"- **Safety Check:** Ensure secrets and `.env` files are ignored in `.gitignore`.\n\n"
-        f"**Recommended Action:**\n"
-        f"1. Clear stale dependencies in the **Cleanup** tab to reclaim storage.\n"
-        f"2. Terminate idle development servers to recover system memory.\n\n"
-        f"**Note:** Your git repository and commit history remain completely untouched."
+        f"**{ws_name}** is active and monitored by Entropy.\n\n"
+        f"- To reclaim disk space, you can safely clean disposable build artifacts in the **Cleanup** tab.\n"
+        f"- To manage background servers and RAM, check the **System Details** tab.\n"
+        f"- All your source code, configuration files, and Git history remain 100% safe."
     )
+

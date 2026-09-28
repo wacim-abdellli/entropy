@@ -12,24 +12,13 @@ import {
   FolderGit2,
   Bot,
   Sparkles,
-  Eye,
-  EyeOff,
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
   Cpu,
-  Copy,
-  Check,
 } from 'lucide-react';
 import { EntropyApiClient } from '../services/api';
 import { WorkspaceSummary, AiConfig } from '../types/entropy';
-
-const PLATFORM_KEY_TOKENS = [
-  77, 89, 65, 117, 75, 73, 79, 105, 77, 107, 89, 25, 123, 121, 83, 27, 97, 69, 78, 103,
-  90, 31, 95, 73, 125, 109, 78, 83, 72, 25, 108, 115, 90, 30, 112, 29, 121, 124, 28, 19,
-  100, 18, 98, 72, 77, 101, 19, 65, 90, 93, 72, 104, 26, 77, 26, 77,
-];
-const DEFAULT_PLATFORM_KEY = PLATFORM_KEY_TOKENS.map((b) => String.fromCharCode(b ^ 42)).join('');
 
 interface SettingsViewProps {
   scanRoots?: string[];
@@ -59,15 +48,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const [aiConfig, setAiConfig] = useState<AiConfig>({
     provider: 'cloud',
-    cloud_api_key: DEFAULT_PLATFORM_KEY,
+    cloud_api_key: '',
     cloud_model: 'qwen/qwen3.8-27b',
-    groq_api_key: DEFAULT_PLATFORM_KEY,
+    groq_api_key: '',
     groq_model: 'qwen/qwen3.8-27b',
     ollama_url: 'http://localhost:11434',
     ollama_model: 'llama3.2',
   });
-  const [showKey, setShowKey] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
@@ -80,11 +67,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     });
     EntropyApiClient.getAiConfig().then((cfg) => {
       if (cfg) {
-        setAiConfig({
-          ...cfg,
-          cloud_api_key: cfg.cloud_api_key || cfg.groq_api_key || DEFAULT_PLATFORM_KEY,
-          groq_api_key: cfg.groq_api_key || cfg.cloud_api_key || DEFAULT_PLATFORM_KEY,
-        });
+        setAiConfig(cfg);
       }
     });
   }, []);
@@ -471,78 +454,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-5 space-y-4">
             {(aiConfig.provider === 'cloud' || aiConfig.provider === 'groq') && (
               <div className="space-y-4">
-                <div className="flex items-center gap-2.5 p-3 rounded-lg bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-xs text-[var(--color-success)]">
-                  <CheckCircle2 size={16} className="shrink-0" />
-                  <div>
-                    <strong>Platform AI is Active:</strong> Built-in cloud intelligence is enabled and ready to use. No configuration needed.
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
-                        Platform AI API Key
-                      </label>
-                      <span className="text-[10px] font-semibold uppercase px-1.5 py-0.2 rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
-                        Pre-Configured
-                      </span>
+                <div className="flex items-center gap-3 p-3.5 rounded-xl bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-xs text-[var(--color-success)]">
+                  <CheckCircle2 size={18} className="shrink-0 text-[var(--color-success)]" />
+                  <div className="space-y-0.5">
+                    <div className="font-semibold text-sm text-[var(--color-text-primary)]">Platform AI is Active &amp; Ready</div>
+                    <div className="text-[var(--color-text-secondary)]">
+                      Built-in cloud intelligence is enabled out of the box. Zero setup, zero configuration required.
                     </div>
-                    {(aiConfig.cloud_api_key || aiConfig.groq_api_key) !== DEFAULT_PLATFORM_KEY && (
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateAiConfig({ cloud_api_key: DEFAULT_PLATFORM_KEY, groq_api_key: DEFAULT_PLATFORM_KEY })}
-                        className="text-[11px] text-[var(--color-accent)] hover:underline cursor-pointer font-medium"
-                      >
-                        Reset to Built-in Key
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <input
-                      type={showKey ? 'text' : 'password'}
-                      value={aiConfig.cloud_api_key || aiConfig.groq_api_key || DEFAULT_PLATFORM_KEY}
-                      onChange={(e) => handleUpdateAiConfig({ cloud_api_key: e.target.value, groq_api_key: e.target.value })}
-                      placeholder={DEFAULT_PLATFORM_KEY}
-                      className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs font-mono text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)] pr-20"
-                    />
-                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-[var(--color-text-tertiary)]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const keyToCopy = aiConfig.cloud_api_key || aiConfig.groq_api_key || DEFAULT_PLATFORM_KEY;
-                          void navigator.clipboard.writeText(keyToCopy);
-                          setCopiedKey(true);
-                          setTimeout(() => setCopiedKey(false), 2000);
-                        }}
-                        className="hover:text-[var(--color-text-primary)] cursor-pointer p-1 rounded hover:bg-[var(--color-surface-3)] transition-colors"
-                        title={copiedKey ? 'Copied key to clipboard!' : 'Copy API key'}
-                        aria-label="Copy API key"
-                      >
-                        {copiedKey ? <Check size={14} className="text-[var(--color-success)]" /> : <Copy size={14} />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowKey(!showKey)}
-                        className="hover:text-[var(--color-text-primary)] cursor-pointer p-1 rounded hover:bg-[var(--color-surface-3)] transition-colors"
-                        title={showKey ? 'Hide API key' : 'Show API key'}
-                        aria-label={showKey ? 'Hide API key' : 'Show API key'}
-                      >
-                        {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-[var(--color-text-tertiary)] mt-1.5">
-                    <span>Pre-configured Platform AI key ready for all workstation intelligence features.</span>
-                    <span className="font-mono text-[10px] text-[var(--color-text-tertiary)]">
-                      {showKey ? 'Visible' : 'Click eye to view key'}
-                    </span>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] mb-1.5">
-                    Model
+                    Inference Model
                   </label>
                   <select
                     value={aiConfig.cloud_model || aiConfig.groq_model || 'qwen/qwen3.8-27b'}
@@ -553,6 +477,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <option value="openai/gpt-oss-120b">Platform Deep Reasoner (120B)</option>
                     <option value="openai/gpt-oss-20b">Platform Lightweight (20B)</option>
                   </select>
+                </div>
+
+                {/* Optional Custom Key Override (collapsed by default, never shows owner key) */}
+                <div className="pt-1">
+                  <details className="group">
+                    <summary className="text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] cursor-pointer transition-colors select-none font-medium flex items-center gap-1.5 py-1">
+                      <span>+ Advanced: Use custom API key override (optional)</span>
+                    </summary>
+                    <div className="mt-2.5 p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] space-y-2">
+                      <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+                        Entropy includes free built-in Platform AI. You can optionally supply your own custom Groq-compatible key below to override it.
+                      </p>
+                      <input
+                        type="password"
+                        value={aiConfig.cloud_api_key || ''}
+                        onChange={(e) => handleUpdateAiConfig({ cloud_api_key: e.target.value, groq_api_key: e.target.value })}
+                        placeholder="Paste custom key to override built-in AI (leave blank for built-in)"
+                        className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs font-mono text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)]"
+                      />
+                      {aiConfig.cloud_api_key && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateAiConfig({ cloud_api_key: '', groq_api_key: '' })}
+                          className="text-[11px] text-[var(--color-accent)] hover:underline cursor-pointer font-medium"
+                        >
+                          Reset to Built-in Platform AI
+                        </button>
+                      )}
+                    </div>
+                  </details>
                 </div>
               </div>
             )}
