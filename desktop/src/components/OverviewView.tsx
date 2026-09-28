@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   SquareTerminal,
   Zap,
+  X,
 } from 'lucide-react';
 import { EnvironmentOverview, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
@@ -35,6 +36,7 @@ interface OverviewViewProps {
   onInspectFolder: () => void;
   currentWorkspace?: WorkspaceSummary | null;
   onNavigateToSettings?: () => void;
+  onClearCurrentWorkspace?: () => void;
 }
 
 type WorkspaceFilter = 'all' | 'running' | 'dirty' | 'unpushed' | 'cleanup' | 'secrets';
@@ -78,6 +80,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onInspectFolder,
   currentWorkspace,
   onNavigateToSettings,
+  onClearCurrentWorkspace,
 }) => {
   const [filter, setFilter] = useState<WorkspaceFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -284,6 +287,23 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <span className="text-[11px] font-mono text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
                   {workspaces.length}
                 </span>
+              )}
+              {currentWorkspace && onClearCurrentWorkspace && (
+                <div className="hidden sm:inline-flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-full bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/30 text-xs animate-in fade-in duration-150">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] shadow-[0_0_6px_rgba(59,130,246,0.6)]" />
+                  <span className="text-[11px] font-medium text-[var(--color-accent-strong)] truncate max-w-[130px]">
+                    {currentWorkspace.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onClearCurrentWorkspace}
+                    className="p-0.5 rounded-full hover:bg-[var(--color-accent)]/20 text-[var(--color-accent-strong)] hover:text-white transition-colors cursor-pointer"
+                    title="Clear active project filter (view all workspaces)"
+                    aria-label="Clear active project filter"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
               )}
             </div>
 

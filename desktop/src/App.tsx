@@ -128,32 +128,28 @@ export function App() {
 
   const currentWorkspace = useMemo<WorkspaceSummary | null>(() => {
     const list = overview?.workspaces || [];
-    if (!list.length && !currentWorkspacePath) return null;
+    if (!list.length || !currentWorkspacePath) return null;
 
-    if (currentWorkspacePath) {
-      const norm = currentWorkspacePath.toLowerCase().replace(/[\\/]+$/, '');
-      const found = list.find((w) => w.path.toLowerCase().replace(/[\\/]+$/, '') === norm);
-      if (found) return found;
+    const norm = currentWorkspacePath.toLowerCase().replace(/[\\/]+$/, '');
+    const found = list.find((w) => w.path.toLowerCase().replace(/[\\/]+$/, '') === norm);
+    if (found) return found;
 
-      const name = currentWorkspacePath.split(/[\\/]/).filter(Boolean).pop() || currentWorkspacePath;
-      return {
-        id: `workspace:${currentWorkspacePath}`,
-        name,
-        path: currentWorkspacePath,
-        project_type: 'custom',
-        total_size_bytes: null,
-        last_modified: null,
-        state_label: 'Selected',
-        state_category: 'neutral',
-        git_branch: null,
-        git_remote: null,
-        last_commit_timestamp: null,
-        has_uncommitted_changes: false,
-        process_count: 0,
-      };
-    }
-
-    return list[0] || null;
+    const name = currentWorkspacePath.split(/[\\/]/).filter(Boolean).pop() || currentWorkspacePath;
+    return {
+      id: `workspace:${currentWorkspacePath}`,
+      name,
+      path: currentWorkspacePath,
+      project_type: 'custom',
+      total_size_bytes: null,
+      last_modified: null,
+      state_label: 'Selected',
+      state_category: 'neutral',
+      git_branch: null,
+      git_remote: null,
+      last_commit_timestamp: null,
+      has_uncommitted_changes: false,
+      process_count: 0,
+    };
   }, [overview?.workspaces, currentWorkspacePath]);
 
   const loadEnvironment = useCallback(
@@ -396,11 +392,23 @@ export function App() {
     }
   };
 
-  const handleBackToOverview = () => {
+  const handleBackToOverview = useCallback(() => {
     setError(null);
     setSelectedWorkspacePath(null);
     setInspection(null);
-  };
+    setActiveNav('home');
+  }, []);
+
+  const handleViewAllWorkspaces = useCallback(() => {
+    setError(null);
+    setSelectedWorkspacePath(null);
+    setInspection(null);
+    setCurrentWorkspacePath(null);
+    try {
+      localStorage.removeItem('entropy_current_workspace');
+    } catch {}
+    setActiveNav('home');
+  }, []);
 
   /* ── Render the active view ── */
   const renderMainContent = () => {
@@ -481,6 +489,7 @@ export function App() {
           onInspectFolder={handleInspectFolder}
           currentWorkspace={currentWorkspace}
           onNavigateToSettings={() => setActiveNav('settings')}
+          onClearCurrentWorkspace={handleViewAllWorkspaces}
         />
       );
     }
@@ -557,8 +566,10 @@ export function App() {
         isLoading={isLoading}
         lastScanTime={overview?.metadata?.timestamp ?? null}
         currentWorkspace={currentWorkspace}
+        totalWorkspacesCount={overview?.workspaces?.length}
         onSelectWorkspace={handleSelectWorkspace}
         onBackToOverview={handleBackToOverview}
+        onViewAllWorkspaces={handleViewAllWorkspaces}
       />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
@@ -579,6 +590,7 @@ export function App() {
         onRefresh={() => loadEnvironment(scanRoots)}
         onInspectFolder={handleInspectFolder}
         onShowToast={(msg) => showToast(msg, 'success')}
+        onViewAllWorkspaces={handleViewAllWorkspaces}
       />
 
       {/* Floating Toast Notification */}

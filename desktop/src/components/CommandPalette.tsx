@@ -17,6 +17,7 @@ import {
   Cpu,
   X,
   Boxes,
+  Layers,
 } from 'lucide-react';
 import { EnvironmentOverview } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
@@ -30,6 +31,7 @@ interface CommandPaletteProps {
   onRefresh?: () => void;
   onInspectFolder?: () => void;
   onShowToast?: (message: string) => void;
+  onViewAllWorkspaces?: () => void;
 }
 
 type PaletteCategory = 'All' | 'Actions' | 'Ports' | 'Workspaces' | 'Processes' | 'Navigation';
@@ -62,6 +64,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onRefresh,
   onInspectFolder,
   onShowToast,
+  onViewAllWorkspaces,
 }) => {
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<PaletteCategory>('All');
@@ -372,13 +375,36 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     // ── 5. Navigation ──
     items.push(
       {
+        id: 'nav-view-all',
+        title: 'View All Workspaces',
+        subtitle: 'Show all workspaces and clear active project filter',
+        category: 'Navigation',
+        icon: <Layers className="w-4 h-4 text-[var(--color-accent)]" />,
+        actionHint: 'View All',
+        action: () => {
+          if (onViewAllWorkspaces) {
+            onViewAllWorkspaces();
+          } else {
+            onNavigate('home');
+          }
+          onClose();
+        },
+      },
+      {
         id: 'nav-home',
         title: 'Go to Workspaces Overview',
         subtitle: 'Main dashboard, recent projects, and secret watchdog',
         category: 'Navigation',
         icon: <Home className="w-4 h-4 text-[var(--color-text-secondary)]" />,
         actionHint: 'Navigate',
-        action: () => { onNavigate('home'); onClose(); },
+        action: () => {
+          if (onViewAllWorkspaces) {
+            onViewAllWorkspaces();
+          } else {
+            onNavigate('home');
+          }
+          onClose();
+        },
       },
       {
         id: 'nav-cleanup',
