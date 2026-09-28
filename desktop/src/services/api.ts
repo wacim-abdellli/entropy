@@ -111,6 +111,8 @@ interface PyWebViewApi {
   ask_ai_advisor?(question: string, context?: Record<string, any>): Promise<AiResponse | string>;
   get_scan_roots?(): Promise<string[] | string>;
   save_scan_roots?(roots: string[]): Promise<string[] | string>;
+  get_last_workspace?(): Promise<string | null | string>;
+  save_last_workspace?(path: string | null): Promise<string | null | string>;
 }
 
 interface EntropyWindow extends Window {
@@ -1430,6 +1432,62 @@ export class EntropyApiClient {
       }
     }
     return roots;
+  }
+
+  /**
+   * Get user's last opened workspace directory from persistent config.
+   */
+  static async getLastWorkspace(): Promise<string | null> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_last_workspace) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_last_workspace!();
+          const parsed = parseBridgeResponse<string | null>(res);
+          if (parsed && typeof parsed === 'string' && parsed.trim()) {
+            return parsed.trim();
+          }
+        }
+      } catch (err) {
+        console.warn('getLastWorkspace bridge call failed:', err);
+      }
+    }
+    try {
+      const saved =
+        localStorage.getItem('entropy_last_opened_workspace') ||
+        localStorage.getItem('entropy_current_workspace') ||
+        localStorage.getItem('entropy_selected_workspace');
+      if (saved && typeof saved === 'string' && saved.trim()) return saved.trim();
+    } catch {}
+    return null;
+  }
+
+  /**
+   * Save user's last opened workspace directory to persistent config and localStorage.
+   */
+  static async saveLastWorkspace(path: string | null): Promise<string | null> {
+    try {
+      if (path && path.trim()) {
+        localStorage.setItem('entropy_last_opened_workspace', path.trim());
+        localStorage.setItem('entropy_current_workspace', path.trim());
+        localStorage.setItem('entropy_selected_workspace', path.trim());
+      } else {
+        localStorage.removeItem('entropy_last_opened_workspace');
+        localStorage.removeItem('entropy_current_workspace');
+        localStorage.removeItem('entropy_selected_workspace');
+      }
+    } catch {}
+
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.save_last_workspace) {
+          const res = await bridgeWindow()!.pywebview!.api!.save_last_workspace!(path);
+          return parseBridgeResponse<string | null>(res);
+        }
+      } catch (err) {
+        console.warn('saveLastWorkspace bridge call failed:', err);
+      }
+    }
+    return path;
   }
 
   /**

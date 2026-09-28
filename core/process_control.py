@@ -37,6 +37,22 @@ PROTECTED_PROCESS_NAMES = {
     "spoolsv.exe",
     "winlogon.exe",
     "taskmgr.exe",
+    # OEM and Windows background services and consumer apps
+    "glidexservice.exe",
+    "glidex.exe",
+    "onedrive.sync.service.exe",
+    "onedrive.exe",
+    "steam.exe",
+    "steamservice.exe",
+    "steamwebhelper.exe",
+    "discord.exe",
+    "spotify.exe",
+    "securityhealthservice.exe",
+    "msmpeng.exe",
+    "mpdefendercoreprocess.exe",
+    "smartscreen.exe",
+    "searchindexer.exe",
+    "audiodg.exe",
     # IDEs, AI coding environments, text editors and browsers (never kill user's workspace UI or AI agent)
     "antigravity.exe",
     "antigravity",
@@ -167,6 +183,8 @@ def is_process_protected(
         n_lower = name.lower().strip()
         if n_lower in protected_set or n_lower.replace(".exe", "") in protected_set:
             return True
+        if n_lower.endswith("service.exe") and n_lower not in DEV_PROCESS_NAMES:
+            return True
         if any(term in n_lower for term in _PROTECTED_KEYWORDS):
             return True
 
@@ -180,6 +198,8 @@ def is_process_protected(
             proc = psutil.Process(pid)
             proc_name = proc.name().lower()
             if proc_name in protected_set or proc_name.replace(".exe", "") in protected_set:
+                return True
+            if proc_name.endswith("service.exe") and proc_name not in DEV_PROCESS_NAMES:
                 return True
             if any(term in proc_name for term in _PROTECTED_KEYWORDS):
                 return True
@@ -228,7 +248,23 @@ def terminate_process(pid: int, force: bool = False) -> Dict[str, Any]:
     try:
         proc = psutil.Process(pid)
         proc_name = proc.name()
-    except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+    except psutil.NoSuchProcess:
+        return {
+            "success": False,
+            "pid": pid,
+            "error": f"Process with PID {pid} is no longer running (already exited).",
+        }
+    except psutil.AccessDenied:
+        return {
+            "success": False,
+            "pid": pid,
+            "error": (
+                f"Access Denied: Windows prevented access to PID {pid}. "
+                "This is a protected Windows service or elevated system process. "
+                "Run Entropy as Administrator to manage system processes."
+            ),
+        }
+    except Exception as e:
         return {
             "success": False,
             "pid": pid,
@@ -240,7 +276,7 @@ def terminate_process(pid: int, force: bool = False) -> Dict[str, Any]:
             "success": False,
             "pid": pid,
             "name": proc_name,
-            "error": f"Cannot terminate '{proc_name}' (PID {pid}): It is a protected system process.",
+            "error": f"Cannot terminate '{proc_name}' (PID {pid}): It is a protected system service or application.",
         }
 
     # Capture child process subtree to prevent orphaned worker processes
@@ -284,11 +320,19 @@ def terminate_process(pid: int, force: bool = False) -> Dict[str, Any]:
                     "message": f"Forcefully terminated {proc_name} (PID {pid}).",
                 }
             except Exception as e:
+                err_str = str(e)
+                if "accessdenied" in type(e).__name__.lower() or "access" in err_str.lower():
+                    err_msg = (
+                        f"Access Denied: Windows prevented force-terminating '{proc_name}' (PID {pid}). "
+                        "This is a protected Windows service or requires Administrator privileges."
+                    )
+                else:
+                    err_msg = f"Failed to force-terminate {proc_name} (PID {pid}): {err_str}"
                 return {
                     "success": False,
                     "pid": pid,
                     "name": proc_name,
-                    "error": f"Failed to force-terminate {proc_name} (PID {pid}): {e}",
+                    "error": err_msg,
                 }
         else:
             return {
@@ -298,12 +342,59 @@ def terminate_process(pid: int, force: bool = False) -> Dict[str, Any]:
                 "error": f"{proc_name} (PID {pid}) did not exit gracefully. Force terminate required.",
                 "needs_force": True,
             }
-    except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+    except psutil.AccessDenied:
+        # Fallback on Windows: attempt taskkill /F /PID
+        if os.name == "nt":
+            try:
+                tk = subprocess.run(
+                    ["taskkill", "/F", "/PID", str(pid)],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+                if tk.returncode == 0:
+                    return {
+                        "success": True,
+                        "pid": pid,
+                        "name": proc_name,
+                        "message": f"Successfully stopped {proc_name} (PID {pid}).",
+                    }
+            except Exception:
+                pass
+
         return {
             "success": False,
             "pid": pid,
             "name": proc_name,
-            "error": f"Error terminating {proc_name} (PID {pid}): {e}",
+            "error": (
+                f"Access Denied: Windows prevented terminating '{proc_name}' (PID {pid}). "
+                "This process is a protected Windows system service or belongs to another user. "
+                "To terminate it, run Entropy as Administrator or manage it in Windows Task Manager."
+            ),
+        }
+    except psutil.NoSuchProcess:
+        return {
+            "success": False,
+            "pid": pid,
+            "name": proc_name,
+            "error": f"Process '{proc_name}' (PID {pid}) is no longer running (already exited).",
+        }
+    except Exception as e:
+        err_str = str(e)
+        if "accessdenied" in type(e).__name__.lower() or "access" in err_str.lower():
+            err_msg = (
+                f"Access Denied: Windows prevented terminating '{proc_name}' (PID {pid}). "
+                "This process requires Administrator privileges or is a protected system service. "
+                "Run Entropy as Administrator or manage it in Windows Task Manager."
+            )
+        else:
+            err_msg = f"Failed to terminate '{proc_name}' (PID {pid}): {err_str}"
+        return {
+            "success": False,
+            "pid": pid,
+            "name": proc_name,
+            "error": err_msg,
         }
 
 

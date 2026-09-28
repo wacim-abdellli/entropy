@@ -75,7 +75,15 @@ function getNowSeconds(): number {
 /* ───────────────────────── Main App ───────────────────────── */
 
 export function App() {
-  const [activeNav, setActiveNav] = useState<ActiveNav>('home');
+  const [activeNav, setActiveNav] = useState<ActiveNav>(() => {
+    try {
+      const saved = localStorage.getItem('entropy_active_nav');
+      if (saved && ['home', 'cleanup', 'details', 'settings'].includes(saved)) {
+        return saved as ActiveNav;
+      }
+    } catch {}
+    return 'home';
+  });
   const [overview, setOverview] = useState<EnvironmentOverview | null>(() => {
     try {
       const cached = localStorage.getItem('entropy_cached_overview');
@@ -84,11 +92,30 @@ export function App() {
       return null;
     }
   });
-  const [inspection, setInspection] = useState<WorkspaceInspection | null>(null);
-  const [selectedWorkspacePath, setSelectedWorkspacePath] = useState<string | null>(null);
+  const [inspection, setInspection] = useState<WorkspaceInspection | null>(() => {
+    try {
+      const cached = localStorage.getItem('entropy_cached_inspection');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [selectedWorkspacePath, setSelectedWorkspacePath] = useState<string | null>(() => {
+    try {
+      return (
+        localStorage.getItem('entropy_selected_workspace') ||
+        localStorage.getItem('entropy_current_workspace')
+      );
+    } catch {
+      return null;
+    }
+  });
   const [currentWorkspacePath, setCurrentWorkspacePath] = useState<string | null>(() => {
     try {
-      return localStorage.getItem('entropy_current_workspace');
+      return (
+        localStorage.getItem('entropy_current_workspace') ||
+        localStorage.getItem('entropy_selected_workspace')
+      );
     } catch {
       return null;
     }
@@ -190,13 +217,21 @@ export function App() {
     setCurrentWorkspacePath(path);
     try {
       localStorage.setItem('entropy_current_workspace', path);
+      localStorage.setItem('entropy_selected_workspace', path);
     } catch {}
+    void EntropyApiClient.saveLastWorkspace(path);
     setActiveNav('home');
+    try {
+      localStorage.setItem('entropy_active_nav', 'home');
+    } catch {}
     setIsLoading(true);
     setError(null);
     try {
       const data = await EntropyApiClient.inspectWorkspace(path);
       setInspection(data);
+      try {
+        localStorage.setItem('entropy_cached_inspection', JSON.stringify(data));
+      } catch {}
     } catch (err: unknown) {
       console.error('Failed to inspect workspace:', err);
       setError({
@@ -233,28 +268,69 @@ export function App() {
     }
   }, [selectedWorkspacePath, scanRoots]);
 
-  // Initial load
+  // Initial load: restore roots, overview, and automatically re-detect last opened workspace
   useEffect(() => {
     let ignore = false;
-    EntropyApiClient.getScanRoots()
-      .then((persistedRoots) => {
-        if (!ignore) {
-          const activeRoots =
-            Array.isArray(persistedRoots) && persistedRoots.length > 0 ? persistedRoots : scanRoots;
-          setScanRoots(activeRoots);
-          return EntropyApiClient.scanEnvironment(activeRoots);
+
+    async function initializeApp() {
+      try {
+        const [persistedRoots, lastWs] = await Promise.all([
+          EntropyApiClient.getScanRoots(),
+          EntropyApiClient.getLastWorkspace(),
+        ]);
+
+        if (ignore) return;
+
+        const activeRoots =
+          Array.isArray(persistedRoots) && persistedRoots.length > 0 ? persistedRoots : scanRoots;
+        setScanRoots(activeRoots);
+
+        const initialLastWorkspace =
+          lastWs ||
+          localStorage.getItem('entropy_selected_workspace') ||
+          localStorage.getItem('entropy_current_workspace');
+
+        if (initialLastWorkspace) {
+          setSelectedWorkspacePath(initialLastWorkspace);
+          setCurrentWorkspacePath(initialLastWorkspace);
         }
-        return null;
-      })
-      .then((data) => {
-        if (!ignore && data) {
+
+        const [data, lastInspection] = await Promise.all([
+          EntropyApiClient.scanEnvironment(activeRoots),
+          initialLastWorkspace
+            ? EntropyApiClient.inspectWorkspace(initialLastWorkspace).catch(() => null)
+            : Promise.resolve(null),
+        ]);
+
+        if (ignore) return;
+
+        if (data) {
           setOverview(data);
           try {
             localStorage.setItem('entropy_cached_overview', JSON.stringify(data));
           } catch {}
         }
-      })
-      .catch((err) => {
+
+        if (initialLastWorkspace && lastInspection) {
+          if (!('error' in lastInspection && lastInspection.error)) {
+            setInspection(lastInspection);
+            try {
+              localStorage.setItem('entropy_cached_inspection', JSON.stringify(lastInspection));
+            } catch {}
+          } else {
+            // Target folder no longer exists or is invalid
+            setSelectedWorkspacePath(null);
+            setCurrentWorkspacePath(null);
+            setInspection(null);
+            void EntropyApiClient.saveLastWorkspace(null);
+            try {
+              localStorage.removeItem('entropy_selected_workspace');
+              localStorage.removeItem('entropy_current_workspace');
+              localStorage.removeItem('entropy_cached_inspection');
+            } catch {}
+          }
+        }
+      } catch (err) {
         if (!ignore) {
           setError({
             title: 'Engine unavailable',
@@ -265,12 +341,14 @@ export function App() {
             },
           });
         }
-      })
-      .finally(() => {
+      } finally {
         if (!ignore) {
           setIsLoading(false);
         }
-      });
+      }
+    }
+
+    void initializeApp();
 
     return () => {
       ignore = true;
@@ -298,8 +376,11 @@ export function App() {
 
     // 1. Immediately set active project state & persist
     setCurrentWorkspacePath(folder);
+    setSelectedWorkspacePath(folder);
+    void EntropyApiClient.saveLastWorkspace(folder);
     try {
       localStorage.setItem('entropy_current_workspace', folder);
+      localStorage.setItem('entropy_selected_workspace', folder);
     } catch {}
 
     // 2. Real-time optimistic insertion into overview list
@@ -386,17 +467,21 @@ export function App() {
     // 4. Background refresh of real metrics
     loadEnvironment(updatedRoots);
 
-    // If user was already inspecting a workspace or clicked "Open folder…", switch inspection
-    if (selectedWorkspacePath) {
-      await handleSelectWorkspace(folder);
-    }
+    // Switch inspection to the new folder
+    await handleSelectWorkspace(folder);
   };
 
   const handleBackToOverview = useCallback(() => {
     setError(null);
     setSelectedWorkspacePath(null);
     setInspection(null);
+    try {
+      localStorage.removeItem('entropy_selected_workspace');
+    } catch {}
     setActiveNav('home');
+    try {
+      localStorage.setItem('entropy_active_nav', 'home');
+    } catch {}
   }, []);
 
   const handleViewAllWorkspaces = useCallback(() => {
@@ -404,10 +489,16 @@ export function App() {
     setSelectedWorkspacePath(null);
     setInspection(null);
     setCurrentWorkspacePath(null);
+    void EntropyApiClient.saveLastWorkspace(null);
     try {
       localStorage.removeItem('entropy_current_workspace');
+      localStorage.removeItem('entropy_selected_workspace');
+      localStorage.removeItem('entropy_cached_inspection');
     } catch {}
     setActiveNav('home');
+    try {
+      localStorage.setItem('entropy_active_nav', 'home');
+    } catch {}
   }, []);
 
   /* ── Render the active view ── */
@@ -557,9 +648,10 @@ export function App() {
         activeNav={activeNav}
         onSelectNav={(nav) => {
           setActiveNav(nav);
+          try {
+            localStorage.setItem('entropy_active_nav', nav);
+          } catch {}
           setError(null);
-          setSelectedWorkspacePath(null);
-          setInspection(null);
         }}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         onRefresh={() => loadEnvironment(scanRoots)}
@@ -585,7 +677,9 @@ export function App() {
         onSelectWorkspace={handleSelectWorkspace}
         onNavigate={(nav) => {
           setActiveNav(nav as ActiveNav);
-          setSelectedWorkspacePath(null);
+          try {
+            localStorage.setItem('entropy_active_nav', nav);
+          } catch {}
         }}
         onRefresh={() => loadEnvironment(scanRoots)}
         onInspectFolder={handleInspectFolder}

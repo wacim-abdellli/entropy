@@ -42,6 +42,7 @@ def get_default_scan_roots() -> List[str]:
 DEFAULT_CONFIG: Dict[str, Any] = {
     "version": 1,
     "scan_roots": None,  # Will be populated with get_default_scan_roots() on first run
+    "last_workspace": None,  # Persistent last opened workspace path
     "max_depth": 3,
     "ai": {
         "provider": "cloud",  # 'cloud' | 'rules' | 'ollama'
@@ -163,3 +164,27 @@ def save_scan_roots(roots: List[str]) -> List[str]:
 
     save_config({"scan_roots": valid_roots})
     return valid_roots
+
+
+def get_last_workspace() -> Optional[str]:
+    """Retrieve user's last inspected workspace path."""
+    cfg = load_config()
+    lw = cfg.get("last_workspace")
+    if lw and isinstance(lw, str) and lw.strip():
+        abs_p = os.path.abspath(lw.strip())
+        if os.path.exists(abs_p) and os.path.isdir(abs_p):
+            return abs_p
+    return None
+
+
+def save_last_workspace(workspace_path: Optional[str]) -> Optional[str]:
+    """Save user's last opened workspace path persistently to disk."""
+    if not workspace_path:
+        save_config({"last_workspace": None})
+        return None
+    abs_p = os.path.abspath(workspace_path.strip())
+    if os.path.exists(abs_p) and os.path.isdir(abs_p):
+        save_config({"last_workspace": abs_p})
+        return abs_p
+    return None
+

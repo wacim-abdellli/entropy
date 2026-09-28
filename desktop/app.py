@@ -31,7 +31,7 @@ import logging
 
 logger = logging.getLogger("entropy.desktop")
 
-from core.config import get_scan_roots, save_scan_roots
+from core.config import get_scan_roots, save_scan_roots, get_last_workspace, save_last_workspace
 from core.graph import EnvironmentGraph
 from report.contract import serialize_environment_overview, serialize_workspace_inspection
 from scan import run_entropy_inspect, run_entropy_scan
@@ -55,6 +55,14 @@ class EntropyDesktopApi:
     def save_scan_roots(self, roots: list[str]) -> list[str]:
         """Save user-configured scan directories persistently to disk."""
         return save_scan_roots(roots)
+
+    def get_last_workspace(self) -> Optional[str]:
+        """Get persistent user's last opened workspace directory."""
+        return get_last_workspace()
+
+    def save_last_workspace(self, path: Optional[str] = None) -> Optional[str]:
+        """Save persistent user's last opened workspace directory."""
+        return save_last_workspace(path)
 
     def inspect_workspace(self, path: str) -> dict[str, Any]:
         """Inspect a single workspace and return the structured JSON payload."""

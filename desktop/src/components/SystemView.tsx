@@ -36,6 +36,18 @@ const systemNames = new Set([
   'chrome.exe', 'msedge.exe', 'firefox.exe', 'brave.exe',
 ]);
 
+const nonDeveloperNames = new Set([
+  'glidexservice.exe', 'glidex.exe', 'glidex',
+  'spoolsv.exe', 'spoolsv',
+  'onedrive.sync.service.exe', 'onedrive.exe', 'onedrive',
+  'steam.exe', 'steamservice.exe', 'steamwebhelper.exe', 'steam',
+  'discord.exe', 'discord',
+  'spotify.exe', 'spotify',
+  'epicgameslauncher.exe', 'riotclientservices.exe', 'battle.net.exe',
+  'audiodg.exe', 'wlanext.exe', 'ctfmon.exe', 'smartscreen.exe',
+  'securityhealthservice.exe', 'msmpeng.exe', 'searchindexer.exe',
+]);
+
 function bytes(value: number | null | undefined): string {
   if (!value) return '—';
   if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
@@ -47,10 +59,27 @@ function isDeveloperProcess(process: ProcessConnection): boolean {
   const name = (process.name || '').toLowerCase();
   const exe = (process.exe_path || '').toLowerCase();
   if (systemNames.has(name) || systemNames.has(name.replace('.exe', ''))) return false;
+  if (nonDeveloperNames.has(name) || nonDeveloperNames.has(name.replace('.exe', ''))) return false;
+  if (name.endsWith('service.exe')) return false;
   if (name.includes('antigravity') || name.includes('language_server') || exe.includes('antigravity') || exe.includes('cursor') || exe.includes('microsoft vs code') || exe.includes('windsurf')) return false;
   if (developerNames.some((term) => name.includes(term))) return true;
-  if (process.ports?.length || process.cwd || process.is_shell) return true;
+  if (process.is_shell) return true;
+  if (process.cwd) return true;
+  // Ephemeral Windows RPC/DCOM ports (> 49152) on background apps are not dev ports
+  if (process.ports && process.ports.some((p) => p < 49152)) return true;
   return false;
+}
+
+function formatReadableProcessError(rawError?: string, procName?: string, pid?: number): string {
+  if (!rawError) return `Windows prevented terminating ${procName || 'process'} (PID ${pid || ''}).`;
+  const err = rawError.toLowerCase();
+  if (err.includes('accessdenied') || err.includes('access denied') || err.includes('access is denied') || err.includes('(pid=')) {
+    return `Access Denied: Windows prevented terminating ${procName ? `'${procName}'` : 'this process'}${pid ? ` (PID ${pid})` : ''}. It is a protected system service or requires Administrator privileges. Run Entropy as Administrator or manage it in Windows Task Manager.`;
+  }
+  if (err.includes('nosuchprocess') || err.includes('no longer running') || err.includes('already exited') || err.includes('already stopped')) {
+    return `Process ${procName ? `'${procName}'` : ''}${pid ? ` (PID ${pid})` : ''} has already stopped or exited.`;
+  }
+  return rawError;
 }
 
 export const SystemView: React.FC<SystemViewProps> = ({
@@ -160,7 +189,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
         setNotice({
           type: 'error',
           title: 'Clean Slate Failed',
-          message: res.errors?.[0]?.error || 'Failed to complete Clean Slate.',
+          message: formatReadableProcessError(res.errors?.[0]?.error) || 'Failed to complete Clean Slate.',
         });
       }
       await onActionComplete?.();
@@ -214,14 +243,18 @@ export const SystemView: React.FC<SystemViewProps> = ({
     setBusy(true);
     const result = confirm.kind === 'port' && confirm.port ? await EntropyApiClient.freePort(confirm.port) : await EntropyApiClient.terminateProcess(confirm.process.pid);
     setBusy(false);
-    setConfirm(null);
+    const isSuccess = Boolean(result.success);
     setNotice({
-      type: result.success ? 'success' : 'error',
-      title: result.success ? (confirm.kind === 'port' ? 'Port Released' : 'Process Stopped') : 'Action Failed',
-      message: result.success ? (result.message || 'Action complete.') : (result.error || 'Action failed.'),
-      subtext: confirm.kind === 'port' ? `Port :${confirm.port} is now free` : `PID ${confirm.process.pid} terminated`,
+      type: isSuccess ? 'success' : 'error',
+      title: isSuccess ? (confirm.kind === 'port' ? 'Port Released' : 'Process Stopped') : 'Action Failed',
+      message: isSuccess
+        ? (result.message || 'Action complete.')
+        : formatReadableProcessError(result.error, confirm.process.name, confirm.process.pid),
+      subtext: isSuccess
+        ? (confirm.kind === 'port' ? `Port :${confirm.port} is now free` : `PID ${confirm.process.pid} terminated`)
+        : undefined,
     });
-    if (result.success) await onActionComplete?.();
+    if (isSuccess) await onActionComplete?.();
   };
 
   const match = (values: Array<string | null | undefined>) => values.join(' ').toLowerCase().includes(query.toLowerCase().trim());

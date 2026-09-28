@@ -134,11 +134,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     return procs.filter((p) => {
       const name = (p.name || '').toLowerCase();
       const exe = (p.exe_path || '').toLowerCase();
-      const isProtected = ['antigravity', 'language_server', 'cursor', 'code', 'windsurf', 'entropy', 'chrome', 'msedge', 'firefox', 'brave', 'devenv', 'idea', 'pycharm', 'webstorm', 'explorer', 'taskmgr', 'svchost'].some((term) => name.includes(term) || exe.includes(term));
+      const isProtected = ['antigravity', 'language_server', 'cursor', 'code', 'windsurf', 'entropy', 'chrome', 'msedge', 'firefox', 'brave', 'devenv', 'idea', 'pycharm', 'webstorm', 'explorer', 'taskmgr', 'svchost', 'spoolsv', 'glidex', 'onedrive', 'steam', 'discord', 'spotify'].some((term) => name.includes(term) || exe.includes(term)) || name.endsWith('service.exe');
       if (isProtected) return false;
       return (
         ['node', 'python', 'bun', 'deno', 'cargo', 'rustc', 'go', 'java', 'dotnet', 'ruby', 'tsc', 'vite', 'webpack', 'esbuild'].some((term) => name.includes(term)) ||
-        (p.ports && p.ports.length > 0)
+        p.is_shell ||
+        Boolean(p.cwd) ||
+        (p.ports && p.ports.some((pt) => pt < 49152))
       );
     });
   }, [overview?.system?.processes]);

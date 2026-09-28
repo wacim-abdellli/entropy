@@ -61,9 +61,11 @@ WINDOWS_SYSTEM_NAMES = {
     "compattelrunner.exe",
     "applicationframehost.exe",
     "deviceassociationbroker.exe",
-    "conhost.exe",
     "audiodg.exe",
     "wlanext.exe",
+    "glidexservice.exe",
+    "glidex.exe",
+    "onedrive.sync.service.exe",
 }
 
 
