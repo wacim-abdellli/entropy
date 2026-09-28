@@ -13,7 +13,6 @@ entropy/
 ├── scan.py                   # Python CLI entrypoint & scanner orchestrator
 ├── core/                     # Core business logic engines
 │   ├── advisor.py            # Safety verdicts & health recommendations
-│   ├── ai_provider.py        # Platform AI, Cloud (Groq), Ollama & Rules provider
 │   ├── audit_log.py          # Persistent append-only deletion audit logger (~/.entropy/audit.log)
 │   ├── config.py             # User settings & persistent scan roots (~/.entropy/config.json)
 │   ├── disk_cleaner.py       # Whitelisted build artifact cleaner (node_modules, target, etc.)
@@ -57,9 +56,9 @@ entropy/
 │   │   │   ├── OverviewView.tsx # Actionable dashboard with workspace table & quick actions
 │   │   │   ├── CleanupView.tsx  # Multi-tab disk reclaimer (System, Artifacts, Caches, Docker, Tuning)
 │   │   │   ├── WorkspaceView.tsx# Workspace details, git status, secrets & process list
-│   │   │   ├── WorkspaceAdvisorCard.tsx # Diagnostic health card with confirmation modal & Platform AI
+│   │   │   ├── WorkspaceAdvisorCard.tsx # Diagnostic health card with confirmation modal & health tips
 │   │   │   ├── SystemView.tsx   # Processes, Runtimes, Containers, Caches & RAM Booster
-│   │   │   ├── SettingsView.tsx # Scan directory configuration & Platform AI settings
+│   │   │   ├── SettingsView.tsx # Scan directory configuration & preferences
 │   │   │   ├── CommandPalette.tsx # Global launcher overlay (Ctrl+K)
 │   │   │   ├── StorageTreemap.tsx # Interactive storage breakdown visualization
 │   │   │   ├── PathAuditorCard.tsx# PATH environment variable health & collision resolver

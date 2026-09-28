@@ -586,25 +586,6 @@ class EntropyDesktopApi:
         )
         return asdict(health)
 
-    def get_ai_config(self) -> dict[str, Any]:
-        """Get AI Advisor configuration."""
-        from core.ai_provider import get_ai_config
-        return get_ai_config()
-
-    def save_ai_config(self, updates: dict[str, Any]) -> dict[str, Any]:
-        """Save AI Advisor configuration."""
-        from core.ai_provider import save_ai_config
-        return save_ai_config(updates)
-
-    def test_ai_connection(self, provider: Optional[str] = None) -> dict[str, Any]:
-        """Test AI provider connection."""
-        from core.ai_provider import test_ai_connection
-        return test_ai_connection(provider)
-
-    def ask_ai_advisor(self, question: str, context: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-        """Ask AI Advisor a question."""
-        from core.ai_provider import ask_ai_advisor
-        return ask_ai_advisor(question, context)
 
 
 

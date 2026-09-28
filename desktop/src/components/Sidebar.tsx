@@ -1,9 +1,9 @@
 import React from 'react';
-import { Search, Home, Sparkles, Trash2, Monitor, Settings, RefreshCw, Command, LucideIcon } from 'lucide-react';
+import { Search, Home, Trash2, Monitor, Settings, RefreshCw, Command, LucideIcon } from 'lucide-react';
 import { EntropyLogo } from './EntropyLogo';
 import { WorkspaceSummary } from '../types/entropy';
 
-export type ActiveNav = 'home' | 'chat' | 'cleanup' | 'details' | 'settings';
+export type ActiveNav = 'home' | 'cleanup' | 'details' | 'settings';
 
 interface SidebarProps {
   activeNav: ActiveNav;
@@ -31,7 +31,6 @@ const formatTimeAgo = (ts: number) => {
 
 const nav: { id: ActiveNav; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Workspaces', icon: Home },
-  { id: 'chat', label: 'AI Assistant', icon: Sparkles },
   { id: 'cleanup', label: 'System Cleanup', icon: Trash2 },
   { id: 'details', label: 'System Details', icon: Monitor },
 ];

@@ -371,30 +371,6 @@ export interface WorkspaceHealth {
   cleanup_verdicts: CleanupVerdict[];
 }
 
-export interface AiConfig {
-  provider: 'cloud' | 'rules' | 'ollama' | 'groq';
-  cloud_api_key?: string;
-  cloud_model?: string;
-  groq_api_key?: string;
-  groq_model?: string;
-  ollama_url: string;
-  ollama_model: string;
-}
-
-export interface AiTestResult {
-  success: boolean;
-  provider: string;
-  message?: string;
-  error?: string;
-}
-
-export interface AiResponse {
-  success: boolean;
-  answer: string;
-  provider: string;
-  model?: string;
-  error?: string;
-}
 
 export interface GitStashItem {
   index: number;

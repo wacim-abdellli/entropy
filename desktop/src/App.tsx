@@ -6,7 +6,6 @@ import { WorkspaceView } from './components/WorkspaceView';
 import { SystemView } from './components/SystemView';
 import { CleanupView } from './components/CleanupView';
 import { SettingsView } from './components/SettingsView';
-import { AiChatView } from './components/AiChatView';
 import { CommandPalette } from './components/CommandPalette';
 import { EntropyApiClient } from './services/api';
 import {
@@ -79,7 +78,7 @@ export function App() {
   const [activeNav, setActiveNav] = useState<ActiveNav>(() => {
     try {
       const saved = localStorage.getItem('entropy_active_nav');
-      if (saved && ['home', 'chat', 'cleanup', 'details', 'settings'].includes(saved)) {
+      if (saved && ['home', 'cleanup', 'details', 'settings'].includes(saved)) {
         return saved as ActiveNav;
       }
     } catch {}
@@ -619,23 +618,6 @@ export function App() {
       return null;
     }
 
-    // AI Assistant Chat Page
-    if (activeNav === 'chat') {
-      return (
-        <AiChatView
-          workspaces={overview?.workspaces || []}
-          currentWorkspace={currentWorkspace}
-          onSelectWorkspace={handleSelectWorkspace}
-          onNavigateToSettings={() => {
-            setActiveNav('settings');
-            try {
-              localStorage.setItem('entropy_active_nav', 'settings');
-            } catch {}
-          }}
-        />
-      );
-    }
-
     // Settings
     if (activeNav === 'settings') {
       return (
@@ -653,12 +635,6 @@ export function App() {
             handleSelectWorkspace(path);
           }}
           currentWorkspace={currentWorkspace}
-          onNavigateToChat={() => {
-            setActiveNav('chat');
-            try {
-              localStorage.setItem('entropy_active_nav', 'chat');
-            } catch {}
-          }}
         />
       );
     }

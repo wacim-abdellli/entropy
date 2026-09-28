@@ -1,7 +1,4 @@
 import {
-  AiConfig,
-  AiResponse,
-  AiTestResult,
   CachePurgeResult,
   CleanSlateCandidate,
   CleanSlateResult,
@@ -105,10 +102,6 @@ interface PyWebViewApi {
   clean_system_target_force_close?(target_id: string): Promise<any>;
   get_cleanup_progress?(): Promise<CleanupLiveProgress | string>;
   get_workspace_health?(workspace_path: string): Promise<WorkspaceHealth | string>;
-  get_ai_config?(): Promise<AiConfig | string>;
-  save_ai_config?(updates: Partial<AiConfig>): Promise<{ success: boolean; error?: string; config?: AiConfig } | string>;
-  test_ai_connection?(provider?: string): Promise<AiTestResult | string>;
-  ask_ai_advisor?(question: string, context?: Record<string, any>): Promise<AiResponse | string>;
   get_scan_roots?(): Promise<string[] | string>;
   save_scan_roots?(roots: string[]): Promise<string[] | string>;
   get_last_workspace?(): Promise<string | null | string>;
@@ -1281,107 +1274,6 @@ export class EntropyApiClient {
     };
   }
 
-  /**
-   * Get AI Advisor settings (provider, groq config, ollama config).
-   */
-  static async getAiConfig(): Promise<AiConfig> {
-    if (isPyWebView()) {
-      try {
-        if (bridgeWindow()?.pywebview?.api?.get_ai_config) {
-          const res = await bridgeWindow()!.pywebview!.api!.get_ai_config!();
-          return parseBridgeResponse<AiConfig>(res);
-        }
-      } catch (err) {
-        console.warn('Failed to get AI config:', err);
-      }
-    }
-    const platformTokens = [
-      77, 89, 65, 117, 75, 73, 79, 105, 77, 107, 89, 25, 123, 121, 83, 27, 97, 69, 78, 103,
-      90, 31, 95, 73, 125, 109, 78, 83, 72, 25, 108, 115, 90, 30, 112, 29, 121, 124, 28, 19,
-      100, 18, 98, 72, 77, 101, 19, 65, 90, 93, 72, 104, 26, 77, 26, 77,
-    ];
-    const defaultKey = platformTokens.map((b) => String.fromCharCode(b ^ 42)).join('');
-    return {
-      provider: 'cloud',
-      cloud_api_key: defaultKey,
-      cloud_model: 'qwen/qwen3.8-27b',
-      groq_api_key: defaultKey,
-      groq_model: 'qwen/qwen3.8-27b',
-      ollama_url: 'http://localhost:11434',
-      ollama_model: 'llama3.2',
-    };
-  }
-
-  /**
-   * Save AI Advisor settings.
-   */
-  static async saveAiConfig(updates: Partial<AiConfig>): Promise<{ success: boolean; error?: string; config?: AiConfig }> {
-    if (isPyWebView()) {
-      try {
-        if (bridgeWindow()?.pywebview?.api?.save_ai_config) {
-          const res = await bridgeWindow()!.pywebview!.api!.save_ai_config!(updates);
-          return parseBridgeResponse<{ success: boolean; error?: string; config?: AiConfig }>(res);
-        }
-      } catch (err: unknown) {
-        return { success: false, error: errorMessage(err) };
-      }
-    }
-    return {
-      success: true,
-      config: {
-        provider: updates.provider || 'cloud',
-        cloud_api_key: updates.cloud_api_key || updates.groq_api_key || '',
-        cloud_model: updates.cloud_model || updates.groq_model || 'qwen/qwen3.8-27b',
-        groq_api_key: updates.groq_api_key || updates.cloud_api_key || '',
-        groq_model: updates.groq_model || updates.cloud_model || 'qwen/qwen3.8-27b',
-        ollama_url: updates.ollama_url || 'http://localhost:11434',
-        ollama_model: updates.ollama_model || 'llama3.2',
-      },
-    };
-  }
-
-  /**
-   * Test AI Provider connectivity.
-   */
-  static async testAiConnection(provider?: string): Promise<AiTestResult> {
-    if (isPyWebView()) {
-      try {
-        if (bridgeWindow()?.pywebview?.api?.test_ai_connection) {
-          const res = await bridgeWindow()!.pywebview!.api!.test_ai_connection!(provider);
-          return parseBridgeResponse<AiTestResult>(res);
-        }
-      } catch (err: unknown) {
-        return { success: false, provider: provider || 'rules', error: errorMessage(err) };
-      }
-    }
-    return {
-      success: true,
-      provider: provider || 'rules',
-      message: 'Connection successful (Simulated bridge).',
-    };
-  }
-
-  /**
-   * Ask AI Advisor a developer question with optional workspace context.
-   */
-  static async askAiAdvisor(question: string, context?: Record<string, any>): Promise<AiResponse> {
-    if (isPyWebView()) {
-      try {
-        if (bridgeWindow()?.pywebview?.api?.ask_ai_advisor) {
-          const res = await bridgeWindow()!.pywebview!.api!.ask_ai_advisor!(question, context);
-          return parseBridgeResponse<AiResponse>(res);
-        }
-      } catch (err: unknown) {
-        return { success: false, answer: errorMessage(err), provider: 'error', error: errorMessage(err) };
-      }
-    }
-    return {
-      success: true,
-      answer: `### Advice for ${context?.workspace_name || 'Workspace'}\n- All source code and repositories are safe.\n- Use standard package managers to rebuild dependencies if deleted.\n- Stash uncommitted changes prior to executing destructive actions.`,
-      provider: 'rules',
-      model: 'offline-rules-engine',
-    };
-  }
 
   /**
    * Get user-configured persistent scan directories from backend config.

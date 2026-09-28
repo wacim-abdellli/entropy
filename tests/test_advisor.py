@@ -1,5 +1,5 @@
 """
-Unit tests for Advisor and AI Provider engines.
+Unit tests for Advisor engine.
 """
 
 import os
@@ -12,12 +12,6 @@ from core.advisor import (
     _detect_rebuild_command,
     get_cleanup_verdict,
     evaluate_workspace_health,
-)
-from core.ai_provider import (
-    get_ai_config,
-    save_ai_config,
-    test_ai_connection,
-    ask_ai_advisor,
 )
 
 
@@ -156,37 +150,7 @@ class TestAdvisorEngine(unittest.TestCase):
         self.assertIn("unpushed_commits", tip_ids)
         self.assertIn("stale_lockfile", tip_ids)
 
-    def test_ai_provider_rules_fallback(self):
-        # Platform AI cloud connection test (built-in key)
-        cloud_res = test_ai_connection("cloud")
-        self.assertTrue(cloud_res["success"])
-        self.assertEqual(cloud_res["provider"], "cloud")
 
-        # Offline rules connection test
-        res = test_ai_connection("rules")
-        self.assertTrue(res["success"])
-        self.assertEqual(res["provider"], "rules")
-
-        # Unknown provider fails gracefully
-        res = test_ai_connection("unknown_engine")
-        self.assertFalse(res["success"])
-
-        # Offline rules Q&A returns high-density advice
-        from core.ai_provider import _generate_rule_based_advice
-        rule_advice = _generate_rule_based_advice(
-            "Can I delete node_modules in this project?",
-            context={"workspace_name": "backend", "has_uncommitted_changes": False},
-        )
-        self.assertIn("backend", rule_advice)
-        self.assertIn("node_modules", rule_advice.lower())
-
-        # Platform AI Q&A returns valid response
-        ans = ask_ai_advisor(
-            "Can I delete node_modules in this project?",
-            context={"workspace_name": "backend", "has_uncommitted_changes": False},
-        )
-        self.assertTrue(ans["success"])
-        self.assertIn("node_modules", ans["answer"].lower())
 
 
 if __name__ == "__main__":

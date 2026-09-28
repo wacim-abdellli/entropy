@@ -2,7 +2,7 @@
 Entropy Configuration Manager.
 
 Handles persistent application configuration stored in ~/.entropy/config.json.
-Guarantees scan roots, AI provider choices, and user preferences survive app restarts.
+Guarantees scan roots, last workspace, and user preferences survive app restarts.
 Thread-safe read-modify-write with atomic file swap and deep dictionary merging.
 """
 
@@ -44,15 +44,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "scan_roots": None,  # Will be populated with get_default_scan_roots() on first run
     "last_workspace": None,  # Persistent last opened workspace path
     "max_depth": 3,
-    "ai": {
-        "provider": "cloud",  # 'cloud' | 'rules' | 'ollama'
-        "cloud_api_key": "",
-        "cloud_model": "qwen/qwen3.8-27b",
-        "groq_api_key": "",
-        "groq_model": "qwen/qwen3.8-27b",
-        "ollama_url": "http://localhost:11434",
-        "ollama_model": "llama3.2",
-    },
     "preferences": {
         "theme": "dark",
         "auto_refresh_seconds": 0,

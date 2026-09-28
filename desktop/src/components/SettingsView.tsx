@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings, 
   FolderSearch, 
@@ -10,24 +10,16 @@ import {
   RefreshCw,
   Trash2,
   FolderGit2,
-  Bot,
-  Sparkles,
-  Send,
   CheckCircle2,
-  AlertCircle,
-  ShieldCheck,
-  Cpu,
 } from 'lucide-react';
 import { EntropyApiClient } from '../services/api';
-import { WorkspaceSummary, AiConfig } from '../types/entropy';
-import { AiResponseRenderer } from './AiResponseRenderer';
+import { WorkspaceSummary } from '../types/entropy';
 
 interface SettingsViewProps {
   scanRoots?: string[];
   onScanRootsChange?: (roots: string[]) => void;
   onOpenWorkspace?: (path: string) => void;
   currentWorkspace?: WorkspaceSummary | null;
-  onNavigateToChat?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
@@ -35,7 +27,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onScanRootsChange,
   onOpenWorkspace,
   currentWorkspace,
-  onNavigateToChat,
 }) => {
   const [directories, setDirectories] = useState<string[]>(() => {
     try {
@@ -50,103 +41,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [dirToDelete, setDirToDelete] = useState<string | null>(null);
   const [saveRootsNotice, setSaveRootsNotice] = useState(false);
 
-  // Live prompt & chat tester state
-  const [settingsPrompt, setSettingsPrompt] = useState('');
-  const [isPrompting, setIsPrompting] = useState(false);
-  const [chatHistory, setChatHistory] = useState<Array<{ role: 'user' | 'ai'; text: string }>>([]);
-  const settingsChatEndRef = useRef<HTMLDivElement | null>(null);
-
-  const [aiConfig, setAiConfig] = useState<AiConfig>({
-    provider: 'cloud',
-    cloud_api_key: '',
-    cloud_model: 'qwen/qwen3.8-27b',
-    groq_api_key: '',
-    groq_model: 'qwen/qwen3.8-27b',
-    ollama_url: 'http://localhost:11434',
-    ollama_model: 'llama3.2',
-  });
-  const [testingAi, setTestingAi] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
-
   useEffect(() => {
     EntropyApiClient.getScanRoots().then((roots) => {
       if (Array.isArray(roots) && roots.length > 0) {
         setDirectories(roots);
       }
     });
-    EntropyApiClient.getAiConfig().then((cfg) => {
-      if (cfg) {
-        setAiConfig(cfg);
-      }
-    });
   }, []);
-
-  const handleUpdateAiConfig = async (updates: Partial<AiConfig>) => {
-    const updated = { ...aiConfig, ...updates };
-    setAiConfig(updated);
-    setTestResult(null);
-    try {
-      await EntropyApiClient.saveAiConfig(updates);
-      setSaveSuccessNotice(true);
-      setTimeout(() => setSaveSuccessNotice(false), 2500);
-    } catch (err) {
-      console.error('Failed to save AI config:', err);
-    }
-  };
-
-  const handleTestAiConnection = async () => {
-    setTestingAi(true);
-    setTestResult(null);
-    try {
-      const res = await EntropyApiClient.testAiConnection(aiConfig.provider);
-      setTestResult({
-        success: res.success,
-        message: res.success ? (res.message || 'Connection successful.') : (res.error || 'Connection failed.'),
-      });
-    } catch (err: unknown) {
-      setTestResult({
-        success: false,
-        message: err instanceof Error ? err.message : 'Connection test failed.',
-      });
-    } finally {
-      setTestingAi(false);
-    }
-  };
-
-  const handleSendSettingsPrompt = async (presetPrompt?: string) => {
-    const p = (presetPrompt || settingsPrompt).trim();
-    if (!p || isPrompting) return;
-
-    setChatHistory((prev) => [...prev, { role: 'user', text: p }]);
-    setSettingsPrompt('');
-    setIsPrompting(true);
-
-    try {
-      const res = await EntropyApiClient.askAiAdvisor(
-        p,
-        currentWorkspace
-          ? {
-              workspace_name: currentWorkspace.name,
-              workspace_path: currentWorkspace.path,
-              git_branch: currentWorkspace.git_branch,
-              has_uncommitted_changes: currentWorkspace.has_uncommitted_changes,
-            }
-          : undefined
-      );
-      const ans =
-        res?.answer || (res?.error ? `Error: ${res.error}` : 'No response from Platform AI.');
-      setChatHistory((prev) => [...prev, { role: 'ai', text: ans }]);
-    } catch (err: unknown) {
-      setChatHistory((prev) => [
-        ...prev,
-        { role: 'ai', text: err instanceof Error ? err.message : 'Request failed.' },
-      ]);
-    } finally {
-      setIsPrompting(false);
-      setTimeout(() => settingsChatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
-    }
-  };
 
   const saveAndNotify = async (updated: string[]) => {
     setDirectories(updated);
@@ -397,343 +298,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="mt-3 px-1 text-xs text-[var(--color-text-tertiary)] flex items-center gap-2">
             <span className="font-semibold text-[var(--color-text-secondary)]">Permanent Storage:</span>
             <span>Scan roots are saved directly to <code className="font-mono text-[var(--color-text-secondary)]">~/.entropy/config.json</code> and will never reset back to Desktop unless you re-add it.</span>
-          </div>
-        </section>
-
-        {/* AI Workspace Advisor Section */}
-        <section className="w-full max-w-5xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Bot size={22} className="text-[var(--color-accent)]" />
-              <h2 className="text-xl font-medium">AI Workspace Advisor</h2>
-            </div>
-            {saveSuccessNotice && (
-              <span className="text-xs font-medium text-[var(--color-success)] flex items-center gap-1.5 bg-[var(--color-success-bg)] border border-[var(--color-success-border)] px-2.5 py-1 rounded-md animate-in fade-in">
-                <CheckCircle2 size={13} />
-                <span>Settings Saved</span>
-              </span>
-            )}
-          </div>
-
-          <p className="text-[var(--color-text-secondary)] text-sm mb-4">
-            Configure the AI backend for intelligent workspace health scores, non-destructive safety checks, and developer Q&amp;A.
-          </p>
-
-          {/* Provider Selection Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            {/* Platform AI */}
-            <button
-              type="button"
-              onClick={() => handleUpdateAiConfig({ provider: 'cloud' })}
-              className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
-                aiConfig.provider === 'cloud' || aiConfig.provider === 'groq'
-                  ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-sm'
-                  : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={18} className="text-[var(--color-accent)]" />
-                  <span className="font-semibold text-sm text-[var(--color-text-primary)]">Platform AI</span>
-                </div>
-                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30">
-                  Built-in
-                </span>
-              </div>
-              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-                Cloud intelligence with fast neural reasoning. Included out of the box with zero setup required.
-              </p>
-            </button>
-
-            {/* Rules */}
-            <button
-              type="button"
-              onClick={() => handleUpdateAiConfig({ provider: 'rules' })}
-              className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
-                aiConfig.provider === 'rules'
-                  ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-sm'
-                  : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={18} className="text-[var(--color-success)]" />
-                  <span className="font-semibold text-sm text-[var(--color-text-primary)]">Offline Rules</span>
-                </div>
-                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
-                  Offline
-                </span>
-              </div>
-              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-                100% offline, deterministic safety checks. Zero network traffic, zero API keys required.
-              </p>
-            </button>
-
-            {/* Local Ollama */}
-            <button
-              type="button"
-              onClick={() => handleUpdateAiConfig({ provider: 'ollama' })}
-              className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
-                aiConfig.provider === 'ollama'
-                  ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] shadow-sm'
-                  : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Cpu size={18} className="text-[var(--color-accent-strong)]" />
-                  <span className="font-semibold text-sm text-[var(--color-text-primary)]">Local Ollama</span>
-                </div>
-                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30">
-                  Localhost
-                </span>
-              </div>
-              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-                100% private local LLM running on your PC (localhost:11434). Zero data leaves your device.
-              </p>
-            </button>
-          </div>
-
-          {/* Provider Specific Settings Box */}
-          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-5 space-y-4">
-            {(aiConfig.provider === 'cloud' || aiConfig.provider === 'groq') && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 p-3.5 rounded-xl bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-xs text-[var(--color-success)]">
-                  <CheckCircle2 size={18} className="shrink-0 text-[var(--color-success)]" />
-                  <div className="space-y-0.5">
-                    <div className="font-semibold text-sm text-[var(--color-text-primary)]">Platform AI is Active &amp; Ready</div>
-                    <div className="text-[var(--color-text-secondary)]">
-                      Built-in cloud intelligence is enabled out of the box. Zero setup, zero configuration required.
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] mb-1.5">
-                    Inference Model
-                  </label>
-                  <select
-                    value={aiConfig.cloud_model || aiConfig.groq_model || 'qwen/qwen3.8-27b'}
-                    onChange={(e) => handleUpdateAiConfig({ cloud_model: e.target.value, groq_model: e.target.value })}
-                    className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)] cursor-pointer"
-                  >
-                    <option value="qwen/qwen3.8-27b">Platform Fast Intelligence (27B - Recommended)</option>
-                    <option value="openai/gpt-oss-120b">Platform Deep Reasoner (120B)</option>
-                    <option value="openai/gpt-oss-20b">Platform Lightweight (20B)</option>
-                  </select>
-                </div>
-
-                {/* Optional Custom Key Override (collapsed by default, never shows owner key) */}
-                <div className="pt-1">
-                  <details className="group">
-                    <summary className="text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] cursor-pointer transition-colors select-none font-medium flex items-center gap-1.5 py-1">
-                      <span>+ Advanced: Use custom API key override (optional)</span>
-                    </summary>
-                    <div className="mt-2.5 p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] space-y-2">
-                      <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
-                        Entropy includes free built-in Platform AI. You can optionally supply your own custom Groq-compatible key below to override it.
-                      </p>
-                      <input
-                        type="password"
-                        value={aiConfig.cloud_api_key || ''}
-                        onChange={(e) => handleUpdateAiConfig({ cloud_api_key: e.target.value, groq_api_key: e.target.value })}
-                        placeholder="Paste custom key to override built-in AI (leave blank for built-in)"
-                        className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs font-mono text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)]"
-                      />
-                      {aiConfig.cloud_api_key && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateAiConfig({ cloud_api_key: '', groq_api_key: '' })}
-                          className="text-[11px] text-[var(--color-accent)] hover:underline cursor-pointer font-medium"
-                        >
-                          Reset to Built-in Platform AI
-                        </button>
-                      )}
-                    </div>
-                  </details>
-                </div>
-              </div>
-            )}
-
-            {aiConfig.provider === 'rules' && (
-              <div className="flex items-start gap-3">
-                <ShieldCheck size={20} className="text-[var(--color-success)] shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">Offline Rules Engine is Active</h4>
-                  <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
-                    Evaluates repository cleanliness, uncommitted changes, running dev processes, and project lockfiles instantly. Safe, zero latency, and always available without internet connection.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {aiConfig.provider === 'ollama' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] mb-1.5">
-                    Ollama Server URL
-                  </label>
-                  <input
-                    type="text"
-                    value={aiConfig.ollama_url}
-                    onChange={(e) => handleUpdateAiConfig({ ollama_url: e.target.value })}
-                    placeholder="http://localhost:11434"
-                    className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs font-mono text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)]"
-                  />
-                  <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1.5">
-                    Ensure Ollama is running locally on your machine (<code className="text-xs font-mono">ollama serve</code>).
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] mb-1.5">
-                    Model Tag
-                  </label>
-                  <input
-                    type="text"
-                    value={aiConfig.ollama_model}
-                    onChange={(e) => handleUpdateAiConfig({ ollama_model: e.target.value })}
-                    placeholder="llama3.2"
-                    className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3.5 py-2 text-xs font-mono text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)]"
-                  />
-                  <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1.5">
-                    e.g. <code className="text-xs font-mono">llama3.2</code>, <code className="text-xs font-mono">llama3.1</code>, <code className="text-xs font-mono">mistral</code>, or <code className="text-xs font-mono">codellama</code>.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Test Connection Footer */}
-            <div className="pt-3 border-t border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={handleTestAiConnection}
-                disabled={testingAi}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-primary)] transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <RefreshCw size={13} className={testingAi ? 'animate-spin' : ''} />
-                <span>{testingAi ? 'Testing Connection...' : 'Test Connection'}</span>
-              </button>
-
-              {testResult && (
-                <div
-                  className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-md border ${
-                    testResult.success
-                      ? 'bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success)]'
-                      : 'bg-[var(--color-danger-bg)] border-[var(--color-danger-border)] text-[var(--color-danger)]'
-                  }`}
-                >
-                  {testResult.success ? <CheckCircle2 size={13} className="shrink-0" /> : <AlertCircle size={13} className="shrink-0" />}
-                  <span className="truncate max-w-sm">{testResult.message}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Live Interactive Prompt & Chat Area */}
-            <div className="pt-4 border-t border-[var(--color-border-subtle)] space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={14} className="text-[var(--color-accent)]" />
-                  <span className="text-xs font-semibold text-[var(--color-text-primary)]">
-                    Interactive Chat &amp; Prompt Box
-                  </span>
-                </div>
-                {onNavigateToChat && (
-                  <button
-                    type="button"
-                    onClick={onNavigateToChat}
-                    className="text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent-strong)] hover:underline flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <span>Open Full AI Assistant View</span>
-                    <ArrowUpRight size={13} />
-                  </button>
-                )}
-              </div>
-
-              {/* Chat Thread if any */}
-              {chatHistory.length > 0 && (
-                <div className="max-h-64 overflow-y-auto space-y-3 p-3.5 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] shadow-inner text-xs">
-                  {chatHistory.map((msg, idx) => (
-                    <div key={idx} className="space-y-1">
-                      {msg.role === 'user' ? (
-                        <div className="flex justify-end">
-                          <div className="max-w-[85%] bg-[var(--color-accent)] text-white px-3 py-1.5 rounded-xl rounded-tr-xs shadow-xs text-xs">
-                            {msg.text}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-start gap-2">
-                          <div className="w-5 h-5 rounded-md bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/30 flex items-center justify-center text-[var(--color-accent)] shrink-0 mt-0.5">
-                            <Sparkles size={11} />
-                          </div>
-                          <div className="flex-1 max-w-[90%] bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl rounded-tl-xs p-3 space-y-1 text-xs text-[var(--color-text-primary)]">
-                            <AiResponseRenderer content={msg.text} />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {isPrompting && (
-                    <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)] p-2">
-                      <RefreshCw size={12} className="animate-spin text-[var(--color-accent)]" />
-                      <span>Platform AI is generating response...</span>
-                    </div>
-                  )}
-                  <div ref={settingsChatEndRef} />
-                </div>
-              )}
-
-              {/* Quick Prompt Suggestions */}
-              {chatHistory.length === 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    'Is it safe to delete node_modules?',
-                    'How can I free disk space on Windows?',
-                    'What background ports are running?',
-                  ].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      disabled={isPrompting}
-                      onClick={() => handleSendSettingsPrompt(preset)}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Prompt Input Box */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void handleSendSettingsPrompt();
-                }}
-                className="flex items-center gap-2"
-              >
-                <input
-                  type="text"
-                  value={settingsPrompt}
-                  onChange={(e) => setSettingsPrompt(e.target.value)}
-                  placeholder="Type a prompt to test Platform AI... (Press Enter to send)"
-                  disabled={isPrompting}
-                  className="flex-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl px-3.5 py-2 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)] shadow-xs transition-colors"
-                />
-                <button
-                  type="submit"
-                  disabled={isPrompting || !settingsPrompt.trim()}
-                  className="h-8.5 px-3.5 rounded-xl bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 shadow-xs shrink-0"
-                >
-                  {isPrompting ? (
-                    <RefreshCw size={13} className="animate-spin" />
-                  ) : (
-                    <Send size={13} />
-                  )}
-                  <span>Send</span>
-                </button>
-              </form>
-            </div>
           </div>
         </section>
 

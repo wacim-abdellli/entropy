@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -16,20 +16,9 @@ import {
   Lock,
   GitBranch,
   HardDrive,
-  Sparkles,
-  Send,
-  Copy,
 } from 'lucide-react';
 import { WorkspaceHealth, HealthTip } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
-import { AiResponseRenderer } from './AiResponseRenderer';
-
-interface ChatMessage {
-  id: string;
-  sender: 'user' | 'ai';
-  text: string;
-  timestamp: string;
-}
 
 interface WorkspaceAdvisorCardProps {
   workspacePath: string;
@@ -50,7 +39,7 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
   ports,
   artifacts,
   onActionCompleted,
-  onNavigateToSettings,
+  onNavigateToSettings: _onNavigateToSettings,
 }) => {
   const [health, setHealth] = useState<WorkspaceHealth | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,77 +51,10 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
   const [actionNotice, setActionNotice] = useState<{ id: string; success: boolean; text: string } | null>(null);
   const [prevPath, setPrevPath] = useState(workspacePath);
 
-  // Platform AI normal chat state
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [isAiThinking, setIsAiThinking] = useState(false);
-  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
-
   if (workspacePath !== prevPath) {
     setPrevPath(workspacePath);
     setLoading(true);
-    setChatMessages([]);
-    setChatInput('');
   }
-
-  const handleSend = async (queryText?: string) => {
-    const q = (queryText || chatInput).trim();
-    if (!q || isAiThinking) return;
-
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      text: q,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    setChatMessages((prev) => [...prev, userMsg]);
-    setChatInput('');
-    setIsAiThinking(true);
-
-    try {
-      const res = await EntropyApiClient.askAiAdvisor(q, {
-        workspace_name: workspaceName,
-        workspace_path: workspacePath,
-        git_branch: gitBranch,
-        has_uncommitted_changes: hasUncommittedChanges,
-        ports: ports,
-        artifacts: artifacts,
-      });
-
-      const aiText = res?.answer || (res?.error ? `Error: ${res.error}` : 'No response received from Platform AI.');
-      const aiMsg: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        sender: 'ai',
-        text: aiText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setChatMessages((prev) => [...prev, aiMsg]);
-    } catch (err: unknown) {
-      const aiMsg: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        sender: 'ai',
-        text: err instanceof Error ? err.message : 'Failed to consult Platform AI.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setChatMessages((prev) => [...prev, aiMsg]);
-    } finally {
-      setIsAiThinking(false);
-    }
-  };
-
-  useEffect(() => {
-    if (chatMessages.length > 0 || isAiThinking) {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatMessages, isAiThinking]);
-
-  const handleCopyMessage = (msgId: string, text: string) => {
-    void navigator.clipboard.writeText(text);
-    setCopiedMsgId(msgId);
-    setTimeout(() => setCopiedMsgId(null), 2000);
-  };
 
   const fetchHealth = useCallback(async () => {
     setLoading(true);
@@ -515,173 +437,6 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
               </div>
             </div>
           )}
-
-          {/* Interactive Platform AI Advisor — Normal Chat */}
-          <div className="pt-3 border-t border-[var(--color-border-subtle)] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/30 flex items-center justify-center text-[var(--color-accent)]">
-                  <Sparkles size={12} />
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-[var(--color-text-primary)]">
-                    Platform AI Assistant
-                  </span>
-                  <span className="text-[9px] uppercase font-semibold px-1.5 py-0.2 rounded bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/20">
-                    Ready
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {chatMessages.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setChatMessages([])}
-                    className="text-[11px] text-[var(--color-text-tertiary)] hover:text-red-400 transition-colors cursor-pointer flex items-center gap-1"
-                    title="Clear chat conversation"
-                  >
-                    <Trash2 size={11} />
-                    <span>Clear Chat</span>
-                  </button>
-                )}
-                {onNavigateToSettings && (
-                  <button
-                    type="button"
-                    onClick={onNavigateToSettings}
-                    className="text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] transition-colors cursor-pointer"
-                  >
-                    AI Settings
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Chat Conversation Thread */}
-            {chatMessages.length > 0 && (
-              <div className="max-h-[380px] overflow-y-auto space-y-3 p-3.5 rounded-xl bg-[var(--color-surface-0)] border border-[var(--color-border-subtle)] shadow-inner">
-                {chatMessages.map((msg) => (
-                  <div key={msg.id} className="space-y-1">
-                    {msg.sender === 'user' ? (
-                      <div className="flex justify-end">
-                        <div className="max-w-[85%] bg-[var(--color-accent)] text-white px-3.5 py-2.5 rounded-2xl rounded-tr-xs shadow-xs space-y-1">
-                          <div className="flex items-center justify-between gap-3 text-[10px] text-white/75">
-                            <span className="font-semibold">You</span>
-                            <span>{msg.timestamp}</span>
-                          </div>
-                          <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-start gap-2.5 justify-start">
-                        <div className="w-7 h-7 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] flex items-center justify-center shrink-0 mt-0.5 text-[var(--color-accent)]">
-                          <Sparkles size={14} />
-                        </div>
-                        <div className="flex-1 max-w-[92%] bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] rounded-2xl rounded-tl-xs p-3.5 shadow-xs space-y-2 text-xs">
-                          <div className="flex items-center justify-between pb-1.5 border-b border-[var(--color-border-subtle)]">
-                            <div className="flex items-center gap-1.5 text-[var(--color-accent-strong)] font-semibold text-[11px]">
-                              <span>Platform AI</span>
-                              <span className="text-[10px] font-normal text-[var(--color-text-tertiary)]">({msg.timestamp})</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyMessage(msg.id, msg.text)}
-                              className="text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer flex items-center gap-1"
-                            >
-                              {copiedMsgId === msg.id ? (
-                                <Check size={11} className="text-[var(--color-success)]" />
-                              ) : (
-                                <Copy size={11} />
-                              )}
-                              <span>{copiedMsgId === msg.id ? 'Copied' : 'Copy'}</span>
-                            </button>
-                          </div>
-                          <AiResponseRenderer content={msg.text} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {isAiThinking && (
-                  <div className="flex items-start gap-2.5 justify-start animate-in fade-in">
-                    <div className="w-7 h-7 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] flex items-center justify-center shrink-0 mt-0.5 text-[var(--color-accent)]">
-                      <Sparkles size={14} className="animate-spin" />
-                    </div>
-                    <div className="bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] rounded-2xl rounded-tl-xs px-4 py-3 text-xs text-[var(--color-text-secondary)] flex items-center gap-2.5">
-                      <span>Platform AI is thinking</span>
-                      <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-bounce" style={{ animationDelay: '300ms' }} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
-            )}
-
-            {/* Quick Suggestion Chips (shown when no messages) */}
-            {chatMessages.length === 0 && (
-              <div className="p-3.5 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] space-y-2.5">
-                <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-                  Ask anything about <strong className="text-[var(--color-text-primary)]">{workspaceName}</strong> — safe cleanup, active background processes, or Git status.
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    'Is it safe to delete node_modules?',
-                    'What active servers or ports are running?',
-                    'How do I safely stash uncommitted work?',
-                    'How can I free disk space in this workspace?',
-                  ].map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      disabled={isAiThinking}
-                      onClick={() => handleSend(suggestion)}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Normal Chat Input Form */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void handleSend();
-              }}
-              className="flex items-center gap-2"
-            >
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Ask Platform AI anything about this workspace... (Press Enter to send)"
-                  disabled={isAiThinking}
-                  className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl px-4 py-2 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)] shadow-xs transition-colors"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isAiThinking || !chatInput.trim()}
-                className="h-8.5 px-3.5 rounded-xl bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 shadow-xs shrink-0"
-                title="Send Message (Enter)"
-              >
-                {isAiThinking ? (
-                  <RefreshCw size={13} className="animate-spin" />
-                ) : (
-                  <Send size={13} />
-                )}
-                <span>Send</span>
-              </button>
-            </form>
-          </div>
         </div>
       )}
 
