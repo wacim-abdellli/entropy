@@ -1,7 +1,15 @@
-import React, { useMemo, useState } from 'react';
-import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, SquareTerminal, X, XCircle, Zap, Sparkles } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, SquareTerminal, X, XCircle, Zap, Sparkles, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import { CacheConnection, DockerConnection, ProcessConnection, RuntimeConnection, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
+
+interface SystemNotice {
+  type: 'boost' | 'success' | 'warning' | 'error' | 'info';
+  title: string;
+  message: string;
+  metric?: string;
+  subtext?: string;
+}
 
 interface SystemViewProps {
   initialTab?: 'processes' | 'runtimes' | 'containers' | 'caches';
@@ -60,26 +68,47 @@ export const SystemView: React.FC<SystemViewProps> = ({
   const [copied, setCopied] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ kind: 'process' | 'port'; process: ProcessConnection; port?: number } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<SystemNotice | null>(null);
   const [confirmCleanSlate, setConfirmCleanSlate] = useState(false);
   const [cleanSlateLoading, setCleanSlateLoading] = useState(false);
   const [trimming, setTrimming] = useState(false);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => {
+      setNotice(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   const handleTrimAll = async () => {
     setTrimming(true);
     try {
       const res = await EntropyApiClient.trimWorkingSets();
       if (res.success) {
-        setNotice(`⚡ Memory Boost: Freed ${res.total_freed_formatted} physical RAM across ${res.trimmed_count} processes! (Non-destructive)`);
+        setNotice({
+          type: 'boost',
+          title: 'Memory Boost Complete',
+          metric: res.total_freed_formatted,
+          message: `Freed ${res.total_freed_formatted} physical RAM across ${res.trimmed_count} processes`,
+          subtext: 'Windows working sets trimmed • Non-destructive',
+        });
       } else {
-        setNotice(res.error || 'Failed to trim memory.');
+        setNotice({
+          type: 'error',
+          title: 'Memory Boost Failed',
+          message: res.error || 'Failed to trim system memory.',
+        });
       }
       await onActionComplete?.();
     } catch {
-      setNotice('Error boosting memory.');
+      setNotice({
+        type: 'error',
+        title: 'Memory Boost Error',
+        message: 'Unexpected error while boosting memory.',
+      });
     } finally {
       setTrimming(false);
-      setTimeout(() => setNotice(null), 5000);
     }
   };
 
@@ -87,15 +116,27 @@ export const SystemView: React.FC<SystemViewProps> = ({
     try {
       const res = await EntropyApiClient.trimSingleProcess(pid);
       if (res.success) {
-        setNotice(`⚡ Trimmed PID ${pid} (${res.name}): Freed ${res.freed_formatted} RAM.`);
+        setNotice({
+          type: 'boost',
+          title: 'Process RAM Trimmed',
+          metric: res.freed_formatted,
+          message: `${res.name || `PID ${pid}`} RAM reduced`,
+          subtext: `PID ${pid} • Released ${res.freed_formatted}`,
+        });
       } else {
-        setNotice(res.error || 'Failed to trim process.');
+        setNotice({
+          type: 'error',
+          title: 'Trim Failed',
+          message: res.error || 'Failed to trim process.',
+        });
       }
       await onActionComplete?.();
     } catch {
-      setNotice('Error trimming process.');
-    } finally {
-      setTimeout(() => setNotice(null), 4000);
+      setNotice({
+        type: 'error',
+        title: 'Trim Error',
+        message: 'Error trimming process working set.',
+      });
     }
   };
 
@@ -108,17 +149,30 @@ export const SystemView: React.FC<SystemViewProps> = ({
     try {
       const res = await EntropyApiClient.cleanSlateDevProcesses(devProcesses.map((p) => p.pid));
       if (res.success) {
-        setNotice(`Clean Slate complete: Terminated ${res.terminated_count} dev processes and freed ${bytes(res.freed_memory_bytes)} RAM.`);
+        setNotice({
+          type: 'success',
+          title: 'Clean Slate Complete',
+          metric: bytes(res.freed_memory_bytes),
+          message: `Terminated ${res.terminated_count} dev processes`,
+          subtext: `Recovered ${bytes(res.freed_memory_bytes)} RAM safely`,
+        });
       } else {
-        setNotice(res.errors?.[0]?.error || 'Failed to complete Clean Slate.');
+        setNotice({
+          type: 'error',
+          title: 'Clean Slate Failed',
+          message: res.errors?.[0]?.error || 'Failed to complete Clean Slate.',
+        });
       }
       await onActionComplete?.();
     } catch {
-      setNotice('Error running Clean Slate.');
+      setNotice({
+        type: 'error',
+        title: 'Clean Slate Error',
+        message: 'Error running Clean Slate.',
+      });
     } finally {
       setCleanSlateLoading(false);
       setConfirmCleanSlate(false);
-      setTimeout(() => setNotice(null), 5000);
     }
   };
 
@@ -161,8 +215,12 @@ export const SystemView: React.FC<SystemViewProps> = ({
     const result = confirm.kind === 'port' && confirm.port ? await EntropyApiClient.freePort(confirm.port) : await EntropyApiClient.terminateProcess(confirm.process.pid);
     setBusy(false);
     setConfirm(null);
-    setNotice(result.success ? (result.message || 'Action complete.') : (result.error || 'Action failed.'));
-    setTimeout(() => setNotice(null), 4200);
+    setNotice({
+      type: result.success ? 'success' : 'error',
+      title: result.success ? (confirm.kind === 'port' ? 'Port Released' : 'Process Stopped') : 'Action Failed',
+      message: result.success ? (result.message || 'Action complete.') : (result.error || 'Action failed.'),
+      subtext: confirm.kind === 'port' ? `Port :${confirm.port} is now free` : `PID ${confirm.process.pid} terminated`,
+    });
     if (result.success) await onActionComplete?.();
   };
 
@@ -186,8 +244,96 @@ export const SystemView: React.FC<SystemViewProps> = ({
   return (
     <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full max-w-full bg-[var(--color-surface-0)] animate-enter">
       {notice && (
-        <div className="fixed z-50 right-6 top-5 px-3 py-2 rounded-md bg-[var(--color-surface-3)] border border-[var(--color-border-strong)] text-xs text-[var(--color-text-primary)] shadow-xl animate-in fade-in">
-          {notice}
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed z-50 right-6 top-4 w-full max-w-sm rounded-xl p-3.5 shadow-2xl border backdrop-blur-md transition-all duration-300 animate-in fade-in slide-in-from-top-3 ${
+            notice.type === 'boost'
+              ? 'bg-[var(--color-surface-2)]/95 border-amber-500/40 text-[var(--color-text-primary)] shadow-amber-500/10'
+              : notice.type === 'success'
+              ? 'bg-[var(--color-surface-2)]/95 border-emerald-500/40 text-[var(--color-text-primary)] shadow-emerald-500/10'
+              : notice.type === 'error'
+              ? 'bg-[var(--color-surface-2)]/95 border-rose-500/40 text-[var(--color-text-primary)] shadow-rose-500/10'
+              : 'bg-[var(--color-surface-2)]/95 border-[var(--color-border-strong)] text-[var(--color-text-primary)]'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            {/* Styled Icon Badge */}
+            <div
+              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                notice.type === 'boost'
+                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                  : notice.type === 'success'
+                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                  : notice.type === 'error'
+                  ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                  : 'bg-sky-500/15 border-sky-500/30 text-sky-400'
+              }`}
+            >
+              {notice.type === 'boost' ? (
+                <Zap size={16} className="fill-amber-400/20" />
+              ) : notice.type === 'success' ? (
+                <CheckCircle2 size={16} />
+              ) : notice.type === 'error' ? (
+                <AlertTriangle size={16} />
+              ) : (
+                <Info size={16} />
+              )}
+            </div>
+
+            {/* Notification Content */}
+            <div className="flex-1 min-w-0 pr-1">
+              <div className="flex items-center justify-between gap-2 mb-0.5">
+                <span className="text-xs font-semibold text-[var(--color-text-primary)] tracking-tight">
+                  {notice.title}
+                </span>
+                {notice.metric && (
+                  <span
+                    className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${
+                      notice.type === 'boost'
+                        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                        : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                    }`}
+                  >
+                    +{notice.metric}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                {notice.message}
+              </p>
+              {notice.subtext && (
+                <p className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5 flex items-center gap-1 font-mono">
+                  <span>{notice.subtext}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              className="p-1 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] transition-colors cursor-pointer shrink-0 mt-0.5"
+              title="Dismiss notification"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          {/* Subtle countdown progress bar at bottom */}
+          <div className="mt-2.5 h-0.5 w-full bg-[var(--color-surface-4)] rounded-full overflow-hidden">
+            <div
+              className={`h-full animate-toast-timer rounded-full ${
+                notice.type === 'boost'
+                  ? 'bg-amber-400'
+                  : notice.type === 'success'
+                  ? 'bg-emerald-400'
+                  : notice.type === 'error'
+                  ? 'bg-rose-400'
+                  : 'bg-sky-400'
+              }`}
+            />
+          </div>
         </div>
       )}
       {confirm && (

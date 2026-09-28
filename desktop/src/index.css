@@ -54,11 +54,17 @@
   .animate-enter { animation: enter 180ms ease-out both; }
   @keyframes enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
+  .animate-toast-timer { animation: toast-timer 5s linear forwards; }
+  @keyframes toast-timer { from { width: 100%; } to { width: 0%; } }
+
   @media (prefers-reduced-motion: reduce) {
     .animate-enter {
       animation: none !important;
       opacity: 1 !important;
       transform: none !important;
+    }
+    .animate-toast-timer {
+      animation: none !important;
     }
     .animate-spin {
       animation: none !important;

@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   FolderCheck,
   PowerOff,
+  X,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -2099,9 +2100,24 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
       {/* ── Floating Toast ── */}
       {toastMessage && (
-        <div className="fixed top-16 right-6 z-50 flex items-center gap-2.5 pl-3 pr-2 py-2.5 rounded-lg shadow-2xl text-xs font-medium max-w-sm border backdrop-blur-sm bg-[var(--color-surface-2)] border-[var(--color-success)]/30 text-[var(--color-success)] animate-in fade-in slide-in-from-top-2">
-          <CheckCircle2 size={14} className="shrink-0" />
-          <span className="truncate">{toastMessage}</span>
+        <div
+          role="status"
+          className="fixed top-16 right-6 z-50 flex items-center justify-between gap-3 pl-3 pr-2 py-2.5 rounded-xl shadow-2xl text-xs font-medium max-w-sm border backdrop-blur-md bg-[var(--color-surface-2)]/95 border-[var(--color-border-strong)] text-[var(--color-text-primary)] animate-in fade-in slide-in-from-top-2"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1 rounded-md bg-[var(--color-success)]/15 text-[var(--color-success)] shrink-0">
+              <CheckCircle2 size={15} />
+            </div>
+            <span className="truncate">{toastMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] p-1 rounded-md hover:bg-[var(--color-surface-3)] transition-colors cursor-pointer shrink-0"
+            aria-label="Dismiss notification"
+          >
+            <X size={13} />
+          </button>
         </div>
       )}
 
