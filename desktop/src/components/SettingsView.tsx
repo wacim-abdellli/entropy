@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Settings, 
   FolderSearch, 
@@ -12,6 +12,7 @@ import {
   FolderGit2,
   Bot,
   Sparkles,
+  Send,
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
@@ -19,12 +20,14 @@ import {
 } from 'lucide-react';
 import { EntropyApiClient } from '../services/api';
 import { WorkspaceSummary, AiConfig } from '../types/entropy';
+import { AiResponseRenderer } from './AiResponseRenderer';
 
 interface SettingsViewProps {
   scanRoots?: string[];
   onScanRootsChange?: (roots: string[]) => void;
   onOpenWorkspace?: (path: string) => void;
   currentWorkspace?: WorkspaceSummary | null;
+  onNavigateToChat?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
@@ -32,6 +35,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onScanRootsChange,
   onOpenWorkspace,
   currentWorkspace,
+  onNavigateToChat,
 }) => {
   const [directories, setDirectories] = useState<string[]>(() => {
     try {
@@ -45,6 +49,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   });
   const [dirToDelete, setDirToDelete] = useState<string | null>(null);
   const [saveRootsNotice, setSaveRootsNotice] = useState(false);
+
+  // Live prompt & chat tester state
+  const [settingsPrompt, setSettingsPrompt] = useState('');
+  const [isPrompting, setIsPrompting] = useState(false);
+  const [chatHistory, setChatHistory] = useState<Array<{ role: 'user' | 'ai'; text: string }>>([]);
+  const settingsChatEndRef = useRef<HTMLDivElement | null>(null);
 
   const [aiConfig, setAiConfig] = useState<AiConfig>({
     provider: 'cloud',
@@ -101,6 +111,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       });
     } finally {
       setTestingAi(false);
+    }
+  };
+
+  const handleSendSettingsPrompt = async (presetPrompt?: string) => {
+    const p = (presetPrompt || settingsPrompt).trim();
+    if (!p || isPrompting) return;
+
+    setChatHistory((prev) => [...prev, { role: 'user', text: p }]);
+    setSettingsPrompt('');
+    setIsPrompting(true);
+
+    try {
+      const res = await EntropyApiClient.askAiAdvisor(
+        p,
+        currentWorkspace
+          ? {
+              workspace_name: currentWorkspace.name,
+              git_branch: currentWorkspace.git_branch,
+              has_uncommitted_changes: currentWorkspace.has_uncommitted_changes,
+            }
+          : undefined
+      );
+      const ans =
+        res?.answer || (res?.error ? `Error: ${res.error}` : 'No response from Platform AI.');
+      setChatHistory((prev) => [...prev, { role: 'ai', text: ans }]);
+    } catch (err: unknown) {
+      setChatHistory((prev) => [
+        ...prev,
+        { role: 'ai', text: err instanceof Error ? err.message : 'Request failed.' },
+      ]);
+    } finally {
+      setIsPrompting(false);
+      setTimeout(() => settingsChatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
     }
   };
 
@@ -583,6 +626,112 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span className="truncate max-w-sm">{testResult.message}</span>
                 </div>
               )}
+            </div>
+
+            {/* Live Interactive Prompt & Chat Area */}
+            <div className="pt-4 border-t border-[var(--color-border-subtle)] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={14} className="text-[var(--color-accent)]" />
+                  <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+                    Interactive Chat &amp; Prompt Box
+                  </span>
+                </div>
+                {onNavigateToChat && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToChat}
+                    className="text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent-strong)] hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <span>Open Full AI Assistant View</span>
+                    <ArrowUpRight size={13} />
+                  </button>
+                )}
+              </div>
+
+              {/* Chat Thread if any */}
+              {chatHistory.length > 0 && (
+                <div className="max-h-64 overflow-y-auto space-y-3 p-3.5 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] shadow-inner text-xs">
+                  {chatHistory.map((msg, idx) => (
+                    <div key={idx} className="space-y-1">
+                      {msg.role === 'user' ? (
+                        <div className="flex justify-end">
+                          <div className="max-w-[85%] bg-[var(--color-accent)] text-white px-3 py-1.5 rounded-xl rounded-tr-xs shadow-xs text-xs">
+                            {msg.text}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-2">
+                          <div className="w-5 h-5 rounded-md bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/30 flex items-center justify-center text-[var(--color-accent)] shrink-0 mt-0.5">
+                            <Sparkles size={11} />
+                          </div>
+                          <div className="flex-1 max-w-[90%] bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl rounded-tl-xs p-3 space-y-1 text-xs text-[var(--color-text-primary)]">
+                            <AiResponseRenderer content={msg.text} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {isPrompting && (
+                    <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)] p-2">
+                      <RefreshCw size={12} className="animate-spin text-[var(--color-accent)]" />
+                      <span>Platform AI is generating response...</span>
+                    </div>
+                  )}
+                  <div ref={settingsChatEndRef} />
+                </div>
+              )}
+
+              {/* Quick Prompt Suggestions */}
+              {chatHistory.length === 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Is it safe to delete node_modules?',
+                    'How can I free disk space on Windows?',
+                    'What background ports are running?',
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      disabled={isPrompting}
+                      onClick={() => handleSendSettingsPrompt(preset)}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Prompt Input Box */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void handleSendSettingsPrompt();
+                }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  type="text"
+                  value={settingsPrompt}
+                  onChange={(e) => setSettingsPrompt(e.target.value)}
+                  placeholder="Type a prompt to test Platform AI... (Press Enter to send)"
+                  disabled={isPrompting}
+                  className="flex-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl px-3.5 py-2 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)] shadow-xs transition-colors"
+                />
+                <button
+                  type="submit"
+                  disabled={isPrompting || !settingsPrompt.trim()}
+                  className="h-8.5 px-3.5 rounded-xl bg-[var(--color-accent)] hover:opacity-90 text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 shadow-xs shrink-0"
+                >
+                  {isPrompting ? (
+                    <RefreshCw size={13} className="animate-spin" />
+                  ) : (
+                    <Send size={13} />
+                  )}
+                  <span>Send</span>
+                </button>
+              </form>
             </div>
           </div>
         </section>
