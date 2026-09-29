@@ -38,6 +38,9 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="safety-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={onClose}
     >
@@ -48,11 +51,11 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-2)]/40">
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[var(--color-success-bg)] border border-[var(--color-success-border)] flex items-center justify-center text-[var(--color-success)] shrink-0">
               <ShieldCheck size={20} />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+              <h3 id="safety-modal-title" className="text-sm font-semibold text-[var(--color-text-primary)]">
                 Cleanup Safety &amp; Data Protection Guide
               </h3>
               <p className="text-xs text-[var(--color-text-tertiary)]">
@@ -65,6 +68,7 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
             onClick={onClose}
             className="p-1.5 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] cursor-pointer transition-colors shrink-0"
             title="Close (Esc)"
+            aria-label="Close dialog"
           >
             <X size={16} />
           </button>
@@ -111,7 +115,7 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
               <span className="font-semibold text-sm text-[var(--color-text-primary)]">
                 Web Browser Caches (Brave, Chrome, Edge, Firefox)
               </span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
                 100% Safe
               </span>
             </div>
@@ -120,7 +124,7 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
             </p>
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div className="p-2 rounded-lg bg-[var(--color-surface-3)]/60 space-y-1">
-                <span className="font-semibold text-emerald-400 flex items-center gap-1">
+                <span className="font-semibold text-[var(--color-success)] flex items-center gap-1">
                   <CheckCircle2 size={12} /> What stays 100% protected:
                 </span>
                 <ul className="list-disc list-inside text-[var(--color-text-tertiary)] space-y-0.5">
@@ -147,16 +151,16 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
           {/* Section 3: Package Manager Caches */}
           <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/50 space-y-2.5">
             <div className="flex items-center gap-2">
-              <Database size={16} className="text-emerald-400" />
+              <Database size={16} className="text-[var(--color-success)]" />
               <span className="font-semibold text-sm text-[var(--color-text-primary)]">
                 Global Package Manager Caches (npm, pip, cargo, pnpm, gradle)
               </span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
                 100% Safe
               </span>
             </div>
             <p className="text-[var(--color-text-secondary)] leading-relaxed">
-              <strong>Will this break my existing projects?</strong> <strong>No.</strong> These caches in your AppData directory are simply copies of downloaded archive files (<code className="font-mono text-emerald-400">.tgz</code>, <code className="font-mono text-emerald-400">.whl</code>, <code className="font-mono text-emerald-400">.crate</code>).
+              <strong>Will this break my existing projects?</strong> <strong>No.</strong> These caches in your AppData directory are simply copies of downloaded archive files (<code className="font-mono text-[var(--color-success)]">.tgz</code>, <code className="font-mono text-[var(--color-success)]">.whl</code>, <code className="font-mono text-[var(--color-success)]">.crate</code>).
             </p>
             <div className="p-2.5 rounded-lg bg-[var(--color-surface-3)]/60 text-[11px] text-[var(--color-text-secondary)] space-y-1">
               <div>✅ <strong>Installed projects are untouched:</strong> Your local <code className="font-mono text-[var(--color-text-primary)]">node_modules</code>, <code className="font-mono text-[var(--color-text-primary)]">.venv</code>, and build folders are NOT deleted by cleaning this tab.</div>
@@ -167,11 +171,11 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
           {/* Section 4: Project Build Artifacts */}
           <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/50 space-y-2.5">
             <div className="flex items-center gap-2">
-              <FolderGit2 size={16} className="text-sky-400" />
+              <FolderGit2 size={16} className="text-[var(--color-info)]" />
               <span className="font-semibold text-sm text-[var(--color-text-primary)]">
                 Project Build Artifacts (node_modules, target, .venv, bin/obj)
               </span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-info-bg)] text-[var(--color-info)] border border-[var(--color-info-border)]">
                 Rebuildable
               </span>
             </div>
@@ -179,14 +183,14 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
               <strong>Is my source code safe?</strong> <strong>Yes.</strong> Entropy operates on a strict whitelist of disposable folders. Your source files, git commits, branches, and configuration files are never touched.
             </p>
             <div className="p-2.5 rounded-lg bg-[var(--color-surface-3)]/60 text-[11px] text-[var(--color-text-secondary)]">
-              💡 <strong>Instant Rebuild:</strong> Every cleaned project can be restored at any time simply by running its rebuild command (<code className="font-mono text-sky-300">npm install</code>, <code className="font-mono text-sky-300">bundle install</code>, <code className="font-mono text-sky-300">cargo build</code>).
+              💡 <strong>Instant Rebuild:</strong> Every cleaned project can be restored at any time simply by running its rebuild command (<code className="font-mono text-[var(--color-info)]">npm install</code>, <code className="font-mono text-[var(--color-info)]">bundle install</code>, <code className="font-mono text-[var(--color-info)]">cargo build</code>).
             </div>
           </div>
 
           {/* Section 5: Locked and Active Files */}
           <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/50 space-y-2.5">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-sky-400" />
+              <AlertTriangle size={16} className="text-[var(--color-info)]" />
               <span className="font-semibold text-sm text-[var(--color-text-primary)]">
                 Locked &amp; In-Use Files Protection
               </span>
@@ -200,7 +204,7 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
         {/* Footer */}
         <div className="flex items-center justify-between p-4 px-5 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-2)]/30">
           <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
-            <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+            <CheckCircle2 size={14} className="text-[var(--color-success)] shrink-0" />
             <span>Entropy adheres to zero-data-loss developer principles.</span>
           </div>
           <button

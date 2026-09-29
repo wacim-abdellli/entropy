@@ -131,6 +131,7 @@ export const PathAuditorCard: React.FC<PathAuditorCardProps> = ({ onRefreshParen
             disabled={isLoading}
             className="p-2 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] transition-colors cursor-pointer disabled:opacity-50"
             title="Refresh PATH audit"
+            aria-label="Refresh PATH audit"
           >
             <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
           </button>
@@ -258,15 +259,16 @@ export const PathAuditorCard: React.FC<PathAuditorCardProps> = ({ onRefreshParen
                 <div className="space-y-1 font-mono text-[11px]">
                   {/* Active winner */}
                   <div className="flex items-center gap-2 p-1.5 rounded bg-[var(--color-success-bg)]/40 border border-[var(--color-success-border)]/40 text-[var(--color-success)]">
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[var(--color-success)] text-white uppercase shrink-0">
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[var(--color-success)] text-black uppercase shrink-0">
                       Active
                     </span>
                     <span className="truncate flex-1" title={c.active_path}>{c.active_path}</span>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(c.active_path)}
-                      className="p-1 hover:text-[var(--color-text-primary)] transition-colors"
+                      className="p-1 hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
                       title={copiedText === c.active_path ? "Copied!" : "Copy path"}
+                      aria-label="Copy active path"
                     >
                       {copiedText === c.active_path ? <Check size={12} className="text-[var(--color-success)]" /> : <Copy size={12} />}
                     </button>
@@ -285,8 +287,9 @@ export const PathAuditorCard: React.FC<PathAuditorCardProps> = ({ onRefreshParen
                       <button
                         type="button"
                         onClick={() => copyToClipboard(s)}
-                        className="p-1 hover:text-[var(--color-text-primary)] transition-colors"
+                        className="p-1 hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
                         title="Copy path"
+                        aria-label="Copy shadowed path"
                       >
                         <Copy size={12} />
                       </button>
@@ -333,7 +336,7 @@ export const PathAuditorCard: React.FC<PathAuditorCardProps> = ({ onRefreshParen
                       </span>
                     )}
                     {entry.is_duplicate && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[var(--color-warning)] text-white uppercase shrink-0">
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[var(--color-warning)] text-black uppercase shrink-0">
                         Duplicate
                       </span>
                     )}
@@ -343,8 +346,9 @@ export const PathAuditorCard: React.FC<PathAuditorCardProps> = ({ onRefreshParen
                   <button
                     type="button"
                     onClick={() => copyToClipboard(entry.raw)}
-                    className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors shrink-0"
+                    className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors shrink-0 cursor-pointer"
                     title="Copy path"
+                    aria-label="Copy path"
                   >
                     <Copy size={12} />
                   </button>

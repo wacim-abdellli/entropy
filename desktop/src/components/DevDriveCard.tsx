@@ -119,6 +119,7 @@ export const DevDriveCard: React.FC<DevDriveCardProps> = ({ onRefreshParent }) =
           disabled={isLoading}
           className="p-2 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] transition-colors cursor-pointer disabled:opacity-50"
           title="Refresh Dev Drive status"
+          aria-label="Refresh Dev Drive status"
         >
           <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
         </button>
@@ -181,7 +182,7 @@ export const DevDriveCard: React.FC<DevDriveCardProps> = ({ onRefreshParent }) =
                 </div>
                 <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded ${
                   vol.is_dev_drive
-                    ? 'bg-[var(--color-success)] text-white'
+                    ? 'bg-[var(--color-success)] text-black font-semibold'
                     : 'bg-[var(--color-surface-3)] text-[var(--color-text-tertiary)]'
                 }`}>
                   {vol.file_system}
@@ -242,6 +243,7 @@ export const DevDriveCard: React.FC<DevDriveCardProps> = ({ onRefreshParent }) =
                 Redirect all package caches to fast volume:
               </span>
               <select
+                aria-label="Redirect package caches to volume"
                 value={targetDrive}
                 onChange={(e) => setTargetDrive(e.target.value)}
                 className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-2.5 py-1 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)]"

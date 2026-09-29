@@ -426,8 +426,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       },
       {
         id: 'nav-settings',
-        title: 'Go to Settings & AI Advisor',
-        subtitle: 'Configure scan roots, AI Advisor providers, and preferences',
+        title: 'Go to Settings',
+        subtitle: 'Configure scan roots, preferences, and workspace settings',
         category: 'Navigation',
         icon: <Settings className="w-4 h-4 text-[var(--color-text-secondary)]" />,
         actionHint: 'Navigate',
@@ -451,7 +451,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     }
 
     return items;
-  }, [overview, onSelectWorkspace, onNavigate, onRefresh, onInspectFolder, onShowToast, onClose]);
+  }, [overview, onSelectWorkspace, onNavigate, onRefresh, onInspectFolder, onShowToast, onViewAllWorkspaces, onClose]);
 
   // Filtering
   const filteredItems = useMemo(() => {
@@ -539,6 +539,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             ref={inputRef}
             type="text"
             placeholder="Type a command, workspace, port (:3000), or action…"
+            aria-label="Type a command, workspace, port, or action"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);

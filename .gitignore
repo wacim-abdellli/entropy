@@ -13,3 +13,6 @@ report.json
 desktop/node_modules/
 desktop/dist/
 desktop/src-tauri/target/
+
+# Added by Entropy Git Safety Net
+.env*

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Unlock,
   Lock,
@@ -39,12 +39,31 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [copiedPid, setCopiedPid] = useState<number | null>(null);
 
+  const runDiagnosis = useCallback(async (pathToScan: string) => {
+    if (!pathToScan.trim()) return;
+
+    setIsDiagnosing(true);
+    setActionMessage(null);
+    try {
+      const res = await EntropyApiClient.getFileLocks(pathToScan.trim());
+      setDiagnostic(res);
+    } catch (err) {
+      console.warn('File lock diagnosis failed:', err);
+    } finally {
+      setIsDiagnosing(false);
+    }
+  }, []);
+
+  const handleDiagnose = useCallback(async (pathToScan?: string) => {
+    await runDiagnosis(pathToScan || targetPath);
+  }, [runDiagnosis, targetPath]);
+
   useEffect(() => {
     if (isOpen && initialPath) {
       setTargetPath(initialPath);
-      handleDiagnose(initialPath);
+      void runDiagnosis(initialPath);
     }
-  }, [isOpen, initialPath]);
+  }, [isOpen, initialPath, runDiagnosis]);
 
   // Global Escape key handler
   useEffect(() => {
@@ -57,22 +76,6 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
-
-  const handleDiagnose = async (pathToScan?: string) => {
-    const p = pathToScan || targetPath;
-    if (!p.trim()) return;
-
-    setIsDiagnosing(true);
-    setActionMessage(null);
-    try {
-      const res = await EntropyApiClient.getFileLocks(p.trim());
-      setDiagnostic(res);
-    } catch (err) {
-      console.warn('File lock diagnosis failed:', err);
-    } finally {
-      setIsDiagnosing(false);
-    }
-  };
 
   const handlePickFolder = async () => {
     try {
@@ -143,6 +146,8 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={onClose}
     >
@@ -187,6 +192,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                 onChange={(e) => setTargetPath(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleDiagnose()}
                 placeholder="Path to locked file or folder (e.g. C:\dev\project\node_modules)..."
+                aria-label="Path to locked file or folder"
                 className="w-full h-10 bg-[var(--color-surface-2)] border border-[var(--color-border)] focus:border-[var(--color-accent)] rounded-xl pl-10 pr-8 text-xs font-mono text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] transition-colors focus:outline-hidden"
               />
               {targetPath && (
@@ -198,6 +204,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                   }}
                   className="absolute right-2.5 p-1 rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] cursor-pointer"
                   title="Clear input"
+                  aria-label="Clear input"
                 >
                   <X size={13} />
                 </button>
@@ -234,6 +241,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                 type="button"
                 onClick={() => setActionMessage(null)}
                 className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] cursor-pointer"
+                aria-label="Dismiss message"
               >
                 <X size={12} />
               </button>
@@ -261,9 +269,9 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                   className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
                     diagnostic.is_locked
                       ? terminableCount > 0
-                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                        ? 'bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)]'
                         : 'bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] border border-[var(--color-border)]'
-                      : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : 'bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]'
                   }`}
                 >
                   {diagnostic.is_locked ? (
@@ -276,7 +284,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                       </>
                     ) : (
                       <>
-                        <Shield size={12} className="text-amber-400" />
+                        <Shield size={12} className="text-[var(--color-warning)]" />
                         <span>
                           {diagnostic.locking_processes.length} Shielded {diagnostic.locking_processes.length === 1 ? 'Process' : 'Processes'}
                         </span>
@@ -293,7 +301,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
 
               {!diagnostic.is_locked ? (
                 <div className="p-6 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-2)]/30 text-center space-y-2">
-                  <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400">
+                  <div className="w-10 h-10 rounded-full bg-[var(--color-success-bg)] border border-[var(--color-success-border)] flex items-center justify-center mx-auto text-[var(--color-success)]">
                     <CheckCircle2 size={20} />
                   </div>
                   <div className="text-xs font-semibold text-[var(--color-text-primary)]">
@@ -317,7 +325,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="w-9 h-9 rounded-lg bg-[var(--color-surface-3)] border border-[var(--color-border-subtle)] flex items-center justify-center text-[var(--color-text-secondary)] shrink-0">
                               {isPortHolder ? (
-                                <Terminal size={16} className="text-sky-400" />
+                                <Terminal size={16} className="text-[var(--color-info)]" />
                               ) : (
                                 <Cpu size={16} className="text-[var(--color-text-secondary)]" />
                               )}
@@ -338,7 +346,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                                 {proc.ports.map((port) => (
                                   <span
                                     key={port}
-                                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-info-bg)] text-[var(--color-info)] border border-[var(--color-info-border)]"
                                   >
                                     :{port}
                                   </span>
@@ -346,7 +354,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                               </div>
                               <div className="text-[11px] text-[var(--color-text-tertiary)] flex items-center gap-1.5 mt-0.5">
                                 {proc.source === 'cwd_lock' ? (
-                                  <span className="text-amber-400/90 flex items-center gap-1 font-medium">
+                                  <span className="text-[var(--color-warning)] flex items-center gap-1 font-medium">
                                     <FolderOpen size={11} />
                                     <span>Working directory set to target folder</span>
                                   </span>
@@ -367,7 +375,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                                 className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)] px-2.5 py-1.5 rounded-lg bg-[var(--color-surface-3)] border border-[var(--color-border-subtle)]"
                                 title="Protected Windows system or IDE process shielded from accidental termination"
                               >
-                                <Shield size={13} className="text-amber-400" />
+                                <Shield size={13} className="text-[var(--color-warning)]" />
                                 <span>Shielded</span>
                               </div>
                             ) : (
@@ -375,7 +383,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                                 type="button"
                                 onClick={() => handleUnlockSingle(proc)}
                                 disabled={isUnlocking}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 active:bg-rose-700 border border-rose-500/25 hover:border-rose-600 transition-all cursor-pointer disabled:opacity-40"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--color-danger)] hover:text-white bg-[var(--color-danger-bg)] hover:bg-[var(--color-danger)] active:opacity-80 border border-[var(--color-danger-border)] hover:border-[var(--color-danger)] transition-all cursor-pointer disabled:opacity-40"
                               >
                                 <XCircle size={13} />
                                 <span>Terminate</span>
@@ -432,7 +440,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
         {/* Footer */}
         <div className="flex items-center justify-between p-4 px-5 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-2)]/30 gap-3">
           <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)] min-w-0">
-            <Shield size={14} className="text-emerald-400 shrink-0" />
+            <Shield size={14} className="text-[var(--color-success)] shrink-0" />
             <span className="truncate">
               System and IDE processes are shielded from termination
             </span>
@@ -452,7 +460,7 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
                 type="button"
                 onClick={handleUnlockAll}
                 disabled={isUnlocking}
-                className="whitespace-nowrap px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white flex items-center gap-2 cursor-pointer shadow-sm hover:shadow disabled:opacity-40 transition-all"
+                className="whitespace-nowrap px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-danger)] hover:opacity-90 active:opacity-80 text-white flex items-center gap-2 cursor-pointer shadow-sm hover:shadow disabled:opacity-40 transition-all"
               >
                 {isUnlocking ? (
                   <Loader2 size={13} className="animate-spin" />

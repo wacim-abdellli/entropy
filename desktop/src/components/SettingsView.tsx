@@ -346,14 +346,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Remove Directory Confirmation Modal */}
       {dirToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="remove-scan-dir-title"
+          onKeyDown={(e) => { if (e.key === 'Escape') setDirToDelete(null); }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3.5">
               <div className="w-10 h-10 rounded-full bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] flex items-center justify-center shrink-0">
                 <Trash2 size={20} className="text-[var(--color-danger)]" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                <h3 id="remove-scan-dir-title" className="text-base font-semibold text-[var(--color-text-primary)]">
                   Remove Scan Directory?
                 </h3>
                 <p className="text-xs text-[var(--color-text-secondary)] mt-1.5 leading-relaxed">

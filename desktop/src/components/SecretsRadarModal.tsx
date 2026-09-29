@@ -47,9 +47,18 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      loadData();
+      void loadData();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -94,7 +103,12 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="secrets-radar-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+    >
       <div className="relative w-full max-w-4xl max-h-[85vh] flex flex-col bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface-0)]">
@@ -103,7 +117,7 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
+              <h2 id="secrets-radar-title" className="text-base font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
                 Global Developer Secrets Radar
               </h2>
               <p className="text-xs text-[var(--color-text-secondary)]">
@@ -118,12 +132,14 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
               disabled={loading}
               className="p-2 rounded-lg text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-surface-2)] transition-colors"
               title="Refresh secrets audit"
+              aria-label="Refresh secrets audit"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
             <button
               onClick={onClose}
               className="p-2 rounded-lg text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-surface-2)] transition-colors"
+              aria-label="Close dialog"
             >
               <X className="w-5 h-5" />
             </button>
@@ -165,7 +181,7 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
             <button
               onClick={handleShieldAll}
               disabled={shielding || ((report?.tracked_count ?? 0) === 0 && (report?.unignored_count ?? 0) === 0)}
-              className="w-full py-3 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="w-full py-3 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-lg shadow-[var(--color-accent-muted)] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
               <ShieldCheck className={`w-4 h-4 ${shielding ? 'animate-spin' : ''}`} />
               {shielding ? 'Shielding Repositories...' : 'Shield All Repositories'}
@@ -193,8 +209,8 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
             onClick={() => setFilter('critical')}
             className={`px-2.5 py-1 rounded-lg transition-all ${
               filter === 'critical'
-                ? 'bg-rose-600 text-white'
-                : 'text-rose-300 hover:bg-rose-950/40'
+                ? 'bg-[var(--color-danger)] text-white'
+                : 'text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]'
             }`}
           >
             Tracked in Git ({report?.tracked_count ?? 0})
@@ -296,10 +312,11 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
                     <button
                       onClick={() => handleCopy(`${item.repo_path}\\${item.path}`, itemKey)}
                       title="Copy full path"
+                      aria-label="Copy full path"
                       className="p-1.5 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors"
                     >
                       {copiedKey === itemKey ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <Check className="w-3.5 h-3.5 text-[var(--color-success)]" />
                       ) : (
                         <Copy className="w-3.5 h-3.5" />
                       )}
@@ -307,6 +324,7 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
                     <button
                       onClick={() => handleOpenExplorer(item.repo_path)}
                       title="Open repository folder"
+                      aria-label="Open repository folder"
                       className="p-1.5 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />

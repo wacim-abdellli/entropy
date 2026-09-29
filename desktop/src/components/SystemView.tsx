@@ -110,6 +110,17 @@ export const SystemView: React.FC<SystemViewProps> = ({
     return () => clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setConfirm(null);
+        setConfirmCleanSlate(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleTrimAll = async () => {
     setTrimming(true);
     try {
@@ -282,11 +293,11 @@ export const SystemView: React.FC<SystemViewProps> = ({
           aria-live="polite"
           className={`fixed z-50 right-6 top-4 w-full max-w-sm rounded-xl p-3.5 shadow-2xl border backdrop-blur-md transition-all duration-300 animate-in fade-in slide-in-from-top-3 ${
             notice.type === 'boost'
-              ? 'bg-[var(--color-surface-2)]/95 border-amber-500/40 text-[var(--color-text-primary)] shadow-amber-500/10'
+              ? 'bg-[var(--color-surface-2)]/95 border-[var(--color-warning-border)] text-[var(--color-text-primary)] shadow-none'
               : notice.type === 'success'
-              ? 'bg-[var(--color-surface-2)]/95 border-emerald-500/40 text-[var(--color-text-primary)] shadow-emerald-500/10'
+              ? 'bg-[var(--color-surface-2)]/95 border-[var(--color-success-border)] text-[var(--color-text-primary)] shadow-none'
               : notice.type === 'error'
-              ? 'bg-[var(--color-surface-2)]/95 border-rose-500/40 text-[var(--color-text-primary)] shadow-rose-500/10'
+              ? 'bg-[var(--color-surface-2)]/95 border-[var(--color-danger-border)] text-[var(--color-text-primary)] shadow-none'
               : 'bg-[var(--color-surface-2)]/95 border-[var(--color-border-strong)] text-[var(--color-text-primary)]'
           }`}
         >
@@ -295,16 +306,16 @@ export const SystemView: React.FC<SystemViewProps> = ({
             <div
               className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
                 notice.type === 'boost'
-                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                  ? 'bg-[var(--color-warning-bg)] border-[var(--color-warning-border)] text-[var(--color-warning)]'
                   : notice.type === 'success'
-                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                  ? 'bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success)]'
                   : notice.type === 'error'
-                  ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
-                  : 'bg-sky-500/15 border-sky-500/30 text-sky-400'
+                  ? 'bg-[var(--color-danger-bg)] border-[var(--color-danger-border)] text-[var(--color-danger)]'
+                  : 'bg-[var(--color-accent-muted)] border-[var(--color-accent-strong)]/30 text-[var(--color-accent-strong)]'
               }`}
             >
               {notice.type === 'boost' ? (
-                <Zap size={16} className="fill-amber-400/20" />
+                <Zap size={16} className="fill-[var(--color-warning)]/20" />
               ) : notice.type === 'success' ? (
                 <CheckCircle2 size={16} />
               ) : notice.type === 'error' ? (
@@ -324,8 +335,8 @@ export const SystemView: React.FC<SystemViewProps> = ({
                   <span
                     className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${
                       notice.type === 'boost'
-                        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                        : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)]'
+                        : 'bg-[var(--color-success-bg)] text-[var(--color-success)] border-[var(--color-success-border)]'
                     }`}
                   >
                     +{notice.metric}
@@ -358,19 +369,19 @@ export const SystemView: React.FC<SystemViewProps> = ({
             <div
               className={`h-full animate-toast-timer rounded-full ${
                 notice.type === 'boost'
-                  ? 'bg-amber-400'
+                  ? 'bg-[var(--color-warning)]'
                   : notice.type === 'success'
-                  ? 'bg-emerald-400'
+                  ? 'bg-[var(--color-success)]'
                   : notice.type === 'error'
-                  ? 'bg-rose-400'
-                  : 'bg-sky-400'
+                  ? 'bg-[var(--color-danger)]'
+                  : 'bg-[var(--color-accent-strong)]'
               }`}
             />
           </div>
         </div>
       )}
       {confirm && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-sm rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] p-5 shadow-2xl space-y-4">
             <div className="flex justify-between gap-4">
               <div>
@@ -386,6 +397,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
                 type="button"
                 onClick={() => setConfirm(null)}
                 className="text-[var(--color-text-tertiary)] hover:text-white cursor-pointer"
+                aria-label="Close dialog"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -411,7 +423,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
         </div>
       )}
       {confirmCleanSlate && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-md rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] p-5 shadow-2xl space-y-4">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-[var(--color-success-bg)] text-[var(--color-success)] shrink-0">
@@ -454,7 +466,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
                 type="button"
                 disabled={cleanSlateLoading}
                 onClick={handleExecuteCleanSlate}
-                className="h-8 px-3.5 rounded-md bg-[var(--color-success)] hover:opacity-90 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm transition-opacity"
+                className="h-8 px-3.5 rounded-md bg-[var(--color-success)] hover:opacity-90 disabled:opacity-50 text-black text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm transition-opacity"
               >
                 <Zap className="w-3.5 h-3.5" />
                 {cleanSlateLoading ? 'Reclaiming…' : `Reclaim ${bytes(totalDevRam)}`}
@@ -487,6 +499,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Filter by process, port, or folder"
+          aria-label="Filter by process, port, or folder"
           className="w-64 h-8 px-2.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-1)] text-xs placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-accent)] outline-none"
         />
       </header>

@@ -56,12 +56,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     if (this.state.hasError) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[var(--color-surface-0)] text-center space-y-4">
-          <div className="bg-[var(--color-surface-2)] border border-rose-500/40 rounded-xl p-6 max-w-lg w-full space-y-3 shadow-lg">
-            <h2 className="text-base font-semibold text-rose-400">Something went wrong</h2>
+          <div className="bg-[var(--color-surface-2)] border border-[var(--color-danger-border)] rounded-xl p-6 max-w-lg w-full space-y-3 shadow-lg">
+            <h2 className="text-base font-semibold text-[var(--color-danger)]">Something went wrong</h2>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
               An unexpected error occurred while rendering this view.
             </p>
-            <pre className="p-3 bg-[var(--color-surface-3)] text-rose-300 font-mono text-xs rounded text-left overflow-auto max-h-40">
+            <pre className="p-3 bg-[var(--color-surface-3)] text-[var(--color-danger)] font-mono text-xs rounded text-left overflow-auto max-h-40">
               {this.state.error?.message || String(this.state.error)}
             </pre>
             <button
@@ -524,7 +524,7 @@ export function App() {
             {error.details && (
               <details className="text-left bg-[var(--color-surface-3)] border border-[var(--color-border)] rounded-lg p-3 text-xs font-mono text-[var(--color-text-tertiary)]">
                 <summary className="cursor-pointer text-[var(--color-text-secondary)] font-semibold select-none">Details</summary>
-                <pre className="mt-2 whitespace-pre-wrap break-all text-rose-400 max-h-36 overflow-y-auto">{error.details}</pre>
+                <pre className="mt-2 whitespace-pre-wrap break-all text-[var(--color-danger)] max-h-36 overflow-y-auto">{error.details}</pre>
               </details>
             )}
             <div className="flex items-center justify-center gap-3 pt-2">
@@ -709,8 +709,8 @@ export function App() {
           <div className="flex items-center gap-2.5 min-w-0">
             <div className={`p-1 rounded-md shrink-0 ${
               toast.type === 'info'
-                ? 'bg-blue-500/15 text-blue-400'
-                : 'bg-[var(--color-success)]/15 text-[var(--color-success)]'
+                ? 'bg-[var(--color-info-bg)] text-[var(--color-info)]'
+                : 'bg-[var(--color-success-bg)] text-[var(--color-success)]'
             }`}>
               {toast.type === 'info' ? <Info size={15} /> : <CheckCircle2 size={15} />}
             </div>

@@ -991,7 +991,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                               ) : issue.category === 'private_key' ? (
                                 <KeyRound className="w-4 h-4 text-[var(--color-warning)]" />
                               ) : (
-                                <Lock className="w-4 h-4 text-purple-400" />
+                                <Lock className="w-4 h-4 text-[var(--color-danger)]" />
                               )}
                             </span>
                             <span className="font-mono font-medium text-[var(--color-text-primary)] truncate">
@@ -1414,7 +1414,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
       {/* 1. Clean Dependencies Confirmation Modal */}
       {cleanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setCleanModal(null); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] flex items-center justify-center shrink-0">
@@ -1489,7 +1494,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
       {/* 2. Stash Changes Modal */}
       {stashModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setStashModalOpen(false); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] flex items-center justify-center shrink-0">
@@ -1516,10 +1526,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider mb-1.5">
+              <label htmlFor="stash-note-input" className="block text-[11px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider mb-1.5">
                 Stash Note (Optional)
               </label>
               <input
+                id="stash-note-input"
                 type="text"
                 value={customStashNote}
                 onChange={(e) => setCustomStashNote(e.target.value)}
@@ -1552,7 +1563,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
       {/* 3. Restore Stash Modal */}
       {popModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setPopModal(null); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-accent-muted)] border border-[var(--color-border)] flex items-center justify-center shrink-0">
@@ -1594,7 +1610,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
       {/* 4. Drop Stash Modal */}
       {dropModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setDropModal(null); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] flex items-center justify-center shrink-0">
@@ -1636,7 +1657,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
       {/* 5. Prune Branches Modal */}
       {pruneModalOpen && git?.merged_branches && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setPruneModalOpen(false); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-accent-muted)] border border-[var(--color-border)] flex items-center justify-center shrink-0">
@@ -1694,7 +1720,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
       {/* 6. Stop Process Modal */}
       {stopProcModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setStopProcModal(null); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] flex items-center justify-center shrink-0">
@@ -1738,7 +1769,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
       {/* 7. Free Port Modal */}
       {freePortModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setFreePortModal(null); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] flex items-center justify-center shrink-0">
@@ -1780,7 +1816,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
       {/* 8. Untrack Secret Modal */}
       {untrackModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setUntrackModal(null); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] flex items-center justify-center shrink-0">
@@ -1832,7 +1873,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
       {/* 9. Shield All Secrets Modal */}
       {shieldAllModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setShieldAllModalOpen(false); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] flex items-center justify-center shrink-0">

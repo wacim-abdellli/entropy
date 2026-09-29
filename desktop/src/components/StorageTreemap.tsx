@@ -39,31 +39,31 @@ interface StorageTreemapProps {
 // Category palette using design tokens & semantic tints
 const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; dot: string; glow: string }> = {
   artifact: {
-    bg: 'bg-emerald-500/15 hover:bg-emerald-500/25',
-    border: 'border-emerald-500/40 hover:border-emerald-400',
-    text: 'text-emerald-300',
-    dot: 'bg-emerald-400',
+    bg: 'bg-[var(--color-success-bg)] hover:bg-[var(--color-success-bg)]',
+    border: 'border-[var(--color-success-border)] hover:border-[var(--color-success)]',
+    text: 'text-[var(--color-success)]',
+    dot: 'bg-[var(--color-success)]',
     glow: 'rgba(52, 211, 153, 0.25)',
   },
   virtual_disk: {
-    bg: 'bg-purple-500/15 hover:bg-purple-500/25',
-    border: 'border-purple-500/40 hover:border-purple-400',
-    text: 'text-purple-300',
-    dot: 'bg-purple-400',
-    glow: 'rgba(168, 85, 247, 0.25)',
+    bg: 'bg-[var(--color-info-bg)] hover:bg-[var(--color-info-bg)]',
+    border: 'border-[var(--color-info-border)] hover:border-[var(--color-info)]',
+    text: 'text-[var(--color-info)]',
+    dot: 'bg-[var(--color-info)]',
+    glow: 'rgba(56, 189, 248, 0.25)',
   },
   cache: {
-    bg: 'bg-amber-500/15 hover:bg-amber-500/25',
-    border: 'border-amber-500/40 hover:border-amber-400',
-    text: 'text-amber-300',
-    dot: 'bg-amber-400',
+    bg: 'bg-[var(--color-warning-bg)] hover:bg-[var(--color-warning-bg)]',
+    border: 'border-[var(--color-warning-border)] hover:border-[var(--color-warning)]',
+    text: 'text-[var(--color-warning)]',
+    dot: 'bg-[var(--color-warning)]',
     glow: 'rgba(251, 191, 36, 0.25)',
   },
   system: {
-    bg: 'bg-rose-500/15 hover:bg-rose-500/25',
-    border: 'border-rose-500/40 hover:border-rose-400',
-    text: 'text-rose-300',
-    dot: 'bg-rose-400',
+    bg: 'bg-[var(--color-danger-bg)] hover:bg-[var(--color-danger-bg)]',
+    border: 'border-[var(--color-danger-border)] hover:border-[var(--color-danger)]',
+    text: 'text-[var(--color-danger)]',
+    dot: 'bg-[var(--color-danger)]',
     glow: 'rgba(244, 63, 94, 0.25)',
   },
 };
@@ -288,13 +288,13 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
 
           <button
             onClick={() => setSelectedCategory('virtual_disk')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
               selectedCategory === 'virtual_disk'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'text-purple-300 hover:bg-purple-950/40'
+                ? 'bg-[var(--color-info)] text-black shadow-sm'
+                : 'text-[var(--color-info)] hover:bg-[var(--color-info-bg)]'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-purple-400" />
+            <span className="w-2 h-2 rounded-full bg-[var(--color-info)]" />
             Virtual Disks ({categoryBreakdown.virtual_disk?.count || 0})
           </button>
 
@@ -302,11 +302,11 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
             onClick={() => setSelectedCategory('artifact')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
               selectedCategory === 'artifact'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'text-emerald-300 hover:bg-emerald-950/40'
+                ? 'bg-[var(--color-success)] text-white shadow-sm'
+                : 'text-[var(--color-success)] hover:bg-[var(--color-success-bg)]'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
             Build Artifacts ({categoryBreakdown.artifact?.count || 0})
           </button>
 
@@ -314,11 +314,11 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
             onClick={() => setSelectedCategory('cache')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
               selectedCategory === 'cache'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'text-amber-300 hover:bg-amber-950/40'
+                ? 'bg-[var(--color-warning)] text-white shadow-sm'
+                : 'text-[var(--color-warning)] hover:bg-[var(--color-warning-bg)]'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span className="w-2 h-2 rounded-full bg-[var(--color-warning)]" />
             Global Caches ({categoryBreakdown.cache?.count || 0})
           </button>
 
@@ -326,11 +326,11 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
             onClick={() => setSelectedCategory('system')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
               selectedCategory === 'system'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-rose-300 hover:bg-rose-950/40'
+                ? 'bg-[var(--color-danger)] text-white shadow-sm'
+                : 'text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-rose-400" />
+            <span className="w-2 h-2 rounded-full bg-[var(--color-danger)]" />
             System Junk ({categoryBreakdown.system?.count || 0})
           </button>
         </div>
@@ -433,14 +433,16 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
                         <button
                           onClick={(e) => handleCopyPath(e, node.path, node.id)}
                           title="Copy full path"
-                          className="p-1 rounded bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-white"
+                          aria-label="Copy full path"
+                          className="p-1 rounded bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-white cursor-pointer"
                         >
-                          {copiedId === node.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedId === node.id ? <Check className="w-3 h-3 text-[var(--color-success)]" /> : <Copy className="w-3 h-3" />}
                         </button>
                         <button
                           onClick={(e) => handleOpenExplorer(e, node.path)}
                           title="Open in File Explorer"
-                          className="p-1 rounded bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-white"
+                          aria-label="Open in File Explorer"
+                          className="p-1 rounded bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-white cursor-pointer"
                         >
                           <ExternalLink className="w-3 h-3" />
                         </button>
@@ -489,19 +491,19 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
       <div className="flex flex-wrap items-center justify-between text-xs text-[var(--color-text-tertiary)] px-1">
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded bg-purple-500/30 border border-purple-500/50" />
+            <span className="w-2.5 h-2.5 rounded bg-[var(--color-info-bg)] border border-[var(--color-info-border)]" />
             Virtual Disks (WSL/Docker)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded bg-emerald-500/30 border border-emerald-500/50" />
+            <span className="w-2.5 h-2.5 rounded bg-[var(--color-success-bg)] border border-[var(--color-success-border)]" />
             Build Artifacts (Safe to delete)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded bg-amber-500/30 border border-amber-500/50" />
+            <span className="w-2.5 h-2.5 rounded bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)]" />
             Global Shared Caches
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded bg-rose-500/30 border border-rose-500/50" />
+            <span className="w-2.5 h-2.5 rounded bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)]" />
             System Junk & Temp
           </span>
         </div>

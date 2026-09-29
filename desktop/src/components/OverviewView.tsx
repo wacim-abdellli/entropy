@@ -881,14 +881,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
       {/* ── Clean Slate Confirmation Modal ── */}
       {confirmCleanSlate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clean-slate-modal-title"
+          onKeyDown={(e) => { if (e.key === 'Escape') setConfirmCleanSlate(false); }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl max-w-md w-full p-5 space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-[var(--color-success-bg)] border border-[var(--color-success-border)] flex items-center justify-center shrink-0">
                 <Zap className="w-4 h-4 text-[var(--color-success)]" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                <h3 id="clean-slate-modal-title" className="text-sm font-semibold text-[var(--color-text-primary)]">
                   Free RAM from Dev Processes?
                 </h3>
                 <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">

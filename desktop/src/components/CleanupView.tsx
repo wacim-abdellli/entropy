@@ -1000,7 +1000,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)] flex items-center gap-1.5 cursor-pointer transition-colors"
               title="Is it safe? Read our data safety breakdown and guarantee"
             >
-              <ShieldCheck size={13} className="text-emerald-400" />
+              <ShieldCheck size={13} className="text-[var(--color-success)]" />
               <span>Safety Guide</span>
             </button>
 
@@ -1020,10 +1020,10 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
             <button
               type="button"
               onClick={() => setSecretsModalOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-xs text-[var(--color-text-secondary)] hover:text-amber-300 border border-[var(--color-border)] flex items-center gap-1.5 cursor-pointer transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] border border-[var(--color-border)] flex items-center gap-1.5 cursor-pointer transition-colors"
               title="Scan and shield all exposed secrets across all local repositories"
             >
-              <ShieldAlert size={13} className="text-amber-400" />
+              <ShieldAlert size={13} className="text-[var(--color-warning)]" />
               <span>Secrets Radar</span>
             </button>
 
@@ -1163,13 +1163,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
             onClick={() => setActiveTab('treemap')}
             className={`pb-2.5 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
               activeTab === 'treemap'
-                ? 'border-indigo-400 text-indigo-300'
-                : 'border-transparent text-indigo-400/70 hover:text-indigo-300'
+                ? 'border-[var(--color-accent)] text-[var(--color-accent-strong)]'
+                : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
-            <Layers size={14} className={activeTab === 'treemap' ? 'text-indigo-400' : ''} />
+            <Layers size={14} className={activeTab === 'treemap' ? 'text-[var(--color-accent)]' : ''} />
             <span>Storage Treemap</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300">
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)]">
               {treemapItems.length}
             </span>
           </button>
@@ -1225,17 +1225,17 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                   </div>
                 )}
                 {lockedSystemTargets.length > 0 && (
-                  <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 mb-3 flex items-start gap-3">
-                    <AlertCircle size={18} className="text-amber-400 shrink-0 mt-0.5" />
+                  <div className="p-3.5 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] mb-3 flex items-start gap-3">
+                    <AlertCircle size={18} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
                     <div className="text-xs">
-                      <div className="font-semibold text-amber-300">
+                      <div className="font-semibold text-[var(--color-warning)]">
                         {lockedSystemTargets.length === 1
                           ? `${lockedSystemTargets[0].name} (${formatBytes(lockedSystemTargets[0].size_bytes)}) is open and locked by Windows`
                           : `${lockedSystemTargets.length} applications (${formatBytes(lockedSystemBytes)}) are open and locked by Windows`}
                       </div>
                       <p className="text-[var(--color-text-secondary)] mt-1 leading-relaxed">
                         Windows kernel prohibits deleting browser database and cache files while the program is open.
-                        Click <strong className="text-amber-300">Close &amp; Clean</strong> on any active card below to close the app and wipe its cache immediately.
+                        Click <strong className="text-[var(--color-warning)]">Close &amp; Clean</strong> on any active card below to close the app and wipe its cache immediately.
                       </p>
                     </div>
                   </div>
@@ -1290,7 +1290,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                             {target.description}
                           </p>
                           {target.id === 'recycle_bin' ? (
-                            <p className="text-[11px] text-amber-400/90 mt-1 flex items-center gap-1.5 font-medium">
+                            <p className="text-[11px] text-[var(--color-warning)] mt-1 flex items-center gap-1.5 font-medium">
                               <AlertCircle size={12} className="shrink-0" />
                               <span>Permanently empties files you sent to trash. Click the Explorer icon on the right to review files first.</span>
                             </p>
@@ -1328,17 +1328,17 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                               e.stopPropagation();
                               handleCloseAndCleanTarget(target);
                             }}
-                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[var(--color-warning-bg)] hover:bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-[var(--color-warning)] transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
                             title={`Close ${target.process_app_name || target.name} and reclaim its cache`}
                           >
                             {closingTargetId === target.id ? (
                               <>
-                                <RefreshCw size={12} className="animate-spin text-amber-300" />
+                                <RefreshCw size={12} className="animate-spin text-[var(--color-warning)]" />
                                 <span>Closing…</span>
                               </>
                             ) : (
                               <>
-                                <PowerOff size={12} className="text-amber-300" />
+                                <PowerOff size={12} className="text-[var(--color-warning)]" />
                                 <span>Close &amp; Clean</span>
                               </>
                             )}
@@ -1395,14 +1395,14 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
             </div>
 
             {/* Safety Reassurance Banner */}
-            <div className="p-3.5 rounded-xl border border-sky-500/25 bg-sky-500/5 mb-4 flex items-start gap-3">
-              <FolderCheck size={18} className="text-sky-400 shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-xl border border-[var(--color-info-border)] bg-[var(--color-info-bg)] mb-4 flex items-start gap-3">
+              <FolderCheck size={18} className="text-[var(--color-info)] shrink-0 mt-0.5" />
               <div className="text-xs">
-                <div className="font-semibold text-sky-300 flex items-center gap-2">
+                <div className="font-semibold text-[var(--color-info)] flex items-center gap-2">
                   <span>Source Code Protected: Only disposable build folders are targeted</span>
                 </div>
                 <p className="text-[var(--color-text-secondary)] mt-1 leading-relaxed">
-                  Your source code, git history, branches, and configuration files are 100% shielded. Only whitelisted generated directories (like <code className="font-mono text-sky-300">node_modules</code> or <code className="font-mono text-sky-300">target</code>) can be cleaned, and they can be recreated anytime via your package manager.
+                  Your source code, git history, branches, and configuration files are 100% shielded. Only whitelisted generated directories (like <code className="font-mono text-[var(--color-info)]">node_modules</code> or <code className="font-mono text-[var(--color-info)]">target</code>) can be cleaned, and they can be recreated anytime via your package manager.
                 </p>
               </div>
             </div>
@@ -1536,10 +1536,10 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
             </div>
 
             {/* Safety Reassurance Banner */}
-            <div className="p-3.5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 mb-4 flex items-start gap-3">
-              <ShieldCheck size={18} className="text-emerald-400 shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-xl border border-[var(--color-success-border)] bg-[var(--color-success-bg)] mb-4 flex items-start gap-3">
+              <ShieldCheck size={18} className="text-[var(--color-success)] shrink-0 mt-0.5" />
               <div className="text-xs">
-                <div className="font-semibold text-emerald-300 flex items-center gap-2">
+                <div className="font-semibold text-[var(--color-success)] flex items-center gap-2">
                   <span>100% Safe to Clear: Package caches will never break your projects</span>
                 </div>
                 <p className="text-[var(--color-text-secondary)] mt-1 leading-relaxed">
@@ -1782,8 +1782,8 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                               {disk.wsl_running !== undefined && (
                                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                                   disk.wsl_running
-                                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                                    : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                    ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]'
+                                    : 'bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]'
                                 }`}>
                                   {disk.wsl_running ? 'WSL Active' : 'WSL Stopped'}
                                 </span>
@@ -1997,7 +1997,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                             type="button"
                             onClick={() => handleAddDefenderExclusionsBatch(rec.payload?.paths || [])}
                             disabled={Boolean(tuningActionBusy)}
-                            className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-success)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                            className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-success)] hover:opacity-90 text-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
                           >
                             {tuningActionBusy === 'defender_batch' ? <Loader2 size={13} className="animate-spin" /> : <Shield size={13} />}
                             <span>{rec.action_label}</span>
@@ -2125,7 +2125,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
       {/* ── Modal: System Junk Cleanup ── */}
       {confirmSystemCleanOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setConfirmSystemCleanOpen(false); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/25 flex items-center justify-center shrink-0">
@@ -2197,7 +2202,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
       {/* ── Modal: Artifact Cleanup ── */}
       {confirmCleanOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setConfirmCleanOpen(false); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] flex items-center justify-center shrink-0">
@@ -2240,7 +2250,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
       {/* ── Modal: Package Cache Purge ── */}
       {confirmCachePurgeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setConfirmCachePurgeOpen(false); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/25 flex items-center justify-center shrink-0">
@@ -2283,7 +2298,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
       {/* ── Modal: Docker Prune ── */}
       {confirmDockerPrune && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setConfirmDockerPrune(null); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/25 flex items-center justify-center shrink-0">
@@ -2320,7 +2340,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
       {/* ── Modal: Live Cleanup Progress & Activity Stream HUD ── */}
       {liveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape' && liveProgress?.done) setLiveModalOpen(false); }}
+        >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl max-w-xl w-full p-6 space-y-5">
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
@@ -2372,7 +2397,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                   className={`h-full transition-all duration-300 ease-out rounded-full ${
                     liveProgress?.done
                       ? 'bg-[var(--color-success)]'
-                      : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400'
+                      : 'bg-gradient-to-r from-[var(--color-accent)] via-[var(--color-accent-strong)] to-[var(--color-accent)]'
                   }`}
                   style={{ width: `${Math.max(2, liveProgress?.percent || 0)}%` }}
                 />
@@ -2485,7 +2510,12 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
       {/* ── Confirm VHDX Compaction Modal ── */}
       {confirmCompactVhdx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === 'Escape') setConfirmCompactVhdx(null); }}
+        >
           <div className="w-full max-w-md p-6 rounded-2xl bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/30 flex items-center justify-center text-[var(--color-accent)] shrink-0">

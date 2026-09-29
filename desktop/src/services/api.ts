@@ -51,7 +51,7 @@ interface CleanArtifactsResult extends ActionResult {
 
 interface PyWebViewApi {
   inspect_workspace(path: string): Promise<WorkspaceInspection | string | { error?: string }>;
-  scan_environment(roots: string[], depth: number): Promise<EnvironmentOverview | string | { error?: string }>;
+  scan_environment(roots?: string[] | null, depth?: number): Promise<EnvironmentOverview | string | { error?: string }>;
   open_in_explorer(path: string): Promise<boolean>;
   open_in_terminal(path: string): Promise<boolean>;
   open_in_powershell?(path: string): Promise<boolean>;
@@ -79,11 +79,11 @@ interface PyWebViewApi {
   get_docker_system_df?(): Promise<DockerDiskUsage | string>;
   prune_docker_resources?(target: string): Promise<DockerPruneResult | string>;
   get_virtual_disks?(): Promise<VirtualDiskItem[] | string>;
-  compact_virtual_disk?(vhdx_path: string): Promise<any>;
+  compact_virtual_disk?(vhdx_path: string): Promise<{ success: boolean; freed_bytes?: number; freed_formatted?: string; message?: string; error?: string } | string>;
   get_performance_tuning?(): Promise<PerformanceTuningReport | string>;
-  apply_long_paths?(): Promise<any>;
-  apply_developer_mode?(): Promise<any>;
-  add_defender_exclusion?(path: string): Promise<any>;
+  apply_long_paths?(): Promise<ActionResult | string>;
+  apply_developer_mode?(): Promise<ActionResult | string>;
+  add_defender_exclusion?(path: string): Promise<ActionResult | string>;
   add_defender_exclusions_batch?(paths: string[]): Promise<DefenderBatchResult | string>;
   trim_working_sets?(pids?: number[]): Promise<MemoryBoosterReport | string>;
   trim_single_process?(pid: number): Promise<MemoryBoosterProcessResult | string>;
@@ -99,7 +99,7 @@ interface PyWebViewApi {
   purge_caches?(targets: string[]): Promise<CachePurgeResult | string>;
   get_system_cleanup_targets?(): Promise<SystemCleanupTarget[] | string>;
   clean_system_targets?(targets: string[], force_close?: boolean): Promise<SystemCleanupResult | string>;
-  clean_system_target_force_close?(target_id: string): Promise<any>;
+  clean_system_target_force_close?(target_id: string): Promise<ActionResult & { id: string; freed_bytes: number; deleted_count: number; skipped_count: number } | string>;
   get_cleanup_progress?(): Promise<CleanupLiveProgress | string>;
   get_workspace_health?(workspace_path: string): Promise<WorkspaceHealth | string>;
   get_scan_roots?(): Promise<string[] | string>;
@@ -270,7 +270,7 @@ export class EntropyApiClient {
       const api = bridgeWindow()?.pywebview?.api;
       if (api && typeof api.scan_environment === 'function') {
         const rootsArg = roots !== undefined ? roots : null;
-        const res = await api.scan_environment(rootsArg as any, depth);
+        const res = await api.scan_environment(rootsArg, depth);
         const parsed = parseBridgeResponse<EnvironmentOverview & { error?: string }>(res as EnvironmentOverview | string);
         if (parsed?.error) {
           throw new Error(parsed.error);
@@ -299,8 +299,8 @@ export class EntropyApiClient {
     if (isPyWebView()) {
       try {
         const api = bridgeWindow()?.pywebview?.api;
-        if (api && typeof (api as any).launch_ide === 'function') {
-          const res = await (api as any).launch_ide(path, 'explorer');
+        if (api && typeof api.launch_ide === 'function') {
+          const res = await api.launch_ide(path, 'explorer');
           const parsed = parseBridgeResponse<ActionResult>(res);
           if (parsed && typeof parsed.success === 'boolean') {
             return parsed;
@@ -777,7 +777,7 @@ export class EntropyApiClient {
       try {
         if (bridgeWindow()?.pywebview?.api?.compact_virtual_disk) {
           const res = await bridgeWindow()!.pywebview!.api!.compact_virtual_disk!(vhdxPath);
-          return parseBridgeResponse<any>(res);
+          return parseBridgeResponse<{ success: boolean; freed_bytes?: number; freed_formatted?: string; message?: string; error?: string }>(res);
         }
       } catch (err: unknown) {
         return { success: false, error: errorMessage(err) };
@@ -827,7 +827,7 @@ export class EntropyApiClient {
       try {
         if (bridgeWindow()?.pywebview?.api?.apply_long_paths) {
           const res = await bridgeWindow()!.pywebview!.api!.apply_long_paths!();
-          return parseBridgeResponse<any>(res);
+          return parseBridgeResponse<{ success: boolean; message?: string; error?: string }>(res);
         }
       } catch (err: unknown) {
         return { success: false, error: errorMessage(err) };
@@ -844,7 +844,7 @@ export class EntropyApiClient {
       try {
         if (bridgeWindow()?.pywebview?.api?.apply_developer_mode) {
           const res = await bridgeWindow()!.pywebview!.api!.apply_developer_mode!();
-          return parseBridgeResponse<any>(res);
+          return parseBridgeResponse<{ success: boolean; message?: string; error?: string }>(res);
         }
       } catch (err: unknown) {
         return { success: false, error: errorMessage(err) };
@@ -861,7 +861,7 @@ export class EntropyApiClient {
       try {
         if (bridgeWindow()?.pywebview?.api?.add_defender_exclusion) {
           const res = await bridgeWindow()!.pywebview!.api!.add_defender_exclusion!(folderPath);
-          return parseBridgeResponse<any>(res);
+          return parseBridgeResponse<{ success: boolean; message?: string; error?: string }>(res);
         }
       } catch (err: unknown) {
         return { success: false, error: errorMessage(err) };
@@ -1191,7 +1191,15 @@ export class EntropyApiClient {
       try {
         if (bridgeWindow()?.pywebview?.api?.clean_system_target_force_close) {
           const res = await bridgeWindow()!.pywebview!.api!.clean_system_target_force_close!(targetId);
-          return parseBridgeResponse<any>(res);
+          return parseBridgeResponse<{
+            id: string;
+            success: boolean;
+            freed_bytes: number;
+            deleted_count: number;
+            skipped_count: number;
+            message?: string;
+            error?: string;
+          }>(res);
         }
       } catch (err: unknown) {
         return {
