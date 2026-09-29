@@ -166,17 +166,17 @@ export function App() {
 
   const currentWorkspace = useMemo<WorkspaceSummary | null>(() => {
     const list = overview?.workspaces || [];
-    if (!list.length || !currentWorkspacePath) return null;
+    if (!list.length || !selectedWorkspacePath) return null;
 
-    const norm = currentWorkspacePath.toLowerCase().replace(/[\\/]+$/, '');
+    const norm = selectedWorkspacePath.toLowerCase().replace(/[\\/]+$/, '');
     const found = list.find((w) => w.path.toLowerCase().replace(/[\\/]+$/, '') === norm);
     if (found) return found;
 
-    const name = currentWorkspacePath.split(/[\\/]/).filter(Boolean).pop() || currentWorkspacePath;
+    const name = selectedWorkspacePath.split(/[\\/]/).filter(Boolean).pop() || selectedWorkspacePath;
     return {
-      id: `workspace:${currentWorkspacePath}`,
+      id: `workspace:${selectedWorkspacePath}`,
       name,
-      path: currentWorkspacePath,
+      path: selectedWorkspacePath,
       project_type: 'custom',
       total_size_bytes: null,
       last_modified: null,
@@ -188,7 +188,7 @@ export function App() {
       has_uncommitted_changes: false,
       process_count: 0,
     };
-  }, [overview?.workspaces, currentWorkspacePath]);
+  }, [overview?.workspaces, selectedWorkspacePath]);
 
   const loadEnvironment = useCallback(
     async function fetchEnv(customRoots?: string[], attempt = 1): Promise<void> {
@@ -428,13 +428,13 @@ export function App() {
       await handleSelectWorkspace(folder);
       showToast(`Opened workspace "${name}"`, 'success');
     } else {
-      // Container folder with multiple projects or 0 projects: stay on Overview and scope to it!
+      // Scanned directory with multiple projects or empty: stay on Overview and scope to it!
       setSelectedWorkspacePath(null);
       setInspection(null);
-      setCurrentWorkspacePath(folder);
-      void EntropyApiClient.saveLastWorkspace(folder);
+      setCurrentWorkspacePath(null);
+      void EntropyApiClient.saveLastWorkspace(null);
       try {
-        localStorage.setItem('entropy_current_workspace', folder);
+        localStorage.setItem('entropy_selected_folder', folder);
         localStorage.removeItem('entropy_selected_workspace');
         localStorage.removeItem('entropy_cached_inspection');
         localStorage.setItem('entropy_active_nav', 'home');
@@ -452,17 +452,18 @@ export function App() {
   const handleBackToOverview = useCallback(() => {
     setError(null);
     setSelectedWorkspacePath(null);
+    setCurrentWorkspacePath(null);
     setInspection(null);
     try {
       localStorage.removeItem('entropy_selected_workspace');
       localStorage.removeItem('entropy_cached_inspection');
     } catch {}
-    void EntropyApiClient.saveLastWorkspace(currentWorkspacePath);
+    void EntropyApiClient.saveLastWorkspace(null);
     setActiveNav('home');
     try {
       localStorage.setItem('entropy_active_nav', 'home');
     } catch {}
-  }, [currentWorkspacePath]);
+  }, []);
 
   const handleViewAllWorkspaces = useCallback(() => {
     setError(null);
@@ -471,9 +472,9 @@ export function App() {
     setCurrentWorkspacePath(null);
     void EntropyApiClient.saveLastWorkspace(null);
     try {
-      localStorage.removeItem('entropy_current_workspace');
       localStorage.removeItem('entropy_selected_workspace');
       localStorage.removeItem('entropy_cached_inspection');
+      localStorage.setItem('entropy_selected_folder', 'all');
     } catch {}
     setActiveNav('home');
     try {
@@ -558,9 +559,7 @@ export function App() {
           isLoading={isLoading}
           onSelectWorkspace={handleSelectWorkspace}
           onInspectFolder={handleInspectFolder}
-          currentWorkspace={currentWorkspace}
           onNavigateToSettings={() => setActiveNav('settings')}
-          onClearCurrentWorkspace={handleViewAllWorkspaces}
           scanRoots={scanRoots}
         />
       );
@@ -612,10 +611,7 @@ export function App() {
             void EntropyApiClient.saveScanRoots(newRoots);
             loadEnvironment(newRoots);
           }}
-          onOpenWorkspace={(path) => {
-            handleSelectWorkspace(path);
-          }}
-          currentWorkspace={currentWorkspace}
+          workspaces={overview?.workspaces || []}
         />
       );
     }

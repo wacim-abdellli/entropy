@@ -76,29 +76,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between text-[10px] uppercase font-semibold text-[var(--color-text-tertiary)]">
             <span className="flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${currentWorkspace.has_uncommitted_changes ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-success)] shadow-[0_0_6px_rgba(52,211,153,.6)]'}`} />
-              Active Project
+              Inspecting
             </span>
             {(onViewAllWorkspaces || onBackToOverview) && (
               <button
                 type="button"
                 onClick={onViewAllWorkspaces || onBackToOverview}
                 className="text-[10px] text-[var(--color-accent)] hover:text-[var(--color-accent-strong)] hover:underline cursor-pointer lowercase font-medium transition-colors"
-                title="View all workspaces (clear active project filter)"
-                aria-label="View all workspaces"
+                title="Return to workspaces overview"
+                aria-label="Back to workspaces overview"
               >
-                view all
+                close
               </button>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => onSelectWorkspace?.(currentWorkspace.path)}
-            className="w-full text-left font-semibold text-xs text-[var(--color-text-primary)] hover:text-[var(--color-accent)] truncate mt-1 cursor-pointer transition-colors block"
+          <div
+            className="w-full text-left font-semibold text-xs text-[var(--color-text-primary)] truncate mt-1 block"
             title={currentWorkspace.name}
-            aria-label={`Select workspace ${currentWorkspace.name}`}
           >
             {currentWorkspace.name}
-          </button>
+          </div>
           <div className="font-mono text-[10px] text-[var(--color-text-tertiary)] truncate mt-0.5" title={currentWorkspace.path}>
             {currentWorkspace.path}
           </div>
@@ -106,17 +103,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ) : (
         <button
           type="button"
-          onClick={onViewAllWorkspaces || onBackToOverview}
-          className="w-full p-2.5 rounded-lg bg-[var(--color-surface-2)]/60 border border-[var(--color-border-subtle)] hover:border-[var(--color-border)] text-[10px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-all flex items-center justify-between cursor-pointer group"
-          title="Viewing all workspaces"
+          onClick={() => {
+            onViewAllWorkspaces?.();
+            onSelectNav('home');
+          }}
+          className={`w-full p-2.5 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer ${
+            activeNav === 'home'
+              ? 'bg-[var(--color-surface-2)] border-[var(--color-border)] text-[var(--color-text-primary)] shadow-xs'
+              : 'bg-[var(--color-surface-2)]/60 border-[var(--color-border-subtle)] hover:border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)]'
+          }`}
+          title="All workspaces overview"
           aria-label="All workspaces overview"
         >
-          <span className="uppercase font-semibold tracking-wider flex items-center gap-1.5">
+          <span className="uppercase font-semibold tracking-wider flex items-center gap-1.5 text-[10px]">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] shadow-[0_0_6px_rgba(59,130,246,0.6)]" />
             All Workspaces
           </span>
           {typeof totalWorkspacesCount === 'number' && (
-            <span className="font-mono text-[10px] text-[var(--color-text-tertiary)] group-hover:text-[var(--color-text-secondary)] bg-[var(--color-surface-3)] px-1.5 py-0.5 rounded border border-[var(--color-border-subtle)]">
+            <span className="font-mono text-[10px] text-[var(--color-text-tertiary)] bg-[var(--color-surface-3)] px-1.5 py-0.5 rounded border border-[var(--color-border-subtle)]">
               {totalWorkspacesCount}
             </span>
           )}

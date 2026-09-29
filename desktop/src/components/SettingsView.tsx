@@ -18,15 +18,13 @@ import { WorkspaceSummary, UserProfileInfo } from '../types/entropy';
 interface SettingsViewProps {
   scanRoots?: string[];
   onScanRootsChange?: (roots: string[]) => void;
-  onOpenWorkspace?: (path: string) => void;
-  currentWorkspace?: WorkspaceSummary | null;
+  workspaces?: WorkspaceSummary[];
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
   scanRoots,
   onScanRootsChange,
-  onOpenWorkspace,
-  currentWorkspace,
+  workspaces,
 }) => {
   const [directories, setDirectories] = useState<string[]>(() => {
     try {
@@ -121,18 +119,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div className="p-8 border-b border-[var(--color-border)] bg-[var(--color-surface-1)]">
         <div className="flex items-center gap-3 mb-2">
           <Settings size={28} className="text-[var(--color-accent)]" />
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-3xl font-semibold">Settings</h1>
-            {currentWorkspace && (
-              <>
-                <span className="text-[var(--color-text-tertiary)] text-2xl font-light">/</span>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm font-medium text-[var(--color-accent-strong)]">
-                  <FolderGit2 className="w-4 h-4 text-[var(--color-accent)]" />
-                  <span>{currentWorkspace.name}</span>
-                </div>
-              </>
-            )}
-          </div>
+          <h1 className="text-3xl font-semibold">Settings</h1>
         </div>
         <p className="text-[var(--color-text-secondary)] text-sm">
           Configure workspace scanning directories and app preferences.
@@ -187,124 +174,106 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             ) : (
               <ul className="divide-y divide-[var(--color-border)]">
                 {directories.map((dir) => {
-                  const isCurrent = currentWorkspace?.path
-                    ? dir.toLowerCase().replace(/[\\/]+$/, '') ===
-                      currentWorkspace.path.toLowerCase().replace(/[\\/]+$/, '')
-                    : false;
+                  const normDir = dir.toLowerCase().replace(/[\\/]+$/, '');
+                  const projectCount = (workspaces || []).filter((w) => {
+                    const normW = w.path.toLowerCase().replace(/[\\/]+$/, '');
+                    return normW === normDir || normW.startsWith(normDir + '\\') || normW.startsWith(normDir + '/');
+                  }).length;
+
                   return (
                     <li key={dir} className="flex items-center justify-between p-4 hover:bg-[var(--color-surface-2)] transition-colors group">
                       <div className="flex items-center gap-3 min-w-0 pr-4">
                         <FolderSearch
                           size={18}
-                          className={isCurrent ? "text-[var(--color-accent)] shrink-0" : "text-[var(--color-text-tertiary)] shrink-0"}
+                          className="text-[var(--color-accent)] shrink-0"
                         />
                         <span className="font-mono text-sm truncate select-all text-[var(--color-text-primary)]">{dir}</span>
-                        {isCurrent && (
-                          <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--color-accent)]/15 text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30 shrink-0">
-                            Active Project
-                          </span>
-                        )}
+                        <span className="text-[11px] font-mono text-[var(--color-text-tertiary)] bg-[var(--color-surface-2)] px-2 py-0.5 rounded border border-[var(--color-border-subtle)] shrink-0">
+                          {projectCount} {projectCount === 1 ? 'project' : 'projects'} found
+                        </span>
                       </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
-                      {onOpenWorkspace && (
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
-                          onClick={() => onOpenWorkspace(dir)}
-                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent-muted)] rounded-md transition-colors cursor-pointer mr-1"
-                          title="Inspect this workspace directly in Entropy"
+                          onClick={() => EntropyApiClient.openInExplorer(dir)}
+                          className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-md transition-colors cursor-pointer"
+                          title="Open in Windows File Explorer"
+                          aria-label={`Open ${dir} in File Explorer`}
                         >
-                          <ArrowUpRight size={14} />
-                          <span>Inspect</span>
+                          <FolderOpen size={16} />
                         </button>
-                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => EntropyApiClient.openInExplorer(dir)}
-                        className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-md transition-colors cursor-pointer"
-                        title="Open in Windows File Explorer"
-                      >
-                        <FolderOpen size={16} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleChangeDir(dir)}
-                        className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-3)] rounded-md transition-colors cursor-pointer"
-                        title="Change folder in File Explorer"
-                      >
-                        <RefreshCw size={15} />
-                      </button>
-
-                      <button 
-                        type="button"
-                        onClick={() => setDirToDelete(dir)}
-                        className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)] rounded-md transition-colors cursor-pointer"
-                        title="Remove directory"
-                        aria-label={`Remove scan directory ${dir}`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                        <button 
+                          type="button"
+                          onClick={() => setDirToDelete(dir)}
+                          className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)] rounded-md transition-colors cursor-pointer"
+                          title="Remove folder from scan directories"
+                          aria-label={`Remove scan directory ${dir}`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </li>
                   );
                 })}
               </ul>
             )}
-            
-            <div className="p-4 bg-[var(--color-surface-1)] border-t border-[var(--color-border)] flex items-center justify-between">
-              <button 
-                type="button"
-                onClick={handleAddDir}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-sm font-medium text-[var(--color-text-primary)] transition-colors cursor-pointer"
-              >
-                <FolderOpen size={16} className="text-[var(--color-accent)]" />
-                <span>Browse Folder in File Explorer…</span>
-              </button>
-              <span className="text-xs text-[var(--color-text-tertiary)]">Opens native Windows folder picker</span>
-            </div>
           </div>
 
           {/* Quick Scan Presets */}
           <div className="mt-4 p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
-                Whole-PC &amp; Quick Scan Presets
+                Recommended Developer Presets
               </span>
               <span className="text-[11px] text-[var(--color-text-tertiary)]">One-click configuration</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => handleApplyPreset([userProfile?.user_home || 'C:\\'])}
-                className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer"
-              >
-                <div className="font-semibold text-[var(--color-text-primary)]">User Profile</div>
-                <div className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5 font-mono">
-                  {userProfile?.user_home || '~'}
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleApplyPreset(
-                  userProfile?.standard_dev_roots && userProfile.standard_dev_roots.length > 0
+                onClick={() => {
+                  const devRoots = userProfile?.standard_dev_roots && userProfile.standard_dev_roots.length > 0
                     ? userProfile.standard_dev_roots
-                    : [userProfile?.desktop || 'C:\\']
-                )}
-                className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer"
+                    : [userProfile?.desktop || 'C:\\Users\\pc\\Desktop'];
+                  void saveAndNotify(devRoots);
+                }}
+                className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer space-y-1"
               >
-                <div className="font-semibold text-[var(--color-text-primary)]">Standard Dev Roots</div>
-                <div className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5">Desktop, repos, projects</div>
+                <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+                  <FolderSearch size={14} className="text-[var(--color-accent)]" />
+                  <span>Standard Dev Roots</span>
+                </div>
+                <div className="text-[11px] text-[var(--color-text-tertiary)] truncate">Desktop, repos, projects, dev</div>
               </button>
-              <button
-                type="button"
-                onClick={() => handleApplyPreset(['C:\\'])}
-                className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer"
-              >
-                <div className="font-semibold text-[var(--color-text-primary)]">Entire C: Drive</div>
-                <div className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5">Full machine scan</div>
-              </button>
+
+              {userProfile?.desktop && (
+                <button
+                  type="button"
+                  onClick={() => handleApplyPreset([userProfile.desktop])}
+                  className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer space-y-1"
+                >
+                  <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+                    <FolderOpen size={14} className="text-[var(--color-accent)]" />
+                    <span>Desktop</span>
+                  </div>
+                  <div className="text-[11px] text-[var(--color-text-tertiary)] truncate font-mono">{userProfile.desktop}</div>
+                </button>
+              )}
+
+              {userProfile?.documents && (
+                <button
+                  type="button"
+                  onClick={() => handleApplyPreset([userProfile.documents])}
+                  className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer space-y-1"
+                >
+                  <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+                    <FolderGit2 size={14} className="text-[var(--color-accent)]" />
+                    <span>Documents</span>
+                  </div>
+                  <div className="text-[11px] text-[var(--color-text-tertiary)] truncate font-mono">{userProfile.documents}</div>
+                </button>
+              )}
             </div>
           </div>
 
