@@ -1,11 +1,7 @@
-import React, { Component, ErrorInfo, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Component, ErrorInfo, ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, CheckCircle2, Info, X } from 'lucide-react';
 import { Sidebar, ActiveNav } from './components/Sidebar';
 import { OverviewView } from './components/OverviewView';
-import { WorkspaceView } from './components/WorkspaceView';
-import { SystemView } from './components/SystemView';
-import { CleanupView } from './components/CleanupView';
-import { SettingsView } from './components/SettingsView';
 import { CommandPalette } from './components/CommandPalette';
 import { EntropyApiClient } from './services/api';
 import {
@@ -13,6 +9,21 @@ import {
   WorkspaceInspection,
   WorkspaceSummary,
 } from './types/entropy';
+
+// Route-level code-splitting with React.lazy
+const WorkspaceView = React.lazy(() => import('./components/WorkspaceView').then((m) => ({ default: m.WorkspaceView })));
+const SystemView = React.lazy(() => import('./components/SystemView').then((m) => ({ default: m.SystemView })));
+const CleanupView = React.lazy(() => import('./components/CleanupView').then((m) => ({ default: m.CleanupView })));
+const SettingsView = React.lazy(() => import('./components/SettingsView').then((m) => ({ default: m.SettingsView })));
+
+const ViewLoadingFallback = (
+  <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[var(--color-surface-0)] text-center space-y-3">
+    <div className="w-9 h-9 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] flex items-center justify-center shadow-xs">
+      <RefreshCw className="w-4 h-4 text-[var(--color-accent-strong)] animate-spin" />
+    </div>
+    <span className="text-xs text-[var(--color-text-tertiary)] font-medium">Loading view…</span>
+  </div>
+);
 
 /* ───────────────────────── Error Boundary ───────────────────────── */
 
@@ -666,7 +677,9 @@ export function App() {
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
         <ErrorBoundary>
-          {renderMainContent()}
+          <Suspense fallback={ViewLoadingFallback}>
+            {renderMainContent()}
+          </Suspense>
         </ErrorBoundary>
       </main>
 

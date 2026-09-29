@@ -398,6 +398,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
+                aria-label="Search workspaces"
                 className="w-32 sm:w-44 md:w-48 h-8 pl-8 pr-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] focus:border-[var(--color-accent)] rounded-lg text-xs placeholder-[var(--color-text-tertiary)] focus:outline-none transition-colors"
               />
             </div>
@@ -418,10 +419,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <button
                 type="button"
                 onClick={() => setSecretsRadarOpen(true)}
-                className="h-8 px-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-1.5 font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs"
+                className="h-8 px-3 rounded-lg bg-[var(--color-warning-bg)] hover:bg-[var(--color-warning-bg)]/80 border border-[var(--color-warning-border)] text-xs text-[var(--color-warning)] flex items-center gap-1.5 font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs"
                 title="Audit and shield exposed credentials & .env files across all repos"
               >
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <ShieldAlert className="w-3.5 h-3.5 text-[var(--color-warning)] shrink-0" />
                 <span className="whitespace-nowrap">Shield Secrets ({secretsList.length})</span>
               </button>
             )}
@@ -442,6 +443,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 onClick={onNavigateToSettings}
                 className="h-8 w-8 rounded-lg hover:bg-[var(--color-surface-2)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] flex items-center justify-center transition-colors cursor-pointer shrink-0 border border-transparent hover:border-[var(--color-border-subtle)]"
                 title="Manage scanned folders"
+                aria-label="Manage scanned folders"
               >
                 <Settings className="w-3.5 h-3.5 shrink-0" />
               </button>
@@ -453,6 +455,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               disabled={isLoading}
               className="h-8 w-8 rounded-lg hover:bg-[var(--color-surface-2)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0 border border-transparent hover:border-[var(--color-border-subtle)]"
               title="Refresh workspaces"
+              aria-label="Refresh workspaces"
             >
               <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -603,6 +606,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                         onClick={(e) => handleCopyPath(e, workspace.path)}
                         className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-opacity"
                         title="Copy path"
+                        aria-label="Copy workspace path"
                       >
                         {copiedPath === workspace.path ? (
                           <CheckCircle2 className="w-3 h-3 text-[var(--color-success)]" />
@@ -739,6 +743,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     }}
                     className="p-1.5 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
                     title="Open in VS Code"
+                    aria-label="Open in VS Code"
                   >
                     <Code2 className="w-3.5 h-3.5" />
                   </button>
@@ -751,6 +756,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     }}
                     className="p-1.5 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors cursor-pointer"
                     title="Open in Command Prompt (CMD)"
+                    aria-label="Open in Command Prompt"
                   >
                     <SquareTerminal className="w-3.5 h-3.5" />
                   </button>
@@ -763,6 +769,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     }}
                     className="p-1.5 rounded-md hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
                     title="Open in File Explorer"
+                    aria-label="Open in File Explorer"
                   >
                     <FolderOpen className="w-3.5 h-3.5" />
                   </button>

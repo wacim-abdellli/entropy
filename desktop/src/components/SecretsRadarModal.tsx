@@ -99,7 +99,7 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface-0)]">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <div className="p-2 rounded-xl bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
@@ -132,8 +132,8 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
 
         {/* Toast Alert */}
         {toastMessage && (
-          <div className="px-6 py-2 bg-emerald-500/15 border-b border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center gap-2 animate-fade-in">
-            <Check className="w-4 h-4 text-emerald-400" />
+          <div className="px-6 py-2 bg-[var(--color-success-bg)] border-b border-[var(--color-success-border)] text-[var(--color-success)] text-xs font-medium flex items-center gap-2 animate-fade-in">
+            <Check className="w-4 h-4 text-[var(--color-success)]" />
             {toastMessage}
           </div>
         )}
@@ -147,16 +147,16 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
             </span>
           </div>
 
-          <div className="bg-[var(--color-surface-1)] border border-rose-500/30 rounded-xl p-3.5 flex flex-col justify-between">
-            <span className="text-xs text-rose-300">Tracked in Git (Critical)</span>
-            <span className="text-2xl font-bold font-mono text-rose-400">
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-danger-border)] rounded-xl p-3.5 flex flex-col justify-between">
+            <span className="text-xs text-[var(--color-danger)] font-medium">Tracked in Git (Critical)</span>
+            <span className="text-2xl font-bold font-mono text-[var(--color-danger)]">
               {report?.tracked_count ?? 0}
             </span>
           </div>
 
-          <div className="bg-[var(--color-surface-1)] border border-amber-500/30 rounded-xl p-3.5 flex flex-col justify-between">
-            <span className="text-xs text-amber-300">Unignored on Disk</span>
-            <span className="text-2xl font-bold font-mono text-amber-400">
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-warning-border)] rounded-xl p-3.5 flex flex-col justify-between">
+            <span className="text-xs text-[var(--color-warning)] font-medium">Unignored on Disk</span>
+            <span className="text-2xl font-bold font-mono text-[var(--color-warning)]">
               {report?.unignored_count ?? 0}
             </span>
           </div>
@@ -203,8 +203,8 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
             onClick={() => setFilter('warning')}
             className={`px-2.5 py-1 rounded-lg transition-all ${
               filter === 'warning'
-                ? 'bg-amber-600 text-white'
-                : 'text-amber-300 hover:bg-amber-950/40'
+                ? 'bg-[var(--color-warning)] text-black font-semibold'
+                : 'text-[var(--color-warning)] hover:bg-[var(--color-warning-bg)]'
             }`}
           >
             Unignored ({report?.unignored_count ?? 0})
@@ -213,8 +213,8 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
             onClick={() => setFilter('safe')}
             className={`px-2.5 py-1 rounded-lg transition-all ${
               filter === 'safe'
-                ? 'bg-emerald-600 text-white'
-                : 'text-emerald-300 hover:bg-emerald-950/40'
+                ? 'bg-[var(--color-success)] text-black font-semibold'
+                : 'text-[var(--color-success)] hover:bg-[var(--color-success-bg)]'
             }`}
           >
             Protected ({report?.protected_count ?? 0})
@@ -230,7 +230,7 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center text-[var(--color-text-tertiary)] gap-2">
-              <ShieldCheck className="w-10 h-10 text-emerald-400 opacity-80" />
+              <ShieldCheck className="w-10 h-10 text-[var(--color-success)] opacity-80" />
               <p className="text-sm font-semibold text-[var(--color-text-primary)]">All Repositories are Clean</p>
               <p className="text-xs">No unignored or tracked credentials detected.</p>
             </div>
@@ -246,10 +246,10 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
                     <div
                       className={`p-2 rounded-lg shrink-0 ${
                         item.risk === 'critical'
-                          ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                          ? 'bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)]'
                           : item.risk === 'warning'
-                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                          : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]'
+                          : 'bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]'
                       }`}
                     >
                       {item.risk === 'critical' ? (
@@ -269,10 +269,10 @@ export const SecretsRadarModal: React.FC<SecretsRadarModalProps> = ({
                         <span
                           className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                             item.status === 'tracked'
-                              ? 'bg-rose-500/20 text-rose-300'
+                              ? 'bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)]'
                               : item.status === 'unignored'
-                              ? 'bg-amber-500/20 text-amber-300'
-                              : 'bg-emerald-500/20 text-emerald-300'
+                              ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]'
+                              : 'bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]'
                           }`}
                         >
                           {item.status === 'tracked'

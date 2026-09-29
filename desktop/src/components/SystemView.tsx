@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, SquareTerminal, X, XCircle, Zap, Sparkles, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, SquareTerminal, X, XCircle, Zap, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import { CacheConnection, DockerConnection, ProcessConnection, RuntimeConnection, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 
@@ -542,11 +542,11 @@ export const SystemView: React.FC<SystemViewProps> = ({
                 type="button"
                 onClick={handleTrimAll}
                 disabled={trimming}
-                className="h-7 px-2.5 text-xs font-semibold rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 transition-colors cursor-pointer flex items-center gap-1.5 ml-auto disabled:opacity-50"
+                className="h-7 px-2.5 text-xs font-semibold rounded bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30 hover:bg-[var(--color-accent-muted)]/80 transition-colors cursor-pointer flex items-center gap-1.5 ml-auto disabled:opacity-50"
                 title="Trim dormant physical memory working sets without stopping any app (Non-destructive)"
                 aria-label="Boost RAM: Trim working sets across developer processes"
               >
-                <Sparkles className={`w-3 h-3 text-blue-400 ${trimming ? 'animate-spin' : ''}`} />
+                <Zap className={`w-3 h-3 text-[var(--color-accent-strong)] ${trimming ? 'animate-spin' : ''}`} />
                 {trimming ? 'Boosting…' : 'Boost RAM'}
               </button>
               {developerProcessCount > 0 && (
@@ -642,9 +642,9 @@ export const SystemView: React.FC<SystemViewProps> = ({
                       title={protectedProcess ? 'Protected system process' : 'Trim RAM working set (non-destructive)'}
                       aria-label={`Trim RAM working set for ${process.name} PID ${process.pid}`}
                       onClick={() => handleTrimProcess(process.pid)}
-                      className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-blue-400 hover:bg-blue-500/15 disabled:opacity-30 cursor-pointer"
+                      className="w-7 h-7 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-accent-strong)] hover:bg-[var(--color-accent-muted)] disabled:opacity-30 cursor-pointer"
                     >
-                      <Sparkles className="w-3.5 h-3.5 mx-auto" />
+                      <Zap className="w-3.5 h-3.5 mx-auto" />
                     </button>
                     <button
                       type="button"

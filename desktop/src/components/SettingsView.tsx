@@ -131,7 +131,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8 space-y-12 w-full max-w-full min-w-0">
         
         {/* Scan Directories Section */}
-        <section className="w-full max-w-5xl">
+        <section className="w-full max-w-6xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <FolderSearch size={22} className="text-[var(--color-text-secondary)]" />
@@ -228,8 +228,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <button 
                         type="button"
                         onClick={() => setDirToDelete(dir)}
-                        className="p-1.5 text-[var(--color-text-tertiary)] hover:text-red-400 hover:bg-red-400/10 rounded-md transition-colors cursor-pointer"
+                        className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)] rounded-md transition-colors cursor-pointer"
                         title="Remove directory"
+                        aria-label={`Remove scan directory ${dir}`}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -302,7 +303,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </section>
 
         {/* About Section */}
-        <section className="w-full max-w-5xl">
+        <section className="w-full max-w-6xl">
           <div className="flex items-center gap-2 mb-6">
             <Info size={22} className="text-[var(--color-text-secondary)]" />
             <h2 className="text-xl font-medium">About</h2>
@@ -348,8 +349,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-                <Trash2 size={20} className="text-red-400" />
+              <div className="w-10 h-10 rounded-full bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] flex items-center justify-center shrink-0">
+                <Trash2 size={20} className="text-[var(--color-danger)]" />
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
@@ -381,7 +382,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   setDirToDelete(null);
                   handleRemoveDir(target);
                 }}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer shadow-sm"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-danger)] hover:opacity-90 text-white transition-opacity cursor-pointer shadow-sm"
               >
                 Remove Directory
               </button>

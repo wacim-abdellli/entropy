@@ -68,12 +68,18 @@
     }
     .animate-spin {
       animation: none !important;
+      opacity: 0.8 !important;
     }
     .animate-pulse {
       animation: none !important;
+      opacity: 0.85 !important;
     }
-    * {
-      transition-duration: 0.01ms !important;
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 80ms !important;
       scroll-behavior: auto !important;
     }
   }

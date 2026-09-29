@@ -76,11 +76,11 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
           <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/50 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Trash2 size={16} className="text-amber-400" />
+                <Trash2 size={16} className="text-[var(--color-warning)]" />
                 <span className="font-semibold text-sm text-[var(--color-text-primary)]">
                   Windows Recycle Bin
                 </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]">
                   Manual Review
                 </span>
               </div>
@@ -97,7 +97,7 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
               <strong>Is it safe?</strong> Yes, but it is permanent. The Recycle Bin only contains files you already chose to delete in the past. It will <strong>never</strong> delete active files from your Desktop, Documents, or project folders.
             </p>
             <div className="p-2.5 rounded-lg bg-[var(--color-surface-3)]/60 text-[11px] text-[var(--color-text-tertiary)] flex items-start gap-2">
-              <Info size={13} className="text-amber-400 shrink-0 mt-0.5" />
+              <Info size={13} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
               <span>
                 <strong>Safety guarantee:</strong> Entropy will <em>never</em> automatically check the Recycle Bin when you click &quot;Select All Safe Items&quot;. You must explicitly check it yourself after verifying you don&apos;t need any previously deleted files.
               </span>
@@ -107,7 +107,7 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
           {/* Section 2: Browser Caches */}
           <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/50 space-y-2.5">
             <div className="flex items-center gap-2">
-              <Globe size={16} className="text-emerald-400" />
+              <Globe size={16} className="text-[var(--color-success)]" />
               <span className="font-semibold text-sm text-[var(--color-text-primary)]">
                 Web Browser Caches (Brave, Chrome, Edge, Firefox)
               </span>

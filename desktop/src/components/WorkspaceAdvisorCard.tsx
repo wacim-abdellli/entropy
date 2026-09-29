@@ -33,7 +33,7 @@ interface WorkspaceAdvisorCardProps {
 
 export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
   workspacePath,
-  workspaceName,
+  workspaceName: _workspaceName,
   gitBranch,
   hasUncommittedChanges,
   ports,

@@ -634,6 +634,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             type="button"
             onClick={() => setActionResult(null)}
             className="p-0.5 rounded hover:bg-white/10 opacity-60 hover:opacity-100 transition-opacity cursor-pointer ml-1 shrink-0"
+            aria-label="Dismiss notification"
           >
             <XCircle className="w-3 h-3" />
           </button>
@@ -885,7 +886,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                       disabled={busyAction === 'push-branch'}
                       className="px-3 py-1.5 text-xs font-semibold bg-[var(--color-accent)] text-white hover:opacity-90 rounded-lg transition-opacity flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 shrink-0 select-none"
                     >
-                      <ArrowUp className={`w-3.5 h-3.5 ${busyAction === 'push-branch' ? 'animate-bounce' : ''}`} />
+                      <ArrowUp className={`w-3.5 h-3.5 ${busyAction === 'push-branch' ? 'animate-pulse opacity-75' : ''}`} />
                       <span>{busyAction === 'push-branch' ? 'Pushing to Remote…' : 'Push to Remote'}</span>
                     </button>
                   )}
@@ -1126,6 +1127,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                             disabled={busyAction === `drop-${s.index}`}
                             className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] transition-colors cursor-pointer disabled:opacity-50"
                             title="Discard stash entry"
+                            aria-label="Discard stash entry"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
