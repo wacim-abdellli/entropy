@@ -37,7 +37,6 @@ import {
   CleanupLiveProgress,
   VirtualDiskItem,
   PerformanceTuningReport,
-  DisposableArtifact,
 } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 import { FileLockModal } from './FileLockModal';
@@ -135,16 +134,14 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [systemLoading, setSystemLoading] = useState(true);
   const [closingTargetId, setClosingTargetId] = useState<string | null>(null);
 
-  // Artifacts state
-  const [localArtifacts, setLocalArtifacts] = useState<DisposableArtifact[]>(overview?.system?.artifacts || []);
+  // Artifacts state — derived from overview with optimistic deletion tracking
+  const [deletedArtifactPaths, setDeletedArtifactPaths] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (overview?.system?.artifacts) {
-      setLocalArtifacts(overview.system.artifacts);
-    }
-  }, [overview?.system?.artifacts]);
-
-  const artifacts = localArtifacts;
+  const artifacts = useMemo(() => {
+    const list = overview?.system?.artifacts || [];
+    if (deletedArtifactPaths.size === 0) return list;
+    return list.filter((a) => !deletedArtifactPaths.has(a.path));
+  }, [overview?.system?.artifacts, deletedArtifactPaths]);
   const [selectedArtifacts, setSelectedArtifacts] = useState<Set<string>>(new Set());
   const [isCleaning, setIsCleaning] = useState(false);
   const [confirmCleanOpen, setConfirmCleanOpen] = useState(false);
@@ -357,9 +354,6 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
   useEffect(() => {
     let ignore = false;
-    setSystemLoading(true);
-    setCachesLoading(true);
-    setDockerLoading(true);
 
     EntropyApiClient.getSystemCleanupTargets()
       .then((items) => {
@@ -785,9 +779,17 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
       const pathsSet = new Set(pathsToClean);
       if (result.results && Array.isArray(result.results)) {
         const succeeded = new Set((result.results as Array<{ success: boolean; path: string }>).filter((r) => r.success).map((r) => r.path));
-        setLocalArtifacts((prev) => prev.filter((a) => !succeeded.has(a.path)));
+        setDeletedArtifactPaths((prev) => {
+          const next = new Set(prev);
+          succeeded.forEach((p) => next.add(p));
+          return next;
+        });
       } else {
-        setLocalArtifacts((prev) => prev.filter((a) => !pathsSet.has(a.path)));
+        setDeletedArtifactPaths((prev) => {
+          const next = new Set(prev);
+          pathsSet.forEach((p) => next.add(p));
+          return next;
+        });
       }
       setSelectedArtifacts(new Set());
       void onRefresh();

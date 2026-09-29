@@ -604,12 +604,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       <button
                         type="button"
                         onClick={(e) => handleCopyPath(e, workspace.path)}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-opacity"
+                        className="opacity-0 group-hover:opacity-100 h-6 w-6 inline-flex items-center justify-center rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-2)] transition-all cursor-pointer"
                         title="Copy path"
                         aria-label="Copy workspace path"
                       >
                         {copiedPath === workspace.path ? (
-                          <CheckCircle2 className="w-3 h-3 text-[var(--color-success)]" />
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)]" />
                         ) : (
                           <Copy className="w-3 h-3" />
                         )}

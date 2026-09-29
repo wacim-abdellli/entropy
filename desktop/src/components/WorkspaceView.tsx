@@ -131,7 +131,7 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer p-1 rounded hover:bg-[var(--color-surface-2)]"
+      className="inline-flex items-center justify-center w-7 h-7 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer rounded hover:bg-[var(--color-surface-2)]"
       title="Copy path"
       aria-label="Copy path to clipboard"
     >
@@ -633,10 +633,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
           <button
             type="button"
             onClick={() => setActionResult(null)}
-            className="p-0.5 rounded hover:bg-white/10 opacity-60 hover:opacity-100 transition-opacity cursor-pointer ml-1 shrink-0"
+            className="w-6 h-6 inline-flex items-center justify-center rounded hover:bg-white/10 opacity-60 hover:opacity-100 transition-opacity cursor-pointer ml-1 shrink-0"
             aria-label="Dismiss notification"
           >
-            <XCircle className="w-3 h-3" />
+            <XCircle className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
@@ -1125,7 +1125,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                             type="button"
                             onClick={() => setDropModal(s)}
                             disabled={busyAction === `drop-${s.index}`}
-                            className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] transition-colors cursor-pointer disabled:opacity-50"
+                            className="w-7 h-7 inline-flex items-center justify-center rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)] transition-colors cursor-pointer disabled:opacity-50"
                             title="Discard stash entry"
                             aria-label="Discard stash entry"
                           >
