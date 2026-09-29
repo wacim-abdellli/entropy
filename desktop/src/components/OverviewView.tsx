@@ -37,6 +37,7 @@ interface OverviewViewProps {
   currentWorkspace?: WorkspaceSummary | null;
   onNavigateToSettings?: () => void;
   onClearCurrentWorkspace?: () => void;
+  scanRoots?: string[];
 }
 
 type WorkspaceFilter = 'all' | 'running' | 'dirty' | 'unpushed' | 'cleanup' | 'secrets';
@@ -81,6 +82,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   currentWorkspace,
   onNavigateToSettings,
   onClearCurrentWorkspace,
+  scanRoots,
 }) => {
   const [filter, setFilter] = useState<WorkspaceFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,9 +99,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const workspaces = useMemo(() => overview?.workspaces || [], [overview?.workspaces]);
   const artifacts = useMemo(() => overview?.system?.artifacts || [], [overview?.system?.artifacts]);
 
-  const dirtyList = useMemo(() => workspaces.filter((w) => w.has_uncommitted_changes), [workspaces]);
-  const unpushedList = useMemo(() => workspaces.filter((w) => (w.commits_ahead || 0) > 0), [workspaces]);
-  const runningList = useMemo(() => workspaces.filter((w) => w.process_count > 0), [workspaces]);
+  // When a folder or workspace is actively selected/pinned, scope the view to projects in that directory!
+  const scopedWorkspaces = useMemo(() => {
+    if (!currentWorkspace) return workspaces;
+    const activeNorm = currentWorkspace.path.toLowerCase().replace(/[\\/]+$/, '');
+    const filtered = workspaces.filter((w) => {
+      const wNorm = w.path.toLowerCase().replace(/[\\/]+$/, '');
+      return wNorm === activeNorm || wNorm.startsWith(activeNorm + '\\') || wNorm.startsWith(activeNorm + '/');
+    });
+    return filtered.length > 0 ? filtered : workspaces;
+  }, [workspaces, currentWorkspace]);
+
+  const dirtyList = useMemo(() => scopedWorkspaces.filter((w) => w.has_uncommitted_changes), [scopedWorkspaces]);
+  const unpushedList = useMemo(() => scopedWorkspaces.filter((w) => (w.commits_ahead || 0) > 0), [scopedWorkspaces]);
+  const runningList = useMemo(() => scopedWorkspaces.filter((w) => w.process_count > 0), [scopedWorkspaces]);
 
   const workspaceArtifactSizeMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -113,21 +126,21 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   }, [artifacts]);
 
   const cleanupList = useMemo(() => {
-    return workspaces.filter((w) => {
+    return scopedWorkspaces.filter((w) => {
       const norm = w.path.toLowerCase().replace(/[\\/]+$/, '');
       return (workspaceArtifactSizeMap.get(norm) || 0) > 0;
     });
-  }, [workspaces, workspaceArtifactSizeMap]);
+  }, [scopedWorkspaces, workspaceArtifactSizeMap]);
 
   const secretsList = useMemo(() => {
-    return workspaces.filter((w) => {
+    return scopedWorkspaces.filter((w) => {
       const hasTracked = w.secret_issues?.some((s) => s.status === 'tracked');
       const hasUnignored =
         w.secret_issues?.some((s) => s.status === 'unignored') ||
         (w.unprotected_env_files && w.unprotected_env_files.length > 0);
       return hasTracked || hasUnignored;
     });
-  }, [workspaces]);
+  }, [scopedWorkspaces]);
 
   const devProcesses = useMemo(() => {
     const procs = overview?.system?.processes || [];
@@ -151,7 +164,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   // Filter and sort
   const filteredWorkspaces = useMemo(() => {
-    let list = workspaces;
+    let list = scopedWorkspaces;
 
     if (filter === 'running') {
       list = runningList;
@@ -182,7 +195,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         Number(b.has_uncommitted_changes) - Number(a.has_uncommitted_changes) ||
         (b.last_modified || 0) - (a.last_modified || 0)
     );
-  }, [workspaces, filter, runningList, dirtyList, cleanupList, unpushedList, secretsList, searchQuery]);
+  }, [scopedWorkspaces, filter, runningList, dirtyList, cleanupList, unpushedList, secretsList, searchQuery]);
 
   const handleCopyPath = (e: React.MouseEvent, path: string) => {
     e.stopPropagation();
@@ -287,7 +300,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </span>
               ) : (
                 <span className="text-[11px] font-mono text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
-                  {workspaces.length}
+                  {currentWorkspace && scopedWorkspaces.length !== workspaces.length
+                    ? `${scopedWorkspaces.length} of ${workspaces.length}`
+                    : scopedWorkspaces.length}
                 </span>
               )}
               {currentWorkspace && onClearCurrentWorkspace && (
@@ -476,7 +491,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           {isLoading && workspaces.length === 0 ? (
             <div className="divide-y divide-[var(--color-border-subtle)]">
               {/* Scanning status banner */}
-              <div className="p-4 bg-[var(--color-surface-2)]/50 border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3 text-xs">
+              <div className="p-4 bg-[var(--color-surface-2)]/50 border-b border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2.5">
                   <RefreshCw className="w-4 h-4 text-[var(--color-accent)] animate-spin shrink-0" />
                   <div>
@@ -484,13 +499,26 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       Scanning developer directories across your PC…
                     </span>
                     <p className="text-[11px] text-[var(--color-text-tertiary)] font-mono mt-0.5">
-                      Discovering Git repositories, dev servers, and build artifacts
+                      {scanRoots && scanRoots.length > 0
+                        ? `Checking: ${scanRoots.map((r) => r.split(/[\\/]/).filter(Boolean).pop() || r).join(', ')}`
+                        : 'Discovering Git repositories, dev servers, and build artifacts'}
                     </p>
                   </div>
                 </div>
-                <span className="text-[11px] font-mono text-[var(--color-text-tertiary)] hidden sm:inline">
-                  Please wait…
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onInspectFolder}
+                    className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-3)] hover:bg-[var(--color-surface-4)] text-[var(--color-text-primary)] border border-[var(--color-border)] text-xs font-medium cursor-pointer transition-colors flex items-center gap-1.5"
+                    title="Choose a specific workspace or folder to scan immediately"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                    <span>Choose Specific Folder</span>
+                  </button>
+                  <span className="text-[11px] font-mono text-[var(--color-text-tertiary)] hidden sm:inline">
+                    Please wait…
+                  </span>
+                </div>
               </div>
 
               {/* Shimmering Skeleton rows */}
@@ -843,18 +871,23 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   <p className="text-xs text-[var(--color-text-secondary)]">
                     {searchQuery
                       ? `No workspaces found matching "${searchQuery}".`
+                      : currentWorkspace && scopedWorkspaces.length === 0
+                      ? `No workspaces found inside "${currentWorkspace.name}".`
                       : 'No workspaces found matching the selected filter.'}
                   </p>
-                  {(searchQuery || filter !== 'all') && (
+                  {(searchQuery || filter !== 'all' || (currentWorkspace && scopedWorkspaces.length === 0)) && (
                     <button
                       type="button"
                       onClick={() => {
                         setSearchQuery('');
                         setFilter('all');
+                        if (currentWorkspace && scopedWorkspaces.length === 0 && onClearCurrentWorkspace) {
+                          onClearCurrentWorkspace();
+                        }
                       }}
                       className="text-xs text-[var(--color-accent)] hover:underline cursor-pointer"
                     >
-                      Clear filters
+                      {currentWorkspace && scopedWorkspaces.length === 0 ? 'View all workspaces' : 'Clear filters'}
                     </button>
                   )}
                 </div>

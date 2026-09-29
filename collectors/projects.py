@@ -28,7 +28,8 @@ SKIP_DIRS = {
     "node_modules", ".git", "venv", ".venv", "__pycache__", "target", "build",
     "dist", ".next", "vendor", ".cache", ".local", ".config", "AppData",
     "$Recycle.Bin", "System Volume Information", "Windows", "Program Files",
-    "Program Files (x86)", "ProgramData", "$WinREAgent", "Recovery"
+    "Program Files (x86)", "ProgramData", "$WinREAgent", "Recovery",
+    "My Games", "Saved Games", "Adobe", "VirtualBox VMs", ".gradle", ".m2"
 }
 
 DEPENDENCY_DIR_NAMES = {

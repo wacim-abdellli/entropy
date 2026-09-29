@@ -299,21 +299,28 @@ export function App() {
           setScanRoots(activeRoots);
         }
 
-        const initialLastWorkspace =
+        const savedSelectedWs = localStorage.getItem('entropy_selected_workspace');
+        const savedCurrentWs =
+          localStorage.getItem('entropy_current_workspace') ||
           lastWs ||
-          localStorage.getItem('entropy_last_opened_workspace') ||
-          localStorage.getItem('entropy_selected_workspace') ||
-          localStorage.getItem('entropy_current_workspace');
+          localStorage.getItem('entropy_last_opened_workspace');
 
-        if (initialLastWorkspace) {
-          setSelectedWorkspacePath(initialLastWorkspace);
-          setCurrentWorkspacePath(initialLastWorkspace);
+        if (savedCurrentWs) {
+          setCurrentWorkspacePath(savedCurrentWs);
+        }
+
+        // Only restore deep inspection if the user was actually inside a workspace view!
+        const shouldInspectWs = Boolean(savedSelectedWs);
+        if (shouldInspectWs && savedSelectedWs) {
+          setSelectedWorkspacePath(savedSelectedWs);
+        } else {
+          setSelectedWorkspacePath(null);
         }
 
         const [data, lastInspection] = await Promise.all([
           EntropyApiClient.scanEnvironment(activeRoots.length > 0 ? activeRoots : undefined),
-          initialLastWorkspace
-            ? EntropyApiClient.inspectWorkspace(initialLastWorkspace).catch(() => null)
+          shouldInspectWs && savedSelectedWs
+            ? EntropyApiClient.inspectWorkspace(savedSelectedWs).catch(() => null)
             : Promise.resolve(null),
         ]);
 
@@ -326,7 +333,7 @@ export function App() {
           } catch {}
         }
 
-        if (initialLastWorkspace && lastInspection) {
+        if (shouldInspectWs && lastInspection) {
           if (!('error' in lastInspection && lastInspection.error)) {
             setInspection(lastInspection);
             try {
@@ -378,87 +385,7 @@ export function App() {
     const folderNorm = folder.toLowerCase().replace(/[\\/]+$/, '');
     const name = folder.split(/[\\/]/).filter(Boolean).pop() || folder;
 
-    // 1. Immediately set active project state & persist
-    setCurrentWorkspacePath(folder);
-    setSelectedWorkspacePath(folder);
-    void EntropyApiClient.saveLastWorkspace(folder);
-    try {
-      localStorage.setItem('entropy_last_opened_workspace', folder);
-      localStorage.setItem('entropy_current_workspace', folder);
-      localStorage.setItem('entropy_selected_workspace', folder);
-    } catch {}
-
-    // 2. Real-time optimistic insertion into overview list
-    const optimistic: WorkspaceSummary = {
-      id: `workspace:${folder}`,
-      name,
-      path: folder,
-      project_type: 'detecting...',
-      total_size_bytes: 0,
-      last_modified: getNowSeconds(),
-      state_label: 'Ready',
-      state_category: 'neutral',
-      git_branch: null,
-      git_remote: null,
-      last_commit_timestamp: null,
-      has_uncommitted_changes: false,
-      process_count: 0,
-    };
-
-    setOverview((prev) => {
-      const currentList = prev?.workspaces || [];
-      const alreadyInList = currentList.some(
-        (w) => w.path.toLowerCase().replace(/[\\/]+$/, '') === folderNorm
-      );
-      const nextWorkspaces = alreadyInList ? currentList : [optimistic, ...currentList];
-
-      if (!prev) {
-        return {
-          summary: {
-            total_workspaces: 1,
-            active_count: 0,
-            attention_count: 0,
-            dormant_count: 0,
-            paused_count: 0,
-            neutral_count: 1,
-            total_processes: 0,
-            total_runtimes: 0,
-            total_containers: 0,
-            total_caches: 0,
-          },
-          workspaces: [optimistic],
-          system: {
-            runtimes: [],
-            processes: [],
-            containers: [],
-            caches: [],
-            artifacts: [],
-          },
-          findings: [],
-          metadata: {
-            scan_duration_ms: 0,
-            engine_version: '0.1.0',
-            timestamp: getNowSeconds(),
-            hostname: '',
-            scan_roots: [folder],
-          },
-        };
-      }
-
-      return {
-        ...prev,
-        summary: {
-          ...prev.summary,
-          total_workspaces: nextWorkspaces.length,
-          neutral_count: (prev.summary.neutral_count || 0) + (alreadyInList ? 0 : 1),
-        },
-        workspaces: nextWorkspaces,
-      };
-    });
-
-    showToast(`Added workspace "${name}"`);
-
-    // 3. Update scan roots state and localStorage
+    // 1. Update scan roots state and persistent config
     const alreadyExistsInRoots = scanRoots.some(
       (r) => r.toLowerCase().replace(/[\\/]+$/, '') === folderNorm
     );
@@ -469,11 +396,57 @@ export function App() {
     } catch {}
     void EntropyApiClient.saveScanRoots(updatedRoots);
 
-    // 4. Background refresh of real metrics
-    loadEnvironment(updatedRoots);
+    // 2. Scan environment with updated roots
+    setIsLoading(true);
+    showToast(`Scanning "${name}"…`, 'info');
 
-    // Switch inspection to the new folder
-    await handleSelectWorkspace(folder);
+    let newOverview: EnvironmentOverview | null = null;
+    try {
+      newOverview = await EntropyApiClient.scanEnvironment(updatedRoots);
+      setOverview(newOverview);
+      try {
+        localStorage.setItem('entropy_cached_overview', JSON.stringify(newOverview));
+      } catch {}
+    } catch (err) {
+      console.error('Scan failed:', err);
+    } finally {
+      setIsLoading(false);
+    }
+
+    const workspacesList = newOverview?.workspaces || [];
+    const inFolder = workspacesList.filter((w) => {
+      const wNorm = w.path.toLowerCase().replace(/[\\/]+$/, '');
+      return wNorm === folderNorm || wNorm.startsWith(folderNorm + '\\') || wNorm.startsWith(folderNorm + '/');
+    });
+
+    const exactMatch = inFolder.find(
+      (w) => w.path.toLowerCase().replace(/[\\/]+$/, '') === folderNorm
+    );
+
+    if (exactMatch && inFolder.length === 1) {
+      // Single project workspace: open detail view
+      await handleSelectWorkspace(folder);
+      showToast(`Opened workspace "${name}"`, 'success');
+    } else {
+      // Container folder with multiple projects or 0 projects: stay on Overview and scope to it!
+      setSelectedWorkspacePath(null);
+      setInspection(null);
+      setCurrentWorkspacePath(folder);
+      void EntropyApiClient.saveLastWorkspace(folder);
+      try {
+        localStorage.setItem('entropy_current_workspace', folder);
+        localStorage.removeItem('entropy_selected_workspace');
+        localStorage.removeItem('entropy_cached_inspection');
+        localStorage.setItem('entropy_active_nav', 'home');
+      } catch {}
+      setActiveNav('home');
+      showToast(
+        inFolder.length > 0
+          ? `Added folder "${name}" (${inFolder.length} workspace${inFolder.length === 1 ? '' : 's'} found)`
+          : `Added folder "${name}" to scanned roots`,
+        'success'
+      );
+    }
   };
 
   const handleBackToOverview = useCallback(() => {
@@ -482,12 +455,14 @@ export function App() {
     setInspection(null);
     try {
       localStorage.removeItem('entropy_selected_workspace');
+      localStorage.removeItem('entropy_cached_inspection');
     } catch {}
+    void EntropyApiClient.saveLastWorkspace(currentWorkspacePath);
     setActiveNav('home');
     try {
       localStorage.setItem('entropy_active_nav', 'home');
     } catch {}
-  }, []);
+  }, [currentWorkspacePath]);
 
   const handleViewAllWorkspaces = useCallback(() => {
     setError(null);
@@ -586,6 +561,7 @@ export function App() {
           currentWorkspace={currentWorkspace}
           onNavigateToSettings={() => setActiveNav('settings')}
           onClearCurrentWorkspace={handleViewAllWorkspaces}
+          scanRoots={scanRoots}
         />
       );
     }

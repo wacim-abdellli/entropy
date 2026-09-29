@@ -244,27 +244,24 @@ def run_entropy_inspect(target_dir: str) -> tuple[Optional[Project], Environment
             break
 
     if not target_project:
-        if projects:
-            target_project = projects[0]
-        else:
-            # Fallback: create generic Project entity for the inspected directory
-            stat_info = None
-            try:
-                stat_info = os.stat(abs_target)
-            except OSError:
-                pass
-            created_ts = stat_info.st_ctime if stat_info else None
-            mtime_ts = stat_info.st_mtime if stat_info else None
-            from collectors.projects import _get_dir_size
-            total_size = _get_dir_size(abs_target)
-            target_project = Project(
-                entity_id=f"project:{abs_target}",
-                path=abs_target,
-                total_size_bytes=total_size,
-                created=created_ts,
-                last_modified=mtime_ts,
-            )
-            projects.append(target_project)
+        # Create Project entity for the inspected directory itself
+        stat_info = None
+        try:
+            stat_info = os.stat(abs_target)
+        except OSError:
+            pass
+        created_ts = stat_info.st_ctime if stat_info else None
+        mtime_ts = stat_info.st_mtime if stat_info else None
+        from collectors.projects import _get_dir_size
+        total_size = _get_dir_size(abs_target)
+        target_project = Project(
+            entity_id=f"project:{abs_target}",
+            path=abs_target,
+            total_size_bytes=total_size,
+            created=created_ts,
+            last_modified=mtime_ts,
+        )
+        projects.append(target_project)
 
     matching_deps = [
         d for d in dep_envs

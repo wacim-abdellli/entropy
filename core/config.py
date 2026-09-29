@@ -26,16 +26,23 @@ _config_lock = threading.Lock()
 def get_default_scan_roots() -> List[str]:
     """Auto-detect standard developer roots on first run."""
     user_home = os.path.expanduser("~")
-    candidates = [
+    # Dedicated developer directory candidates
+    dev_candidates = [
         os.path.join(user_home, "Desktop"),
-        os.path.join(user_home, "Documents"),
         os.path.join(user_home, "source", "repos"),
         os.path.join(user_home, "projects"),
         os.path.join(user_home, "dev"),
+        os.path.join(user_home, "code"),
+        os.path.join(user_home, "workspace"),
+        os.path.join(user_home, "Documents", "Projects"),
+        os.path.join(user_home, "Documents", "Visual Studio 2022", "Projects"),
     ]
-    existing = [os.path.abspath(c) for c in candidates if os.path.isdir(c)]
+    existing = [os.path.abspath(c) for c in dev_candidates if os.path.isdir(c)]
     if existing:
         return existing
+    desktop = os.path.join(user_home, "Desktop")
+    if os.path.isdir(desktop):
+        return [os.path.abspath(desktop)]
     return [os.path.abspath(user_home)]
 
 
