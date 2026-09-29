@@ -34,10 +34,6 @@ DISPOSABLE_FOLDER_NAMES = {
     "build": ("flutter", "Flutter Build Directory"),
     ".dart_tool": ("flutter", "Dart Tooling Cache"),
 
-    # .NET & C#
-    "bin": ("dotnet", ".NET Binary Output"),
-    "obj": ("dotnet", ".NET Intermediate Objects"),
-
     # Java / Maven / Gradle
     ".gradle": ("java", "Gradle Build Cache"),
 
@@ -49,6 +45,49 @@ DISPOSABLE_FOLDER_NAMES = {
     "cmake-build-release": ("cpp", "CMake Release Build Output"),
     "coverage": ("test", "Test Coverage Report Output"),
 }
+
+# Folders that are ONLY disposable if the project is confirmed to be a .NET project
+DOTNET_DISPOSABLE_FOLDER_NAMES = {
+    "bin": ("dotnet", ".NET Binary Output"),
+    "obj": ("dotnet", ".NET Intermediate Objects"),
+}
+
+import subprocess
+import time
+
+
+def _is_dotnet_project(project_path: str) -> bool:
+    """Check if the directory contains a .NET project or solution file."""
+    try:
+        with os.scandir(project_path) as it:
+            for entry in it:
+                if entry.is_file(follow_symlinks=False) and entry.name.lower().endswith(
+                    (".csproj", ".fsproj", ".vbproj", ".sln", ".slnx", "directory.build.props", "project.json")
+                ):
+                    return True
+    except OSError:
+        pass
+    return False
+
+
+def _has_git_tracked_files(folder_path: str, project_path: str) -> bool:
+    """Check if git tracks any files within folder_path to prevent deleting source code."""
+    try:
+        rel_path = os.path.relpath(folder_path, project_path)
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        res = subprocess.run(
+            ["git", "ls-files", rel_path],
+            cwd=project_path,
+            capture_output=True,
+            text=True,
+            timeout=1.5,
+            creationflags=creationflags,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            return True
+    except Exception:
+        pass
+    return False
 
 
 import time
@@ -99,13 +138,25 @@ def collect_project_artifacts(project_path: str) -> list[dict[str, any]]:
         return artifacts
 
     try:
+        is_dotnet = _is_dotnet_project(project_path)
         with os.scandir(project_path) as entries:
             for entry in entries:
                 if entry.is_dir(follow_symlinks=False):
                     folder_name = entry.name
+                    category = None
+                    label = None
+
                     if folder_name in DISPOSABLE_FOLDER_NAMES:
                         category, label = DISPOSABLE_FOLDER_NAMES[folder_name]
+                    elif folder_name in DOTNET_DISPOSABLE_FOLDER_NAMES and is_dotnet:
+                        category, label = DOTNET_DISPOSABLE_FOLDER_NAMES[folder_name]
+
+                    if category and label:
                         folder_path = os.path.abspath(entry.path)
+                        # CRITICAL SAFETY: Never mark a directory containing Git-tracked files as disposable
+                        if _has_git_tracked_files(folder_path, project_path):
+                            continue
+
                         size_bytes = _get_dir_size(folder_path)
                         artifacts.append({
                             "path": folder_path,
@@ -125,14 +176,24 @@ def collect_project_artifacts(project_path: str) -> list[dict[str, any]]:
                     with os.scandir(parent_path) as sub_entries:
                         for sub_entry in sub_entries:
                             if sub_entry.is_dir(follow_symlinks=False):
+                                sub_is_dotnet = is_dotnet or _is_dotnet_project(sub_entry.path)
                                 try:
                                     with os.scandir(sub_entry.path) as pkg_entries:
                                         for pkg_entry in pkg_entries:
                                             if pkg_entry.is_dir(follow_symlinks=False):
                                                 p_name = pkg_entry.name
+                                                cat = None
+                                                lbl = None
                                                 if p_name in DISPOSABLE_FOLDER_NAMES:
                                                     cat, lbl = DISPOSABLE_FOLDER_NAMES[p_name]
+                                                elif p_name in DOTNET_DISPOSABLE_FOLDER_NAMES and sub_is_dotnet:
+                                                    cat, lbl = DOTNET_DISPOSABLE_FOLDER_NAMES[p_name]
+
+                                                if cat and lbl:
                                                     f_path = os.path.abspath(pkg_entry.path)
+                                                    if _has_git_tracked_files(f_path, project_path):
+                                                        continue
+
                                                     s_bytes = _get_dir_size(f_path)
                                                     artifacts.append({
                                                         "path": f_path,

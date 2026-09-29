@@ -88,7 +88,63 @@ def is_safe_to_clean(path: str) -> tuple[bool, str]:
     if ".git" in abs_path.split(os.sep):
         return False, "Target path is inside a .git repository metadata folder."
 
+    # Protection Rule 4: 'bin' and 'obj' are only disposable in verified .NET projects
+    if folder_name in ("bin", "obj") and not _is_dotnet_artifact(abs_path):
+        return False, f"Folder '{folder_name}' is only disposable in .NET projects. Non-.NET '{folder_name}' folders are protected."
+
+    # Protection Rule 5: Never delete folders containing Git-tracked files (prevents source code deletion)
+    if _has_tracked_git_files(abs_path):
+        return False, f"Folder '{folder_name}' contains files tracked by Git. Deletion aborted to prevent repository data loss."
+
     return True, ""
+
+
+import subprocess
+
+
+def _is_dotnet_artifact(abs_path: str) -> bool:
+    """Validate that bin/obj belongs to a legitimate .NET project."""
+    parent = os.path.dirname(abs_path)
+    try:
+        with os.scandir(parent) as it:
+            for entry in it:
+                if entry.is_file(follow_symlinks=False) and entry.name.lower().endswith(
+                    (".csproj", ".fsproj", ".vbproj", ".sln", ".slnx", "directory.build.props", "project.json")
+                ):
+                    return True
+    except OSError:
+        pass
+    return False
+
+
+def _has_tracked_git_files(abs_path: str) -> bool:
+    """Check if abs_path contains any files tracked by a parent Git repository."""
+    try:
+        cur = abs_path
+        repo_root = None
+        while cur and cur != os.path.dirname(cur):
+            if os.path.isdir(os.path.join(cur, ".git")):
+                repo_root = cur
+                break
+            cur = os.path.dirname(cur)
+        if not repo_root:
+            return False
+
+        rel_path = os.path.relpath(abs_path, repo_root)
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        res = subprocess.run(
+            ["git", "ls-files", rel_path],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+            creationflags=creationflags,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def clean_artifact_directory(path: str) -> Dict[str, Any]:
