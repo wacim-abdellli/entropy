@@ -25,6 +25,7 @@ import {
   GlobalSecretsRadarReport,
   ShieldSecretsResult,
   DefenderBatchResult,
+  UserProfileInfo,
 } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
@@ -106,6 +107,7 @@ interface PyWebViewApi {
   save_scan_roots?(roots: string[]): Promise<string[] | string>;
   get_last_workspace?(): Promise<string | null | string>;
   save_last_workspace?(path: string | null): Promise<string | null | string>;
+  get_user_profile?(): Promise<UserProfileInfo | string>;
 }
 
 interface EntropyWindow extends Window {
@@ -373,15 +375,18 @@ export class EntropyApiClient {
       }
     }
 
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
-        return await bridgeWindow()!.pywebview!.api!.pick_folder();
+        const api = bridgeWindow()?.pywebview?.api;
+        if (api && typeof api.pick_folder === 'function') {
+          return await api.pick_folder();
+        }
       } catch (err) {
         console.warn('Failed to pick folder via pywebview:', err);
       }
     }
 
-    return 'C:\\Users\\pc\\Desktop\\entropy';
+    return null;
   }
 
   /**
@@ -1284,13 +1289,32 @@ export class EntropyApiClient {
 
 
   /**
+   * Get user profile paths (username, home, desktop, standard dev roots) from the host machine.
+   */
+  static async getUserProfile(): Promise<UserProfileInfo | null> {
+    if (await waitForPyWebView()) {
+      try {
+        const api = bridgeWindow()?.pywebview?.api;
+        if (api && typeof api.get_user_profile === 'function') {
+          const res = await api.get_user_profile();
+          return parseBridgeResponse<UserProfileInfo>(res);
+        }
+      } catch (err) {
+        console.warn('getUserProfile bridge call failed:', err);
+      }
+    }
+    return null;
+  }
+
+  /**
    * Get user-configured persistent scan directories from backend config.
    */
   static async getScanRoots(): Promise<string[]> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
-        if (bridgeWindow()?.pywebview?.api?.get_scan_roots) {
-          const res = await bridgeWindow()!.pywebview!.api!.get_scan_roots!();
+        const api = bridgeWindow()?.pywebview?.api;
+        if (api && typeof api.get_scan_roots === 'function') {
+          const res = await api.get_scan_roots();
           const parsed = parseBridgeResponse<string[]>(res);
           if (Array.isArray(parsed) && parsed.length > 0) {
             try {
@@ -1310,7 +1334,7 @@ export class EntropyApiClient {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return ['C:\\Users\\pc\\Desktop'];
+    return [];
   }
 
   /**
@@ -1320,10 +1344,11 @@ export class EntropyApiClient {
     try {
       localStorage.setItem('entropy_scan_roots', JSON.stringify(roots));
     } catch {}
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
-        if (bridgeWindow()?.pywebview?.api?.save_scan_roots) {
-          const res = await bridgeWindow()!.pywebview!.api!.save_scan_roots!(roots);
+        const api = bridgeWindow()?.pywebview?.api;
+        if (api && typeof api.save_scan_roots === 'function') {
+          const res = await api.save_scan_roots(roots);
           const parsed = parseBridgeResponse<string[]>(res);
           if (Array.isArray(parsed)) return parsed;
         }
@@ -1338,10 +1363,11 @@ export class EntropyApiClient {
    * Get user's last opened workspace directory from persistent config.
    */
   static async getLastWorkspace(): Promise<string | null> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
-        if (bridgeWindow()?.pywebview?.api?.get_last_workspace) {
-          const res = await bridgeWindow()!.pywebview!.api!.get_last_workspace!();
+        const api = bridgeWindow()?.pywebview?.api;
+        if (api && typeof api.get_last_workspace === 'function') {
+          const res = await api.get_last_workspace();
           const parsed = parseBridgeResponse<string | null>(res);
           if (parsed && typeof parsed === 'string' && parsed.trim()) {
             return parsed.trim();
@@ -1377,10 +1403,11 @@ export class EntropyApiClient {
       }
     } catch {}
 
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
-        if (bridgeWindow()?.pywebview?.api?.save_last_workspace) {
-          const res = await bridgeWindow()!.pywebview!.api!.save_last_workspace!(path);
+        const api = bridgeWindow()?.pywebview?.api;
+        if (api && typeof api.save_last_workspace === 'function') {
+          const res = await api.save_last_workspace(path);
           return parseBridgeResponse<string | null>(res);
         }
       } catch (err) {

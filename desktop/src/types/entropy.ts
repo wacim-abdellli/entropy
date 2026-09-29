@@ -648,6 +648,14 @@ export interface DefenderBatchResult {
   error?: string;
 }
 
+export interface UserProfileInfo {
+  username: string;
+  user_home: string;
+  desktop: string;
+  documents: string;
+  standard_dev_roots: string[];
+}
+
 
 
 

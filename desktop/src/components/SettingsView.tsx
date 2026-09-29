@@ -13,7 +13,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { EntropyApiClient } from '../services/api';
-import { WorkspaceSummary } from '../types/entropy';
+import { WorkspaceSummary, UserProfileInfo } from '../types/entropy';
 
 interface SettingsViewProps {
   scanRoots?: string[];
@@ -36,15 +36,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return scanRoots ?? ['C:\\Users\\pc\\Desktop'];
+    return scanRoots && scanRoots.length > 0 ? scanRoots : [];
   });
   const [dirToDelete, setDirToDelete] = useState<string | null>(null);
   const [saveRootsNotice, setSaveRootsNotice] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfileInfo | null>(null);
+
+  useEffect(() => {
+    if (scanRoots && scanRoots.length > 0) {
+      setDirectories(scanRoots);
+    }
+  }, [scanRoots]);
 
   useEffect(() => {
     EntropyApiClient.getScanRoots().then((roots) => {
       if (Array.isArray(roots) && roots.length > 0) {
         setDirectories(roots);
+      }
+    });
+    EntropyApiClient.getUserProfile().then((profile) => {
+      if (profile) {
+        setUserProfile(profile);
       }
     });
   }, []);
@@ -265,21 +277,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => handleApplyPreset(['C:\\Users\\pc'])}
+                onClick={() => handleApplyPreset([userProfile?.user_home || 'C:\\'])}
                 className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer"
               >
                 <div className="font-semibold text-[var(--color-text-primary)]">User Profile</div>
-                <div className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5 font-mono">C:\Users\pc</div>
+                <div className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5 font-mono">
+                  {userProfile?.user_home || '~'}
+                </div>
               </button>
               <button
                 type="button"
-                onClick={() => handleApplyPreset([
-                  'C:\\Users\\pc\\Desktop',
-                  'C:\\Users\\pc\\Documents',
-                  'C:\\Users\\pc\\source\\repos',
-                  'C:\\Users\\pc\\projects',
-                  'C:\\Users\\pc\\dev',
-                ])}
+                onClick={() => handleApplyPreset(
+                  userProfile?.standard_dev_roots && userProfile.standard_dev_roots.length > 0
+                    ? userProfile.standard_dev_roots
+                    : [userProfile?.desktop || 'C:\\']
+                )}
                 className="p-2.5 rounded-lg bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] text-left text-xs transition-colors cursor-pointer"
               >
                 <div className="font-semibold text-[var(--color-text-primary)]">Standard Dev Roots</div>

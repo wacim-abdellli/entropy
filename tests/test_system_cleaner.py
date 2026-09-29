@@ -91,6 +91,33 @@ class TestSystemCleaner(unittest.TestCase):
             self.assertIn("is_default_selected", res)
             self.assertIn("size_bytes", res)
 
+    def test_get_logical_drives_filters_valid(self):
+        from core.system_cleaner import _get_logical_drives
+        drives = _get_logical_drives()
+        self.assertIsInstance(drives, list)
+        self.assertGreater(len(drives), 0)
+        for d in drives:
+            self.assertTrue(d.endswith(":\\") or d == "/")
+
+    def test_query_recycle_bin_drives(self):
+        from core.system_cleaner import _query_recycle_bin_drives
+        drive_map = _query_recycle_bin_drives()
+        self.assertIsInstance(drive_map, dict)
+        for drive, (b, items) in drive_map.items():
+            self.assertGreaterEqual(b, 0)
+            self.assertGreaterEqual(items, 0)
+
+    def test_get_user_profile_info(self):
+        from core.config import get_user_profile_info
+        info = get_user_profile_info()
+        self.assertIsInstance(info, dict)
+        self.assertIn("username", info)
+        self.assertIn("user_home", info)
+        self.assertIn("desktop", info)
+        self.assertIn("documents", info)
+        self.assertIn("standard_dev_roots", info)
+        self.assertTrue(os.path.isdir(info["user_home"]))
+
 
 if __name__ == "__main__":
     unittest.main()

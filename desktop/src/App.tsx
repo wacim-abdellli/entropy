@@ -139,7 +139,7 @@ export function App() {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return ['C:\\Users\\pc\\Desktop'];
+    return [];
   });
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     try {
@@ -227,6 +227,7 @@ export function App() {
     setSelectedWorkspacePath(path);
     setCurrentWorkspacePath(path);
     try {
+      localStorage.setItem('entropy_last_opened_workspace', path);
       localStorage.setItem('entropy_current_workspace', path);
       localStorage.setItem('entropy_selected_workspace', path);
     } catch {}
@@ -294,10 +295,13 @@ export function App() {
 
         const activeRoots =
           Array.isArray(persistedRoots) && persistedRoots.length > 0 ? persistedRoots : scanRoots;
-        setScanRoots(activeRoots);
+        if (activeRoots.length > 0) {
+          setScanRoots(activeRoots);
+        }
 
         const initialLastWorkspace =
           lastWs ||
+          localStorage.getItem('entropy_last_opened_workspace') ||
           localStorage.getItem('entropy_selected_workspace') ||
           localStorage.getItem('entropy_current_workspace');
 
@@ -307,7 +311,7 @@ export function App() {
         }
 
         const [data, lastInspection] = await Promise.all([
-          EntropyApiClient.scanEnvironment(activeRoots),
+          EntropyApiClient.scanEnvironment(activeRoots.length > 0 ? activeRoots : undefined),
           initialLastWorkspace
             ? EntropyApiClient.inspectWorkspace(initialLastWorkspace).catch(() => null)
             : Promise.resolve(null),
@@ -327,17 +331,6 @@ export function App() {
             setInspection(lastInspection);
             try {
               localStorage.setItem('entropy_cached_inspection', JSON.stringify(lastInspection));
-            } catch {}
-          } else {
-            // Target folder no longer exists or is invalid
-            setSelectedWorkspacePath(null);
-            setCurrentWorkspacePath(null);
-            setInspection(null);
-            void EntropyApiClient.saveLastWorkspace(null);
-            try {
-              localStorage.removeItem('entropy_selected_workspace');
-              localStorage.removeItem('entropy_current_workspace');
-              localStorage.removeItem('entropy_cached_inspection');
             } catch {}
           }
         }
@@ -390,6 +383,7 @@ export function App() {
     setSelectedWorkspacePath(folder);
     void EntropyApiClient.saveLastWorkspace(folder);
     try {
+      localStorage.setItem('entropy_last_opened_workspace', folder);
       localStorage.setItem('entropy_current_workspace', folder);
       localStorage.setItem('entropy_selected_workspace', folder);
     } catch {}

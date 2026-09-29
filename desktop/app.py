@@ -31,7 +31,7 @@ import logging
 
 logger = logging.getLogger("entropy.desktop")
 
-from core.config import get_scan_roots, save_scan_roots, get_last_workspace, save_last_workspace
+from core.config import get_scan_roots, save_scan_roots, get_last_workspace, save_last_workspace, get_user_profile_info
 from core.graph import EnvironmentGraph
 from report.contract import serialize_environment_overview, serialize_workspace_inspection
 from scan import run_entropy_inspect, run_entropy_scan
@@ -47,6 +47,10 @@ class EntropyDesktopApi:
         initial_roots = get_scan_roots()
         self._prewarm_future = self._executor.submit(self._do_scan_environment, roots=initial_roots)
         self._window: Optional[Any] = None
+
+    def get_user_profile(self) -> dict[str, Any]:
+        """Get dynamic user profile paths for presets and defaults."""
+        return get_user_profile_info()
 
     def get_scan_roots(self) -> list[str]:
         """Get persistent user-configured scan directories."""

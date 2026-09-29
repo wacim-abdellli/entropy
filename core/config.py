@@ -39,6 +39,33 @@ def get_default_scan_roots() -> List[str]:
     return [os.path.abspath(user_home)]
 
 
+def get_user_profile_info() -> Dict[str, Any]:
+    """Get dynamic information about current user's profile and default paths."""
+    user_home = os.path.expanduser("~")
+    desktop_path = os.path.join(user_home, "Desktop")
+    documents_path = os.path.join(user_home, "Documents")
+    username = os.environ.get("USERNAME") or os.path.basename(user_home) or "User"
+
+    candidates = [
+        desktop_path,
+        documents_path,
+        os.path.join(user_home, "source", "repos"),
+        os.path.join(user_home, "projects"),
+        os.path.join(user_home, "dev"),
+    ]
+    standard_dev_roots = [os.path.abspath(c) for c in candidates if os.path.isdir(c)]
+    if not standard_dev_roots:
+        standard_dev_roots = [os.path.abspath(desktop_path) if os.path.isdir(desktop_path) else os.path.abspath(user_home)]
+
+    return {
+        "username": username,
+        "user_home": os.path.abspath(user_home),
+        "desktop": os.path.abspath(desktop_path) if os.path.isdir(desktop_path) else os.path.abspath(user_home),
+        "documents": os.path.abspath(documents_path) if os.path.isdir(documents_path) else os.path.abspath(user_home),
+        "standard_dev_roots": standard_dev_roots,
+    }
+
+
 DEFAULT_CONFIG: Dict[str, Any] = {
     "version": 1,
     "scan_roots": None,  # Will be populated with get_default_scan_roots() on first run

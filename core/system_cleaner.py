@@ -114,26 +114,43 @@ def _calc_dir_footprint(path: str, max_depth: int = 4, timeout_seconds: float = 
 
 
 def _get_logical_drives() -> List[str]:
-    """Get list of active drive roots like ['C:\\', 'D:\\']."""
+    """
+    Get list of accessible local storage drives for Recycle Bin operations.
+    Excludes CD-ROMs, unmounted optical drives, and remote network shares to avoid hangs.
+    """
     if os.name != "nt":
         return ["/"]
     drives = []
     try:
-        bitmask = ctypes.windll.kernel32.GetLogicalDrives()
-        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
-            if bitmask & 1:
-                drives.append(f"{letter}:\\")
-            bitmask >>= 1
+        kernel32 = ctypes.windll.kernel32
+        bitmask = kernel32.GetLogicalDrives()
+        for idx, letter in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
+            if bitmask & (1 << idx):
+                root = f"{letter}:\\"
+                # GetDriveTypeW:
+                # 2 = DRIVE_REMOVABLE (flash drive)
+                # 3 = DRIVE_FIXED (hard disk / SSD)
+                # 6 = DRIVE_RAMDISK
+                # We skip 0 (unknown), 1 (no root), 4 (remote/network), 5 (CD-ROM/DVD)
+                dtype = kernel32.GetDriveTypeW(root)
+                if dtype in (3, 6):
+                    drives.append(root)
+                elif dtype == 2:
+                    try:
+                        if os.path.exists(root):
+                            drives.append(root)
+                    except Exception:
+                        pass
     except Exception:
         drives = ["C:\\"]
     return drives or ["C:\\"]
 
 
-def _query_recycle_bin() -> tuple[int, int]:
-    """Query total size in bytes and number of items in Windows Recycle Bin across all drives."""
+def _query_recycle_bin_drives() -> Dict[str, tuple[int, int]]:
+    """Query size and items per drive. Returns {drive: (bytes, items)}."""
     if os.name != "nt":
-        return 0, 0
-
+        return {}
+    results: Dict[str, tuple[int, int]] = {}
     try:
         class SHQUERYRBINFO(ctypes.Structure):
             _fields_ = [
@@ -142,41 +159,48 @@ def _query_recycle_bin() -> tuple[int, int]:
                 ("i64NumItems", ctypes.c_int64),
             ]
 
-        total_bytes = 0
-        total_items = 0
-
         for drive in _get_logical_drives():
             try:
                 rb_info = SHQUERYRBINFO()
                 rb_info.cbSize = ctypes.sizeof(rb_info)
                 res = ctypes.windll.shell32.SHQueryRecycleBinW(drive, ctypes.byref(rb_info))
                 if res == 0:
-                    total_bytes += max(0, int(rb_info.i64Size))
-                    total_items += max(0, int(rb_info.i64NumItems))
+                    results[drive] = (max(0, int(rb_info.i64Size)), max(0, int(rb_info.i64NumItems)))
             except Exception:
                 continue
-
-        return total_bytes, total_items
     except Exception as e:
         logger.debug("Failed to query recycle bin: %s", e)
+    return results
 
-    return 0, 0
+
+def _query_recycle_bin() -> tuple[int, int]:
+    """Query total size in bytes and number of items in Windows Recycle Bin across all accessible drives."""
+    drive_map = _query_recycle_bin_drives()
+    total_bytes = sum(b for b, _ in drive_map.values())
+    total_items = sum(c for _, c in drive_map.values())
+    return total_bytes, total_items
 
 
-def _empty_recycle_bin() -> tuple[bool, str]:
-    """Empty Windows Recycle Bin across all drives without sound or confirmation prompt."""
+def _empty_recycle_bin_drive(drive: str, timeout_seconds: float = 12.0) -> tuple[bool, str]:
+    """Empty Windows Recycle Bin for a specific drive with timeout protection."""
     if os.name != "nt":
         return False, "Recycle Bin is only supported on Windows."
 
-    try:
+    def _do_empty() -> int:
         # SHERB_NOCONFIRMATION (0x00000001) | SHERB_NOPROGRESSUI (0x00000002) | SHERB_NOSOUND (0x00000004) = 7
         flags = 0x00000001 | 0x00000002 | 0x00000004
-        res = ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, flags)
-        if res == 0 or res == -2147418113:  # S_OK (0) or S_FALSE / already empty
-            return True, "Successfully emptied Recycle Bin."
-        return False, f"SHEmptyRecycleBinW returned code {res}."
-    except Exception as e:
-        return False, str(e)
+        return ctypes.windll.shell32.SHEmptyRecycleBinW(None, drive, flags)
+
+    with ThreadPoolExecutor(max_workers=1) as ex:
+        future = ex.submit(_do_empty)
+        try:
+            res = future.result(timeout=timeout_seconds)
+            # S_OK (0) or S_FALSE / already empty (-2147418113 or 1)
+            if res in (0, -2147418113, 1):
+                return True, f"Successfully emptied Recycle Bin on {drive}."
+            return False, f"SHEmptyRecycleBinW on {drive} returned code {res}."
+        except Exception as e:
+            return False, f"Recycle Bin on {drive}: {e}"
 
 
 # Registry of known system targets
@@ -466,35 +490,90 @@ def clean_system_target(target_id: str) -> Dict[str, Any]:
     if t_type == "recycle_bin":
         progress_tracker.update(
             current_file="Windows Recycle Bin",
-            log_line="Querying and emptying Windows Recycle Bin...",
+            percent=5,
+            log_line="Inspecting Windows Recycle Bin across accessible drives...",
         )
-        prev_bytes, prev_items = _query_recycle_bin()
-        ok, msg = _empty_recycle_bin()
+        drive_stats = _query_recycle_bin_drives()
+        prev_bytes = sum(b for b, _ in drive_stats.values())
+        prev_items = sum(c for _, c in drive_stats.values())
+        active_drives = [d for d, (b, c) in drive_stats.items() if b > 0 or c > 0]
+        all_drives = list(drive_stats.keys()) or _get_logical_drives()
+
+        if prev_bytes == 0 and prev_items == 0:
+            progress_tracker.update(
+                current_file="",
+                percent=100,
+                log_line="Windows Recycle Bin is already empty (0 items).",
+            )
+            log_system_cleanup("recycle_bin", ["Windows Recycle Bin"], 0, success=True)
+            return {
+                "id": target_id,
+                "success": True,
+                "freed_bytes": 0,
+                "deleted_count": 0,
+                "skipped_count": 0,
+                "message": "Windows Recycle Bin is already empty.",
+            }
+
+        progress_tracker.update(
+            log_line=f"Found {prev_items} item(s) ({_format_size_helper(prev_bytes)}) in Recycle Bin.",
+        )
+
+        drives_to_clean = active_drives if active_drives else all_drives
+        total_d = len(drives_to_clean)
+        emptied_any = False
+        last_msg = ""
+
+        for idx, drive in enumerate(drives_to_clean):
+            d_bytes, d_items = drive_stats.get(drive, (0, 0))
+            pct = int(10 + ((idx + 1) / max(1, total_d)) * 85)
+            progress_tracker.update(
+                current_file=f"Recycle Bin ({drive})",
+                percent=pct,
+                log_line=f"Emptying Recycle Bin on drive {drive}" + (f" ({_format_size_helper(d_bytes)})..." if d_bytes else "..."),
+            )
+            ok, msg = _empty_recycle_bin_drive(drive, timeout_seconds=12.0)
+            if ok:
+                emptied_any = True
+                freed_bytes += d_bytes
+                deleted_count += max(1, d_items)
+                progress_tracker.update(
+                    bytes_delta=d_bytes,
+                    deleted_count=max(1, d_items),
+                    log_line=f"✓ Emptied Recycle Bin on {drive}.",
+                )
+            else:
+                last_msg = msg
+                progress_tracker.update(
+                    log_line=f"⚠️ {msg}",
+                )
+
         after_bytes, _ = _query_recycle_bin()
         actual_freed = max(0, prev_bytes - after_bytes)
-        freed = actual_freed or prev_bytes
+        freed = actual_freed or freed_bytes or prev_bytes
         freed_bytes = freed
-        deleted_count = max(1, prev_items) if ok else 0
+        deleted_count = max(deleted_count, prev_items)
+
+        ok_final = emptied_any or (after_bytes < prev_bytes) or (prev_bytes == 0)
         progress_tracker.update(
             current_file="",
-            bytes_delta=freed_bytes,
-            deleted_count=deleted_count,
-            log_line=f"Purged Recycle Bin: freed {_format_size_helper(freed_bytes)} ({deleted_count} items)." if ok else f"Recycle Bin error: {msg}",
+            percent=100,
+            log_line=f"Successfully emptied Windows Recycle Bin: freed {_format_size_helper(freed_bytes)} ({deleted_count} items)." if ok_final else f"Recycle Bin: {last_msg}",
         )
         log_system_cleanup(
             "recycle_bin",
-            ["Windows Recycle Bin (All Drives)"],
-            freed_bytes if ok else 0,
-            success=ok,
-            error=None if ok else msg,
+            [f"Windows Recycle Bin ({d})" for d in drives_to_clean],
+            freed_bytes if ok_final else 0,
+            success=ok_final,
+            error=None if ok_final else last_msg,
         )
         return {
             "id": target_id,
-            "success": ok,
+            "success": ok_final,
             "freed_bytes": freed_bytes,
             "deleted_count": deleted_count,
             "skipped_count": 0,
-            "message": msg if ok else f"Recycle Bin error: {msg}",
+            "message": f"Successfully emptied Recycle Bin: freed {_format_size_helper(freed_bytes)}." if ok_final else f"Recycle Bin: {last_msg}",
         }
 
     elif t_type == "temp_age_filter":
