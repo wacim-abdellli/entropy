@@ -738,87 +738,87 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
       {/* ── PC Level-Up Command Hub (Hero Strip) ── */}
       <div className="w-full px-4 sm:px-8 pt-3 pb-1">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {/* Card 1: Reclaimable Disk Junk */}
           <div className="bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/80 border border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-xl p-3.5 transition-all shadow-xs flex flex-col justify-between group">
-            <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1 min-w-0 flex-1">
+            <div>
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5 whitespace-nowrap">
                   <HardDrive className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
                   Disk Reclaimable
                 </span>
-                <div className="text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap overflow-hidden">
-                  {formatSize(totalReclaimableBytes)}
-                </div>
+                {totalReclaimableBytes > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFilter('cleanup')}
+                    className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)] hover:text-white transition-colors cursor-pointer shrink-0"
+                    title="Filter to cleanable workspaces"
+                  >
+                    View ({cleanupList.length})
+                  </button>
+                )}
               </div>
-              {totalReclaimableBytes > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setFilter('cleanup')}
-                  className="px-2 py-1 rounded-md text-[10px] font-semibold bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)] hover:text-white transition-colors cursor-pointer shrink-0"
-                  title="Filter to cleanable workspaces"
-                >
-                  View ({cleanupList.length})
-                </button>
-              )}
+              <div className="mt-2 text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap">
+                {formatSize(totalReclaimableBytes)}
+              </div>
             </div>
-            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2 truncate">
+            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2">
               {cleanupList.length > 0
-                ? `${cleanupList.length} workspace${cleanupList.length === 1 ? '' : 's'} with disposable build artifacts`
-                : 'All workspace build folders are clean'}
+                ? `${cleanupList.length} workspace${cleanupList.length === 1 ? '' : 's'} cleanable`
+                : 'All build folders clean'}
             </p>
           </div>
 
           {/* Card 2: Live Dev RAM & Servers */}
           <div className="bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/80 border border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-xl p-3.5 transition-all shadow-xs flex flex-col justify-between group">
-            <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1 min-w-0 flex-1">
+            <div>
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5 whitespace-nowrap">
                   <Activity className="w-3.5 h-3.5 text-[var(--color-success)] shrink-0" />
-                  Dev Servers & RAM
+                  Dev RAM & Servers
                 </span>
-                <div className="flex items-baseline gap-2 whitespace-nowrap overflow-hidden">
-                  <span className="text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap">
-                    {runningList.length > 0
-                      ? `${runningList.length} Active`
-                      : totalDevRam > 0
-                      ? formatSize(totalDevRam)
-                      : '0 Active'}
-                  </span>
-                  <span className="text-xs font-mono font-medium text-[var(--color-success)] bg-[var(--color-success-bg)] px-1.5 py-0.5 rounded border border-[var(--color-success-border)] shrink-0 whitespace-nowrap">
-                    {runningList.length > 0
-                      ? `${formatSize(totalDevRam)} RAM`
-                      : totalDevRam > 0
-                      ? 'Dev RAM'
-                      : 'Idle'}
-                  </span>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleQuickTrimRam}
+                  disabled={cleanSlateLoading}
+                  className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-black transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1 shrink-0 select-none shadow-xs"
+                  title="Trim working sets to reclaim physical RAM"
+                >
+                  <Zap className="w-3 h-3" />
+                  <span>Trim RAM</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleQuickTrimRam}
-                disabled={cleanSlateLoading}
-                className="px-2 py-1 rounded-md text-[10px] font-semibold bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-black transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1 shrink-0 select-none shadow-xs"
-                title="Trim working sets to reclaim physical RAM"
-              >
-                <Zap className="w-3 h-3" />
-                <span>Trim RAM</span>
-              </button>
+              <div className="mt-2 flex items-baseline gap-2 whitespace-nowrap">
+                <span className="text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight">
+                  {runningList.length > 0
+                    ? `${runningList.length} Active`
+                    : totalDevRam > 0
+                    ? formatSize(totalDevRam)
+                    : '0 Active'}
+                </span>
+                <span className="text-xs font-mono font-medium text-[var(--color-success)] bg-[var(--color-success-bg)] px-1.5 py-0.5 rounded border border-[var(--color-success-border)] shrink-0">
+                  {runningList.length > 0
+                    ? `${formatSize(totalDevRam)} RAM`
+                    : totalDevRam > 0
+                    ? 'Dev RAM'
+                    : 'Idle'}
+                </span>
+              </div>
             </div>
             <div className="text-[11px] text-[var(--color-text-tertiary)] mt-2 flex items-center justify-between gap-1">
               <span className="truncate">
                 {runningList.length > 0
                   ? `Ports: ${runningList.flatMap((w) => w.ports || []).slice(0, 3).map((p) => `:${p}`).join(' ')}`
                   : totalDevRam > 0
-                  ? `${devProcesses.length} background dev process${devProcesses.length === 1 ? '' : 'es'}`
-                  : 'Zero dev servers running'}
+                  ? `${devProcesses.length} dev procs`
+                  : 'Zero dev servers active'}
               </span>
               {totalDevRam > 0 && (
                 <button
                   type="button"
                   onClick={() => setConfirmCleanSlate(true)}
                   disabled={cleanSlateLoading}
-                  className="text-[10px] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] hover:underline cursor-pointer shrink-0 font-medium"
+                  className="text-[10px] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] hover:underline cursor-pointer shrink-0 font-medium whitespace-nowrap ml-1"
                   title="Terminate background dev servers to free memory"
                 >
                   Kill all & free →
@@ -829,75 +829,76 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
           {/* Card 3: Work Guardian (Git Loss Prevention) */}
           <div className="bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/80 border border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-xl p-3.5 transition-all shadow-xs flex flex-col justify-between group">
-            <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1 min-w-0 flex-1">
+            <div>
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5 whitespace-nowrap">
                   <GitBranch className="w-3.5 h-3.5 text-[var(--color-warning)] shrink-0" />
                   Work Guardian
                 </span>
-                <div className="text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap overflow-hidden">
-                  {dirtyList.length > 0 && unpushedList.length > 0
-                    ? `${dirtyList.length} Unsaved`
-                    : dirtyList.length > 0
-                    ? `${dirtyList.length} Unsaved`
-                    : unpushedList.length > 0
-                    ? `${unpushedList.length} Unpushed`
-                    : 'All Synced'}
-                </div>
+                {(dirtyList.length > 0 || unpushedList.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => setFilter(dirtyList.length > 0 ? 'dirty' : 'unpushed')}
+                    className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-[var(--color-warning)] hover:bg-[var(--color-warning)] hover:text-black transition-colors cursor-pointer shrink-0"
+                    title="Filter to repos requiring attention"
+                  >
+                    Review
+                  </button>
+                )}
               </div>
-              {(dirtyList.length > 0 || unpushedList.length > 0) && (
-                <button
-                  type="button"
-                  onClick={() => setFilter(dirtyList.length > 0 ? 'dirty' : 'unpushed')}
-                  className="px-2 py-1 rounded-md text-[10px] font-semibold bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-[var(--color-warning)] hover:bg-[var(--color-warning)] hover:text-black transition-colors cursor-pointer shrink-0"
-                  title="Filter to repos requiring attention"
-                >
-                  Review
-                </button>
-              )}
+              <div className="mt-2 text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap">
+                {dirtyList.length > 0 && unpushedList.length > 0
+                  ? `${dirtyList.length} Unsaved`
+                  : dirtyList.length > 0
+                  ? `${dirtyList.length} Unsaved`
+                  : unpushedList.length > 0
+                  ? `${unpushedList.length} Unpushed`
+                  : 'All Synced'}
+              </div>
             </div>
-            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2 truncate">
+            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2">
               {unpushedList.length > 0
-                ? `${unpushedList.length} repo${unpushedList.length === 1 ? '' : 's'} ahead of remote (local only!)`
+                ? `${unpushedList.length} repo${unpushedList.length === 1 ? '' : 's'} ahead of remote`
                 : dirtyList.length > 0
-                ? `${dirtyList.length} repo${dirtyList.length === 1 ? '' : 's'} with uncommitted changes`
-                : 'All repositories safely committed & in sync'}
+                ? `${dirtyList.length} repo${dirtyList.length === 1 ? '' : 's'} uncommitted`
+                : 'All repositories safely in sync'}
             </p>
           </div>
 
           {/* Card 4: Secrets & Security Radar */}
           <div className="bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/80 border border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-xl p-3.5 transition-all shadow-xs flex flex-col justify-between group">
-            <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1 min-w-0 flex-1">
+            <div>
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5 whitespace-nowrap">
                   <Shield className="w-3.5 h-3.5 text-[var(--color-info)] shrink-0" />
                   Security Radar
                 </span>
-                <div className="text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap overflow-hidden">
-                  {secretsList.length === 0 ? (
-                    <span className="text-[var(--color-success)] flex items-center gap-1 text-lg">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" /> 100% Shielded
-                    </span>
-                  ) : (
-                    <span className="text-[var(--color-danger)]">
-                      {secretsList.length} Exposed
-                    </span>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setSecretsRadarOpen(true)}
+                  className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[var(--color-surface-3)] hover:bg-[var(--color-surface-4)] text-[var(--color-text-primary)] border border-[var(--color-border)] transition-colors cursor-pointer shrink-0"
+                  title="Scan for exposed API tokens and credentials"
+                >
+                  Open Radar
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSecretsRadarOpen(true)}
-                className="px-2 py-1 rounded-md text-[10px] font-semibold bg-[var(--color-surface-3)] hover:bg-[var(--color-surface-4)] text-[var(--color-text-primary)] border border-[var(--color-border)] transition-colors cursor-pointer shrink-0"
-                title="Scan for exposed API tokens and credentials"
-              >
-                Open Radar
-              </button>
+              <div className="mt-2 text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap">
+                {secretsList.length === 0 ? (
+                  <span className="text-[var(--color-success)] flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>100% Shielded</span>
+                  </span>
+                ) : (
+                  <span className="text-[var(--color-danger)]">
+                    {secretsList.length} Exposed
+                  </span>
+                )}
+              </div>
             </div>
-            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2 truncate">
+            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2">
               {secretsList.length > 0
-                ? 'Unprotected .env files or credentials found'
-                : 'All environment secrets ignored & protected'}
+                ? 'Unprotected .env files found'
+                : 'All environment secrets protected'}
             </p>
           </div>
         </div>
