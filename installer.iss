@@ -10,7 +10,7 @@
 #define MyAppExeName "Entropy.exe"
 
 [Setup]
-AppId={{D6F9A2B1-4A5C-4F7E-8E2B-9C1D0E3F5A7B}
+AppId={{8B3E1F5A-7C2D-4E9A-9B4F-1E8D5C2A7F3E}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
@@ -20,6 +20,7 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableDirPage=yes
+UsePreviousAppDir=no
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
