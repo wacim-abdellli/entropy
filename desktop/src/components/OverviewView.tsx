@@ -2,9 +2,9 @@ import React, { useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
+  Archive,
   ArrowRight,
   ArrowUp,
-  Check,
   CheckCircle2,
   Code2,
   Copy,
@@ -116,7 +116,7 @@ function getFrameworkStyle(type: string): FrameworkStyle {
     };
   }
   return {
-    label: type || 'Custom',
+    label: (type && type.toLowerCase() !== 'unknown') ? type : 'Project',
     badge: 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] border-[var(--color-border-subtle)]',
     dot: 'bg-[var(--color-text-tertiary)]',
   };
@@ -616,30 +616,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               </button>
             </div>
 
-            {totalDevRam > 0 && (
-              <button
-                type="button"
-                onClick={() => setConfirmCleanSlate(true)}
-                className="h-8 px-3 rounded-lg bg-[var(--color-success-bg)] hover:bg-[var(--color-success)]/20 border border-[var(--color-success-border)] text-xs text-[var(--color-success)] flex items-center gap-1.5 font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs select-none"
-                title="Reclaim RAM by terminating background dev processes"
-              >
-                <Zap className="w-3.5 h-3.5 shrink-0" />
-                <span className="whitespace-nowrap">Free {formatSize(totalDevRam)}</span>
-              </button>
-            )}
-
-            {secretsList.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setSecretsRadarOpen(true)}
-                className="h-8 px-3 rounded-lg bg-[var(--color-warning-bg)] hover:bg-[var(--color-warning-bg)]/80 border border-[var(--color-warning-border)] text-xs text-[var(--color-warning)] flex items-center gap-1.5 font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs"
-                title="Audit and shield exposed credentials & .env files across all repos"
-              >
-                <ShieldAlert className="w-3.5 h-3.5 text-[var(--color-warning)] shrink-0" />
-                <span className="whitespace-nowrap">Shield Secrets ({secretsList.length})</span>
-              </button>
-            )}
-
             <button
               type="button"
               onClick={onInspectFolder}
@@ -738,16 +714,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             );
           })}
 
-          <button
-            type="button"
-            onClick={onInspectFolder}
-            className="px-2.5 py-1.5 rounded-lg border border-dashed border-[var(--color-border)] hover:border-[var(--color-accent)] text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-surface-2)] text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1"
-            title="Add a folder to scan roots"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Folder</span>
-          </button>
-
           {onNavigateToSettings && (
             <button
               type="button"
@@ -800,7 +766,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <div className="space-y-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 text-[var(--color-success)]" />
-                  Live Dev Servers & RAM
+                  Dev Servers & RAM
                 </span>
                 <div className="text-xl font-bold font-mono text-[var(--color-text-primary)] flex items-center gap-2">
                   <span>{runningList.length} Active</span>
@@ -811,21 +777,36 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   )}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleQuickTrimRam}
-                disabled={cleanSlateLoading}
-                className="px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                title="Trim working sets to reclaim physical RAM"
-              >
-                <Zap className="w-3 h-3" />
-                <span>Trim RAM</span>
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleQuickTrimRam}
+                  disabled={cleanSlateLoading}
+                  className="px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                  title="Trim working sets to reclaim physical RAM"
+                >
+                  <Zap className="w-3 h-3" />
+                  <span>Trim RAM</span>
+                </button>
+                {totalDevRam > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmCleanSlate(true)}
+                    disabled={cleanSlateLoading}
+                    className="px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-surface-3)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-4)] transition-colors cursor-pointer disabled:opacity-50"
+                    title="Terminate background dev servers to free memory"
+                  >
+                    <span>Free</span>
+                  </button>
+                )}
+              </div>
             </div>
-            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2 truncate">
+            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2">
               {runningList.length > 0
-                ? `Ports: ${runningList.flatMap((w) => w.ports || []).slice(0, 4).map((p) => `:${p}`).join(' ')}`
-                : 'Zero background dev servers hogging ports'}
+                ? `Ports: ${runningList.flatMap((w) => w.ports || []).slice(0, 3).map((p) => `:${p}`).join(' ')}`
+                : totalDevRam > 0
+                ? `${formatSize(totalDevRam)} RAM in ${devProcesses.length} background dev process${devProcesses.length === 1 ? '' : 'es'}`
+                : 'Zero background dev servers running'}
             </p>
           </div>
 
@@ -838,15 +819,21 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   Work Guardian
                 </span>
                 <div className="text-xl font-bold font-mono text-[var(--color-text-primary)]">
-                  {dirtyList.length} Unsaved
+                  {dirtyList.length > 0 && unpushedList.length > 0
+                    ? `${dirtyList.length} Unsaved`
+                    : dirtyList.length > 0
+                    ? `${dirtyList.length} Unsaved`
+                    : unpushedList.length > 0
+                    ? `${unpushedList.length} Unpushed`
+                    : 'All Synced'}
                 </div>
               </div>
-              {dirtyList.length > 0 && (
+              {(dirtyList.length > 0 || unpushedList.length > 0) && (
                 <button
                   type="button"
-                  onClick={() => setFilter('dirty')}
+                  onClick={() => setFilter(dirtyList.length > 0 ? 'dirty' : 'unpushed')}
                   className="px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-[var(--color-warning)] hover:bg-[var(--color-warning)] hover:text-black transition-colors cursor-pointer"
-                  title="Filter to unsaved repositories"
+                  title="Filter to repos requiring attention"
                 >
                   Review
                 </button>
@@ -856,7 +843,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               {unpushedList.length > 0
                 ? `${unpushedList.length} repo${unpushedList.length === 1 ? '' : 's'} ahead of remote (local only!)`
                 : dirtyList.length > 0
-                ? 'Uncommitted changes detected across your repos'
+                ? `${dirtyList.length} repo${dirtyList.length === 1 ? '' : 's'} with uncommitted changes`
                 : 'All repositories safely committed & in sync'}
             </p>
           </div>
@@ -978,7 +965,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         ) : filteredWorkspaces.length > 0 ? (
           viewMode === 'grid' ? (
             /* ── Modern Grid Card Deck View ── */
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5 w-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 w-full">
               {filteredWorkspaces.map((workspace) => {
                 const isDirty = workspace.has_uncommitted_changes;
                 const isRunning = workspace.process_count > 0;
@@ -991,7 +978,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   <div
                     key={workspace.id}
                     onClick={() => onSelectWorkspace(workspace.path)}
-                    className={`group bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/90 border rounded-xl p-4 transition-all duration-150 flex flex-col justify-between shadow-xs hover:shadow-md cursor-pointer relative overflow-hidden ${
+                    className={`group bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/90 border rounded-xl p-3.5 transition-all duration-150 flex flex-col justify-between shadow-xs hover:shadow-md cursor-pointer relative overflow-hidden ${
                       isRunning
                         ? 'border-[var(--color-success)]/40 shadow-[0_0_14px_rgba(16,185,129,0.06)]'
                         : isDirty
@@ -1001,7 +988,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   >
                     {/* Top: Framework Badge & Status Indicators */}
                     <div>
-                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <div className="flex items-center justify-between gap-2 mb-2">
                         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${fw.badge}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${fw.dot}`} />
                           <span>{fw.label}</span>
@@ -1037,7 +1024,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                         {workspace.name}
                       </h3>
 
-                      <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)] font-mono mt-1">
+                      <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)] font-mono mt-0.5">
                         <span className="truncate flex-1" title={workspace.path}>
                           {workspace.path}
                         </span>
@@ -1057,7 +1044,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       </div>
 
                       {/* Telemetry Chips: Ports, Reclaimable, Secrets, Git */}
-                      <div className="mt-3 pt-3 border-t border-[var(--color-border-subtle)] flex flex-wrap items-center gap-1.5 text-xs">
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs">
                         {/* Branch */}
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] font-mono text-[10px] text-[var(--color-text-secondary)]">
                           <GitBranch className="w-2.5 h-2.5 text-[var(--color-accent)]" />
@@ -1090,7 +1077,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                           </span>
                         )}
 
-                        {/* Secret Shield */}
+                        {/* Secret Shield Alert (only rendered when exposed/tracked) */}
                         {(() => {
                           const tracked = workspace.secret_issues?.filter((s) => s.status === 'tracked') || [];
                           const unignored =
@@ -1117,18 +1104,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                               </button>
                             );
                           }
-                          return (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-[var(--color-success)] bg-[var(--color-success-bg)]/40 border border-[var(--color-success-border)]/40 rounded">
-                              <Check className="w-2.5 h-2.5" />
-                              <span>shielded</span>
-                            </span>
-                          );
+                          return null;
                         })()}
                       </div>
                     </div>
 
                     {/* Card Footer Actions */}
-                    <div className="mt-3.5 pt-2.5 border-t border-[var(--color-border-subtle)] flex items-center justify-between gap-1 text-xs">
+                    <div className="mt-2.5 pt-2 border-t border-[var(--color-border-subtle)] flex items-center justify-between gap-1 text-xs">
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
@@ -1181,6 +1163,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                             className="px-2 py-1 rounded-md bg-[var(--color-warning-bg)] hover:bg-[var(--color-warning)] hover:text-black text-[var(--color-warning)] transition-colors cursor-pointer disabled:opacity-50 text-[10px] font-medium flex items-center gap-1"
                             title="Safely stash uncommitted changes"
                           >
+                            <Archive className="w-2.5 h-2.5" />
                             <span>Stash</span>
                           </button>
                         )}

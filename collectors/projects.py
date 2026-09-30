@@ -98,13 +98,10 @@ def _detect_project_type_and_sentinels(
     elif "pubspec.yaml" in filenames:
         sentinels.append("pubspec.yaml")
         ptype = ProjectType.FLUTTER
-    elif "pyproject.toml" in filenames or "setup.py" in filenames or "requirements.txt" in filenames:
-        if "pyproject.toml" in filenames:
-            sentinels.append("pyproject.toml")
-        if "setup.py" in filenames:
-            sentinels.append("setup.py")
-        if "requirements.txt" in filenames:
-            sentinels.append("requirements.txt")
+    elif any(f in filenames for f in ("pyproject.toml", "setup.py", "requirements.txt", "manage.py", "Pipfile", "poetry.lock", "setup.cfg", "tox.ini")) or any(f.endswith(".py") for f in filenames):
+        for candidate in ("pyproject.toml", "setup.py", "requirements.txt", "manage.py", "Pipfile", "poetry.lock"):
+            if candidate in filenames:
+                sentinels.append(candidate)
         ptype = ProjectType.PYTHON
     elif "go.mod" in filenames:
         sentinels.append("go.mod")

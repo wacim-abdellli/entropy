@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Home, Trash2, Monitor, Settings, RefreshCw, Command, LucideIcon } from 'lucide-react';
+import { Search, Home, Trash2, Monitor, Settings, RefreshCw, LucideIcon } from 'lucide-react';
 import { EntropyLogo } from './EntropyLogo';
 import { WorkspaceSummary } from '../types/entropy';
 
@@ -44,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenCommandPalette,
   currentWorkspace,
   totalWorkspacesCount,
-  onSelectWorkspace,
+  onSelectWorkspace: _onSelectWorkspace,
   onBackToOverview,
   onViewAllWorkspaces,
 }) => (
@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <Search className="w-3.5 h-3.5 shrink-0" />
         <span className="hidden lg:inline text-xs truncate">Search workspaces</span>
-        <kbd className="hidden lg:inline ml-auto text-[10px] font-mono text-[var(--color-text-tertiary)]"><Command className="inline w-3 h-3" />K</kbd>
+        <kbd className="hidden lg:inline ml-auto text-[10px] font-mono text-[var(--color-text-tertiary)] bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded border border-[var(--color-border-subtle)]">Ctrl+K</kbd>
       </button>
     </div>
 
