@@ -57,16 +57,25 @@ interface FrameworkStyle {
   dot: string;
 }
 
-function getFrameworkStyle(type: string): FrameworkStyle {
+function getFrameworkStyle(type: string, name?: string): FrameworkStyle {
   const norm = (type || '').toLowerCase();
-  if (norm.includes('flutter')) {
+  const nameNorm = (name || '').toLowerCase();
+
+  if (nameNorm.includes('django') || norm.includes('django')) {
+    return {
+      label: 'Django',
+      badge: 'bg-[var(--color-success-bg)] text-[var(--color-success)] border-[var(--color-success-border)]',
+      dot: 'bg-[var(--color-success)]',
+    };
+  }
+  if (norm.includes('flutter') || nameNorm.includes('flutter')) {
     return {
       label: 'Flutter',
       badge: 'bg-[var(--color-info-bg)] text-[var(--color-info)] border-[var(--color-info-border)]',
       dot: 'bg-[var(--color-info)]',
     };
   }
-  if (norm.includes('node')) {
+  if (norm.includes('node') || norm.includes('react') || norm.includes('next') || norm.includes('vue')) {
     return {
       label: 'Node.js',
       badge: 'bg-[var(--color-success-bg)] text-[var(--color-success)] border-[var(--color-success-border)]',
@@ -733,12 +742,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           {/* Card 1: Reclaimable Disk Junk */}
           <div className="bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/80 border border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-xl p-3.5 transition-all shadow-xs flex flex-col justify-between group">
             <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5">
-                  <HardDrive className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+              <div className="space-y-1 min-w-0 flex-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5 whitespace-nowrap">
+                  <HardDrive className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
                   Disk Reclaimable
                 </span>
-                <div className="text-xl font-bold font-mono text-[var(--color-text-primary)]">
+                <div className="text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap overflow-hidden">
                   {formatSize(totalReclaimableBytes)}
                 </div>
               </div>
@@ -746,14 +755,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilter('cleanup')}
-                  className="px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] hover:bg-[var(--color-accent)] hover:text-white transition-colors cursor-pointer"
+                  className="px-2 py-1 rounded-md text-[10px] font-semibold bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)] hover:text-white transition-colors cursor-pointer shrink-0"
                   title="Filter to cleanable workspaces"
                 >
                   View ({cleanupList.length})
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2">
+            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2 truncate">
               {cleanupList.length > 0
                 ? `${cleanupList.length} workspace${cleanupList.length === 1 ? '' : 's'} with disposable build artifacts`
                 : 'All workspace build folders are clean'}
@@ -763,62 +772,70 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           {/* Card 2: Live Dev RAM & Servers */}
           <div className="bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/80 border border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-xl p-3.5 transition-all shadow-xs flex flex-col justify-between group">
             <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-[var(--color-success)]" />
+              <div className="space-y-1 min-w-0 flex-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5 whitespace-nowrap">
+                  <Activity className="w-3.5 h-3.5 text-[var(--color-success)] shrink-0" />
                   Dev Servers & RAM
                 </span>
-                <div className="text-xl font-bold font-mono text-[var(--color-text-primary)] flex items-center gap-2">
-                  <span>{runningList.length} Active</span>
-                  {totalDevRam > 0 && (
-                    <span className="text-xs font-normal text-[var(--color-success)]">
-                      • {formatSize(totalDevRam)}
-                    </span>
-                  )}
+                <div className="flex items-baseline gap-2 whitespace-nowrap overflow-hidden">
+                  <span className="text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap">
+                    {runningList.length > 0
+                      ? `${runningList.length} Active`
+                      : totalDevRam > 0
+                      ? formatSize(totalDevRam)
+                      : '0 Active'}
+                  </span>
+                  <span className="text-xs font-mono font-medium text-[var(--color-success)] bg-[var(--color-success-bg)] px-1.5 py-0.5 rounded border border-[var(--color-success-border)] shrink-0 whitespace-nowrap">
+                    {runningList.length > 0
+                      ? `${formatSize(totalDevRam)} RAM`
+                      : totalDevRam > 0
+                      ? 'Dev RAM'
+                      : 'Idle'}
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleQuickTrimRam}
+                disabled={cleanSlateLoading}
+                className="px-2 py-1 rounded-md text-[10px] font-semibold bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-black transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1 shrink-0 select-none shadow-xs"
+                title="Trim working sets to reclaim physical RAM"
+              >
+                <Zap className="w-3 h-3" />
+                <span>Trim RAM</span>
+              </button>
+            </div>
+            <div className="text-[11px] text-[var(--color-text-tertiary)] mt-2 flex items-center justify-between gap-1">
+              <span className="truncate">
+                {runningList.length > 0
+                  ? `Ports: ${runningList.flatMap((w) => w.ports || []).slice(0, 3).map((p) => `:${p}`).join(' ')}`
+                  : totalDevRam > 0
+                  ? `${devProcesses.length} background dev process${devProcesses.length === 1 ? '' : 'es'}`
+                  : 'Zero dev servers running'}
+              </span>
+              {totalDevRam > 0 && (
                 <button
                   type="button"
-                  onClick={handleQuickTrimRam}
+                  onClick={() => setConfirmCleanSlate(true)}
                   disabled={cleanSlateLoading}
-                  className="px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                  title="Trim working sets to reclaim physical RAM"
+                  className="text-[10px] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] hover:underline cursor-pointer shrink-0 font-medium"
+                  title="Terminate background dev servers to free memory"
                 >
-                  <Zap className="w-3 h-3" />
-                  <span>Trim RAM</span>
+                  Kill all & free →
                 </button>
-                {totalDevRam > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmCleanSlate(true)}
-                    disabled={cleanSlateLoading}
-                    className="px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-surface-3)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-4)] transition-colors cursor-pointer disabled:opacity-50"
-                    title="Terminate background dev servers to free memory"
-                  >
-                    <span>Free</span>
-                  </button>
-                )}
-              </div>
+              )}
             </div>
-            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2">
-              {runningList.length > 0
-                ? `Ports: ${runningList.flatMap((w) => w.ports || []).slice(0, 3).map((p) => `:${p}`).join(' ')}`
-                : totalDevRam > 0
-                ? `${formatSize(totalDevRam)} RAM in ${devProcesses.length} background dev process${devProcesses.length === 1 ? '' : 'es'}`
-                : 'Zero background dev servers running'}
-            </p>
           </div>
 
           {/* Card 3: Work Guardian (Git Loss Prevention) */}
           <div className="bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/80 border border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-xl p-3.5 transition-all shadow-xs flex flex-col justify-between group">
             <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5">
-                  <GitBranch className="w-3.5 h-3.5 text-[var(--color-warning)]" />
+              <div className="space-y-1 min-w-0 flex-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5 whitespace-nowrap">
+                  <GitBranch className="w-3.5 h-3.5 text-[var(--color-warning)] shrink-0" />
                   Work Guardian
                 </span>
-                <div className="text-xl font-bold font-mono text-[var(--color-text-primary)]">
+                <div className="text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap overflow-hidden">
                   {dirtyList.length > 0 && unpushedList.length > 0
                     ? `${dirtyList.length} Unsaved`
                     : dirtyList.length > 0
@@ -832,14 +849,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilter(dirtyList.length > 0 ? 'dirty' : 'unpushed')}
-                  className="px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-[var(--color-warning)] hover:bg-[var(--color-warning)] hover:text-black transition-colors cursor-pointer"
+                  className="px-2 py-1 rounded-md text-[10px] font-semibold bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-[var(--color-warning)] hover:bg-[var(--color-warning)] hover:text-black transition-colors cursor-pointer shrink-0"
                   title="Filter to repos requiring attention"
                 >
                   Review
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2">
+            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2 truncate">
               {unpushedList.length > 0
                 ? `${unpushedList.length} repo${unpushedList.length === 1 ? '' : 's'} ahead of remote (local only!)`
                 : dirtyList.length > 0
@@ -851,15 +868,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           {/* Card 4: Secrets & Security Radar */}
           <div className="bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/80 border border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-xl p-3.5 transition-all shadow-xs flex flex-col justify-between group">
             <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-[var(--color-info)]" />
+              <div className="space-y-1 min-w-0 flex-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] flex items-center gap-1.5 whitespace-nowrap">
+                  <Shield className="w-3.5 h-3.5 text-[var(--color-info)] shrink-0" />
                   Security Radar
                 </span>
-                <div className="text-xl font-bold font-mono text-[var(--color-text-primary)]">
+                <div className="text-xl font-bold font-mono text-[var(--color-text-primary)] tracking-tight whitespace-nowrap overflow-hidden">
                   {secretsList.length === 0 ? (
                     <span className="text-[var(--color-success)] flex items-center gap-1 text-lg">
-                      <CheckCircle2 className="w-4 h-4" /> 100% Shielded
+                      <CheckCircle2 className="w-4 h-4 shrink-0" /> 100% Shielded
                     </span>
                   ) : (
                     <span className="text-[var(--color-danger)]">
@@ -871,13 +888,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <button
                 type="button"
                 onClick={() => setSecretsRadarOpen(true)}
-                className="px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-surface-3)] hover:bg-[var(--color-surface-4)] text-[var(--color-text-primary)] border border-[var(--color-border)] transition-colors cursor-pointer"
+                className="px-2 py-1 rounded-md text-[10px] font-semibold bg-[var(--color-surface-3)] hover:bg-[var(--color-surface-4)] text-[var(--color-text-primary)] border border-[var(--color-border)] transition-colors cursor-pointer shrink-0"
                 title="Scan for exposed API tokens and credentials"
               >
                 Open Radar
               </button>
             </div>
-            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2">
+            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-2 truncate">
               {secretsList.length > 0
                 ? 'Unprotected .env files or credentials found'
                 : 'All environment secrets ignored & protected'}
@@ -972,7 +989,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 const reclaimableSize = workspaceArtifactSizeMap.get(
                   workspace.path.toLowerCase().replace(/[\\/]+$/, '')
                 ) || 0;
-                const fw = getFrameworkStyle(workspace.project_type);
+                const fw = getFrameworkStyle(workspace.project_type, workspace.name);
 
                 return (
                   <div
@@ -1071,9 +1088,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
                         {/* Reclaimable Space */}
                         {reclaimableSize > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 font-mono text-[10px] text-[var(--color-accent-strong)]">
-                            <HardDrive className="w-2.5 h-2.5" />
-                            <span>{formatSize(reclaimableSize)}</span>
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 font-mono text-[10px] text-[var(--color-accent-strong)]"
+                            title="Reclaimable build artifacts (node_modules, target, etc.)"
+                          >
+                            <Archive className="w-2.5 h-2.5" />
+                            <span>{formatSize(reclaimableSize)} cleanable</span>
                           </span>
                         )}
 
@@ -1215,7 +1235,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   const reclaimableSize = workspaceArtifactSizeMap.get(
                     workspace.path.toLowerCase().replace(/[\\/]+$/, '')
                   ) || 0;
-                  const fw = getFrameworkStyle(workspace.project_type);
+                  const fw = getFrameworkStyle(workspace.project_type, workspace.name);
 
                   return (
                     <div

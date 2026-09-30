@@ -79,10 +79,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-function getNowSeconds(): number {
-  return Date.now() / 1000;
-}
-
 /* ───────────────────────── Main App ───────────────────────── */
 
 export function App() {
@@ -121,7 +117,7 @@ export function App() {
       return null;
     }
   });
-  const [currentWorkspacePath, setCurrentWorkspacePath] = useState<string | null>(() => {
+  const [_currentWorkspacePath, setCurrentWorkspacePath] = useState<string | null>(() => {
     try {
       return (
         localStorage.getItem('entropy_current_workspace') ||
