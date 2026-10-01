@@ -827,6 +827,87 @@ export interface DuplicateReport {
   scanned_roots: string[];
 }
 
+export interface NetworkConnectionItem {
+  id: string;
+  fd: number;
+  family: 'IPv4' | 'IPv6' | string;
+  protocol: 'TCP' | 'UDP' | string;
+  local_ip: string;
+  local_port: number;
+  remote_ip: string | null;
+  remote_port: number | null;
+  status: string;
+  pid: number | null;
+  process_name: string;
+  exe_path: string | null;
+  cmdline_preview: string | null;
+  is_listening: boolean;
+  is_dev: boolean;
+  is_protected: boolean;
+}
+
+export interface PortDiagnosticReport {
+  port: number;
+  is_occupied: boolean;
+  message: string;
+  occupants: NetworkConnectionItem[];
+}
+
+export interface RelocationCandidateItem {
+  id: string;
+  name: string;
+  original_path: string;
+  category: string;
+  size_bytes: number;
+  size_formatted: string;
+  item_count: number;
+  is_junction: boolean;
+  is_moveable: boolean;
+  description: string;
+  target_recommendation?: string | null;
+}
+
+export interface AvailableDestinationItem {
+  drive: string;
+  device: string;
+  fstype: string;
+  is_system: boolean;
+  total_bytes: number;
+  free_bytes: number;
+  free_formatted: string;
+  percent_used: number;
+  recommended: boolean;
+}
+
+export interface ActiveJunctionItem {
+  id: string;
+  name: string;
+  original_path: string;
+  destination_path: string;
+  size_bytes: number;
+  size_formatted: string;
+  created_at: string;
+  is_active: boolean;
+  is_live?: boolean;
+}
+
+export interface RelocationResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  freed_bytes?: number;
+  freed_formatted?: string;
+  junction?: ActiveJunctionItem;
+  locking_processes?: any[];
+}
+
+export interface RestoreJunctionResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+
 
 
 

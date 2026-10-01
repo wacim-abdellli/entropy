@@ -28,6 +28,7 @@ import {
   PowerOff,
   X,
   FileWarning,
+  FolderSync,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -48,6 +49,7 @@ import { StorageTreemap, TreemapItem } from './StorageTreemap';
 import { SecretsRadarModal } from './SecretsRadarModal';
 import { LargeFilesHunterTab } from './LargeFilesHunterTab';
 import { DuplicateFinderTab } from './DuplicateFinderTab';
+import { RescueDriveTab } from './RescueDriveTab';
 
 interface CleanupViewProps {
   overview: EnvironmentOverview;
@@ -56,7 +58,7 @@ interface CleanupViewProps {
   isLoading?: boolean;
 }
 
-type CleanupTab = 'system' | 'artifacts' | 'caches' | 'docker' | 'tuning' | 'large_files' | 'duplicates' | 'treemap';
+type CleanupTab = 'system' | 'artifacts' | 'caches' | 'rescue_drive' | 'docker' | 'tuning' | 'large_files' | 'duplicates' | 'treemap';
 
 const formatBytes = (bytes: number) => {
   if (bytes <= 0) return '0 B';
@@ -1188,6 +1190,20 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
             <span>Duplicate Files</span>
           </button>
 
+          {/* Tab: Rescue C: Drive */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('rescue_drive')}
+            className={`pb-2.5 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+              activeTab === 'rescue_drive'
+                ? 'border-[var(--color-accent)] text-[var(--color-accent-strong)]'
+                : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <FolderSync size={14} className={activeTab === 'rescue_drive' ? 'text-[var(--color-accent)]' : ''} />
+            <span>Rescue C: Drive</span>
+          </button>
+
           {/* Tab 8: Proportional Storage Treemap */}
           <button
             type="button"
@@ -2062,6 +2078,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         {activeTab === 'duplicates' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             <DuplicateFinderTab onNotice={({ message }) => setToastMessage(message)} />
+          </div>
+        )}
+
+        {/* ═══ TAB: Rescue C: Drive (Smart Directory Relocator) ═══ */}
+        {activeTab === 'rescue_drive' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <RescueDriveTab onActionComplete={onRefresh} />
           </div>
         )}
 

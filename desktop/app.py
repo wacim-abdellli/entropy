@@ -650,6 +650,45 @@ class EntropyDesktopApi:
         from core.duplicate_finder import delete_duplicate_file
         return delete_duplicate_file(file_path, use_recycle_bin=use_recycle_bin)
 
+    def get_network_connections(self, only_listening: bool = False) -> list[dict[str, Any]]:
+        """Forensically enumerate active network connections and listening sockets."""
+        from core.network_monitor import get_network_connections
+        return get_network_connections(only_listening=only_listening)
+
+    def get_port_diagnostics(self, port: int) -> dict[str, Any]:
+        """Query forensic process details for a specific occupied port."""
+        from core.network_monitor import get_port_diagnostics
+        return get_port_diagnostics(port=port)
+
+    def discover_relocation_candidates(self) -> list[dict[str, Any]]:
+        """Discover safe-to-relocate developer folders and caches on C: drive."""
+        from core.smart_mover import discover_relocation_candidates
+        return discover_relocation_candidates()
+
+    def get_available_destinations(self) -> list[dict[str, Any]]:
+        """List potential target drives for directory junction relocation."""
+        from core.smart_mover import get_available_destinations
+        return get_available_destinations()
+
+    def get_active_junctions(self) -> list[dict[str, Any]]:
+        """List active directory junctions managed by Entropy."""
+        from core.smart_mover import get_active_junctions
+        return get_active_junctions()
+
+    def relocate_directory_junction(
+        self, source_path: str, target_parent_dir: str, custom_name: Optional[str] = None
+    ) -> dict[str, Any]:
+        """Relocate directory from C: to target drive and create an NTFS directory junction."""
+        from core.smart_mover import relocate_directory_junction
+        return relocate_directory_junction(
+            source_path=source_path, target_parent_dir=target_parent_dir, custom_name=custom_name
+        )
+
+    def restore_directory_junction(self, junction_id: str) -> dict[str, Any]:
+        """Revert directory junction back to original location on C: drive."""
+        from core.smart_mover import restore_directory_junction
+        return restore_directory_junction(junction_id=junction_id)
+
 
 
 

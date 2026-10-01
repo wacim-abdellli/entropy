@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, SquareTerminal, X, XCircle, Zap, CheckCircle2, AlertTriangle, Info, Laptop, Power, Package } from 'lucide-react';
+import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, SquareTerminal, X, XCircle, Zap, CheckCircle2, AlertTriangle, Info, Laptop, Power, Package, Radio } from 'lucide-react';
 import { CacheConnection, DockerConnection, ProcessConnection, RuntimeConnection, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 import { MachineOverviewTab } from './MachineOverviewTab';
 import { StartupManagerTab } from './StartupManagerTab';
 import { InstalledAppsTab } from './InstalledAppsTab';
+import { NetworkMonitorTab } from './NetworkMonitorTab';
 
 interface SystemNotice {
   type: 'boost' | 'success' | 'warning' | 'error' | 'info';
@@ -15,7 +16,7 @@ interface SystemNotice {
 }
 
 interface SystemViewProps {
-  initialTab?: 'overview' | 'startup' | 'apps' | 'processes' | 'runtimes' | 'containers' | 'caches';
+  initialTab?: 'overview' | 'startup' | 'apps' | 'processes' | 'network' | 'runtimes' | 'containers' | 'caches';
   processes?: ProcessConnection[];
   runtimes?: RuntimeConnection[];
   containers?: DockerConnection[];
@@ -231,6 +232,12 @@ export const SystemView: React.FC<SystemViewProps> = ({
   };
 
   const developerProcessCount = useMemo(() => devProcesses.length, [devProcesses]);
+
+  const listeningPortCount = useMemo(() => {
+    const portSet = new Set<number>();
+    processes.forEach((p) => (p.ports || []).forEach((port) => portSet.add(port)));
+    return portSet.size;
+  }, [processes]);
 
   const workspaceProcesses = useMemo(() => {
     if (!currentWorkspace?.path) return [];
@@ -524,6 +531,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
             {tabButton('startup', 'Startup Apps', Power, startupCount)}
             {tabButton('apps', 'Installed Apps', Package, appsCount)}
             {tabButton('processes', 'Processes', Activity, processes.length)}
+            {tabButton('network', 'Ports & Network', Radio, listeningPortCount)}
             {tabButton('runtimes', 'Runtimes', Cpu, runtimes.length)}
             {tabButton('containers', 'Containers', Boxes, containers.length)}
             {tabButton('caches', 'Caches', Database, caches.length)}
@@ -611,6 +619,12 @@ export const SystemView: React.FC<SystemViewProps> = ({
         {tab === 'apps' && (
           <InstalledAppsTab
             onNotice={(n) => setNotice({ type: n.type, title: n.title, message: n.message })}
+          />
+        )}
+
+        {tab === 'network' && (
+          <NetworkMonitorTab
+            onActionComplete={onActionComplete}
           />
         )}
 

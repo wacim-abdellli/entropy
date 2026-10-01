@@ -50,6 +50,8 @@ hiddenimports = [
     'core.large_files',
     'core.installed_apps',
     'core.duplicate_finder',
+    'core.network_monitor',
+    'core.smart_mover',
     'collectors',
     'collectors.artifacts',
     'collectors.git',

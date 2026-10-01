@@ -36,7 +36,9 @@ entropy/
 │   ├── startup_manager.py    # Windows Task Manager synchronized startup app manager
 │   ├── large_files.py        # Workspace large file scanner with Recycle Bin safety
 │   ├── installed_apps.py     # Installed desktop applications & developer tools inventory
-│   └── duplicate_finder.py   # 3-pass cryptographic duplicate file hunter
+│   ├── duplicate_finder.py   # 3-pass cryptographic duplicate file hunter
+│   ├── network_monitor.py    # Active TCP/UDP connections, listening sockets & port diagnostics
+│   └── smart_mover.py        # Smart File Mover ("Rescue C: Drive") via NTFS Directory Junctions
 ├── collectors/               # Data collection modules
 │   ├── git.py                # Git status, branch, uncommitted files, unpushed commits
 │   ├── processes.py          # Active dev processes, listening ports, PID correlation
@@ -59,15 +61,17 @@ entropy/
 │   │   ├── components/       # Action-oriented React components
 │   │   │   ├── Sidebar.tsx   # Navigation & quick workspace switcher
 │   │   │   ├── OverviewView.tsx # Actionable dashboard with workspace table & quick actions
-│   │   │   ├── CleanupView.tsx  # Multi-tab disk reclaimer (System, Artifacts, Caches, Docker, Tuning, Large Files, Duplicates)
+│   │   │   ├── CleanupView.tsx  # Multi-tab disk reclaimer (System, Artifacts, Caches, Rescue C:, Docker, Tuning, Large Files, Duplicates)
 │   │   │   ├── WorkspaceView.tsx# Workspace details, git status, secrets & process list
 │   │   │   ├── WorkspaceAdvisorCard.tsx # Diagnostic health card with confirmation modal & health tips
-│   │   │   ├── SystemView.tsx   # Overview, Startup Apps, Installed Software, Processes, Runtimes, Containers & Caches
+│   │   │   ├── SystemView.tsx   # Overview, Startup Apps, Installed Software, Processes, Ports & Network, Runtimes, Containers & Caches
 │   │   │   ├── MachineOverviewTab.tsx # Hardware specs, storage drives, partition topology & live throughput gauges
 │   │   │   ├── StartupManagerTab.tsx  # Windows startup apps toggle & removal synchronized with Task Manager
 │   │   │   ├── LargeFilesHunterTab.tsx# Categorized large file finder with Recycle Bin deletion
 │   │   │   ├── InstalledAppsTab.tsx   # Registered software inventory with dev filters & uninstaller launcher
 │   │   │   ├── DuplicateFinderTab.tsx # 3-pass hash duplicate hunter with batch cleanup
+│   │   │   ├── NetworkMonitorTab.tsx  # Process-correlated socket forensics & port releaser
+│   │   │   ├── RescueDriveTab.tsx     # Smart File Mover ("Rescue C: Drive") directory junction manager
 │   │   │   ├── SettingsView.tsx # Scan directory configuration & preferences
 │   │   │   ├── CommandPalette.tsx # Global launcher overlay (Ctrl+K)
 │   │   │   ├── StorageTreemap.tsx # Interactive storage breakdown visualization

@@ -32,6 +32,13 @@ import {
   LargeFileItem,
   InstalledAppItem,
   DuplicateReport,
+  NetworkConnectionItem,
+  PortDiagnosticReport,
+  RelocationCandidateItem,
+  AvailableDestinationItem,
+  ActiveJunctionItem,
+  RelocationResult,
+  RestoreJunctionResult,
 } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
@@ -44,6 +51,10 @@ import {
   MOCK_LARGE_FILES,
   MOCK_INSTALLED_APPS,
   MOCK_DUPLICATE_REPORT,
+  MOCK_NETWORK_CONNECTIONS,
+  MOCK_RELOCATION_CANDIDATES,
+  MOCK_AVAILABLE_DESTINATIONS,
+  MOCK_ACTIVE_JUNCTIONS,
 } from './mockData';
 
 interface ActionResult {
@@ -132,6 +143,13 @@ interface PyWebViewApi {
   open_app_folder?(path: string): Promise<ActionResult | string>;
   scan_duplicate_files?(roots?: string[] | null, min_size_kb?: number): Promise<DuplicateReport | string>;
   delete_duplicate_file?(file_path: string, use_recycle_bin?: boolean): Promise<ActionResult & { freed_bytes?: number } | string>;
+  get_network_connections?(only_listening?: boolean): Promise<NetworkConnectionItem[] | string>;
+  get_port_diagnostics?(port: number): Promise<PortDiagnosticReport | string>;
+  discover_relocation_candidates?(): Promise<RelocationCandidateItem[] | string>;
+  get_available_destinations?(): Promise<AvailableDestinationItem[] | string>;
+  get_active_junctions?(): Promise<ActiveJunctionItem[] | string>;
+  relocate_directory_junction?(source_path: string, target_parent_dir: string, custom_name?: string): Promise<RelocationResult | string>;
+  restore_directory_junction?(junction_id: string): Promise<RestoreJunctionResult | string>;
 }
 
 interface EntropyWindow extends Window {
@@ -1788,6 +1806,149 @@ export class EntropyApiClient {
       }
     }
     return { success: true, message: 'Moved duplicate to Windows Recycle Bin.', freed_bytes: 22439526 };
+  }
+
+  /**
+   * Forensically enumerate active network connections and listening sockets.
+   */
+  static async getNetworkConnections(onlyListening: boolean = false): Promise<NetworkConnectionItem[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_network_connections) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_network_connections!(onlyListening);
+          return parseBridgeResponse<NetworkConnectionItem[]>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to get network connections:', err);
+      }
+    }
+    return onlyListening
+      ? MOCK_NETWORK_CONNECTIONS.filter((c) => c.is_listening)
+      : MOCK_NETWORK_CONNECTIONS;
+  }
+
+  /**
+   * Query forensic process details for a specific occupied port.
+   */
+  static async getPortDiagnostics(port: number): Promise<PortDiagnosticReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_port_diagnostics) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_port_diagnostics!(port);
+          return parseBridgeResponse<PortDiagnosticReport>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to get port diagnostics:', err);
+      }
+    }
+    const matching = MOCK_NETWORK_CONNECTIONS.filter((c) => c.local_port === port);
+    return {
+      port,
+      is_occupied: matching.length > 0,
+      message: matching.length > 0 ? `Port ${port} is occupied.` : `Port ${port} is free.`,
+      occupants: matching,
+    };
+  }
+
+  /**
+   * Discover safe-to-relocate developer folders and caches on C: drive.
+   */
+  static async discoverRelocationCandidates(): Promise<RelocationCandidateItem[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.discover_relocation_candidates) {
+          const res = await bridgeWindow()!.pywebview!.api!.discover_relocation_candidates!();
+          return parseBridgeResponse<RelocationCandidateItem[]>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to discover relocation candidates:', err);
+      }
+    }
+    return MOCK_RELOCATION_CANDIDATES;
+  }
+
+  /**
+   * List potential target drives for directory junction relocation.
+   */
+  static async getAvailableDestinations(): Promise<AvailableDestinationItem[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_available_destinations) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_available_destinations!();
+          return parseBridgeResponse<AvailableDestinationItem[]>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to get available destinations:', err);
+      }
+    }
+    return MOCK_AVAILABLE_DESTINATIONS;
+  }
+
+  /**
+   * List active directory junctions managed by Entropy.
+   */
+  static async getActiveJunctions(): Promise<ActiveJunctionItem[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_active_junctions) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_active_junctions!();
+          return parseBridgeResponse<ActiveJunctionItem[]>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to get active junctions:', err);
+      }
+    }
+    return MOCK_ACTIVE_JUNCTIONS;
+  }
+
+  /**
+   * Relocate directory from C: to target drive and create an NTFS directory junction.
+   */
+  static async relocateDirectoryJunction(
+    sourcePath: string,
+    targetParentDir: string,
+    customName?: string
+  ): Promise<RelocationResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.relocate_directory_junction) {
+          const res = await bridgeWindow()!.pywebview!.api!.relocate_directory_junction!(
+            sourcePath,
+            targetParentDir,
+            customName
+          );
+          return parseBridgeResponse<RelocationResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      message: `Relocated ${sourcePath} to ${targetParentDir}. Reclaimed 15.2 GB on C: Drive.`,
+      freed_bytes: 16320875724,
+      freed_formatted: '15.2 GB',
+    };
+  }
+
+  /**
+   * Revert directory junction back to original location on C: drive.
+   */
+  static async restoreDirectoryJunction(junctionId: string): Promise<RestoreJunctionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.restore_directory_junction) {
+          const res = await bridgeWindow()!.pywebview!.api!.restore_directory_junction!(junctionId);
+          return parseBridgeResponse<RestoreJunctionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      message: `Restored junction ${junctionId} back to C: drive.`,
+    };
   }
 }
 
