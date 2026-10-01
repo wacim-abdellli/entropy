@@ -62,6 +62,7 @@ export const InstalledAppsTab: React.FC<InstalledAppsTabProps> = ({ onNotice }) 
   const [apps, setApps] = useState<InstalledAppItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<AppCategoryFilter>('all');
   const [sortField, setSortField] = useState<SortField>('size');
@@ -69,12 +70,45 @@ export const InstalledAppsTab: React.FC<InstalledAppsTabProps> = ({ onNotice }) 
   const [confirmUninstallApp, setConfirmUninstallApp] = useState<InstalledAppItem | null>(null);
   const [launchingAppId, setLaunchingAppId] = useState<string | null>(null);
 
-  const fetchApps = async () => {
+  const fetchApps = async (isManual = false) => {
+    if (isManual) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    const startTime = Date.now();
     try {
       const data = await EntropyApiClient.getInstalledApps();
       setApps(data || []);
+
+      // If manual refresh, guarantee at least 500ms of spinning animation so the user clearly sees the action
+      if (isManual) {
+        const elapsed = Date.now() - startTime;
+        if (elapsed < 500) {
+          await new Promise((resolve) => setTimeout(resolve, 500 - elapsed));
+        }
+      }
+
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setLastSyncedTime(timeStr);
+
+      if (isManual) {
+        onNotice?.({
+          type: 'success',
+          title: 'Registry Synced',
+          message: `Refreshed installed apps. Verified ${data?.length || 0} applications across Windows registry hives.`,
+        });
+      }
     } catch (err) {
       console.error('Failed to load installed apps:', err);
+      if (isManual) {
+        onNotice?.({
+          type: 'error',
+          title: 'Sync Failed',
+          message: 'Could not query Windows Registry for installed applications.',
+        });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -82,12 +116,12 @@ export const InstalledAppsTab: React.FC<InstalledAppsTabProps> = ({ onNotice }) 
   };
 
   useEffect(() => {
-    void fetchApps();
+    void fetchApps(false);
   }, []);
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchApps();
+    if (refreshing) return;
+    await fetchApps(true);
   };
 
   // Keyboard shortcut to close modal
@@ -262,24 +296,36 @@ export const InstalledAppsTab: React.FC<InstalledAppsTabProps> = ({ onNotice }) 
 
         {/* Card 4: Quick Refresh Action */}
         <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-xs flex items-center justify-between">
-          <div>
+          <div className="min-w-0 pr-2">
             <span className="text-xs font-medium text-[var(--color-text-secondary)]">Registry Status</span>
-            <div className="text-sm font-semibold text-[var(--color-success)] flex items-center gap-1.5 mt-1">
-              <CheckCircle2 size={16} />
-              <span>Live Synced</span>
-            </div>
-            <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5">
-              64-bit &amp; 32-bit hives checked
+            {refreshing ? (
+              <div className="text-sm font-semibold text-[var(--color-accent)] flex items-center gap-1.5 mt-1">
+                <RefreshCw size={15} className="animate-spin text-[var(--color-accent)] shrink-0" />
+                <span>Scanning Registry…</span>
+              </div>
+            ) : (
+              <div className="text-sm font-semibold text-[var(--color-success)] flex items-center gap-1.5 mt-1">
+                <CheckCircle2 size={16} className="shrink-0 text-[var(--color-success)]" />
+                <span>Live Synced</span>
+              </div>
+            )}
+            <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5 truncate">
+              {refreshing
+                ? 'Querying 64-bit & 32-bit hives…'
+                : lastSyncedTime
+                ? `Updated at ${lastSyncedTime}`
+                : '64-bit & 32-bit hives checked'}
             </div>
           </div>
           <button
             type="button"
             onClick={handleRefresh}
-            disabled={refreshing || loading}
+            disabled={refreshing}
+            title="Rescan Windows Registry for installed applications"
             aria-label="Refresh installed apps registry"
-            className="p-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer transition-colors"
+            className="p-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] hover:border-[var(--color-accent)]/50 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] cursor-pointer transition-all active:scale-95 disabled:opacity-50 shrink-0"
           >
-            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={refreshing ? 'animate-spin text-[var(--color-accent)]' : ''} />
           </button>
         </div>
       </div>
