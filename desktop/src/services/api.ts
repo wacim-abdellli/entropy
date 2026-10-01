@@ -26,12 +26,24 @@ import {
   ShieldSecretsResult,
   DefenderBatchResult,
   UserProfileInfo,
+  SystemSpecsReport,
+  LiveSystemMetrics,
+  StartupProgramItem,
+  LargeFileItem,
+  InstalledAppItem,
+  DuplicateReport,
 } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
   MOCK_ENTROPY_INSPECTION,
   MOCK_ENVIRONMENT_OVERVIEW,
   MOCK_TALIB_INSPECTION,
+  MOCK_SYSTEM_SPECS,
+  MOCK_LIVE_METRICS,
+  MOCK_STARTUP_PROGRAMS,
+  MOCK_LARGE_FILES,
+  MOCK_INSTALLED_APPS,
+  MOCK_DUPLICATE_REPORT,
 } from './mockData';
 
 interface ActionResult {
@@ -108,6 +120,18 @@ interface PyWebViewApi {
   get_last_workspace?(): Promise<string | null | string>;
   save_last_workspace?(path: string | null): Promise<string | null | string>;
   get_user_profile?(): Promise<UserProfileInfo | string>;
+  get_system_specs?(force_refresh?: boolean): Promise<SystemSpecsReport | string>;
+  get_live_system_metrics?(): Promise<LiveSystemMetrics | string>;
+  get_startup_programs?(): Promise<StartupProgramItem[] | string>;
+  set_startup_program_state?(item_id: string, enable: boolean): Promise<ActionResult | string>;
+  remove_startup_program?(item_id: string): Promise<ActionResult | string>;
+  scan_large_files?(roots?: string[] | null, min_size_mb?: number): Promise<LargeFileItem[] | string>;
+  delete_large_file?(file_path: string, use_recycle_bin?: boolean): Promise<ActionResult | string>;
+  get_installed_apps?(): Promise<InstalledAppItem[] | string>;
+  launch_app_uninstaller?(app_id: string): Promise<ActionResult | string>;
+  open_app_folder?(path: string): Promise<ActionResult | string>;
+  scan_duplicate_files?(roots?: string[] | null, min_size_kb?: number): Promise<DuplicateReport | string>;
+  delete_duplicate_file?(file_path: string, use_recycle_bin?: boolean): Promise<ActionResult & { freed_bytes?: number } | string>;
 }
 
 interface EntropyWindow extends Window {
@@ -1560,6 +1584,210 @@ export class EntropyApiClient {
       results: [],
       message: 'Successfully shielded 1 secret file(s) across 1 repository.',
     };
+  }
+
+  /**
+   * Retrieve deep forensic system specifications, hardware inventory, and disk storage map.
+   */
+  static async getSystemSpecs(forceRefresh: boolean = false): Promise<SystemSpecsReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_system_specs) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_system_specs!(forceRefresh);
+          return parseBridgeResponse<SystemSpecsReport>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to get system specs:', err);
+      }
+    }
+    return MOCK_SYSTEM_SPECS;
+  }
+
+  /**
+   * Poll real-time throughput metrics (CPU %, RAM %, Disk I/O, Net I/O).
+   */
+  static async getLiveSystemMetrics(): Promise<LiveSystemMetrics> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_live_system_metrics) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_live_system_metrics!();
+          return parseBridgeResponse<LiveSystemMetrics>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to get live metrics:', err);
+      }
+    }
+    return MOCK_LIVE_METRICS;
+  }
+
+  /**
+   * Retrieve all Windows auto-start programs from registry and startup folder.
+   */
+  static async getStartupPrograms(): Promise<StartupProgramItem[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_startup_programs) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_startup_programs!();
+          return parseBridgeResponse<StartupProgramItem[]>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to get startup programs:', err);
+      }
+    }
+    return MOCK_STARTUP_PROGRAMS;
+  }
+
+  /**
+   * Toggle a startup program enabled or disabled.
+   */
+  static async setStartupProgramState(itemId: string, enable: boolean): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.set_startup_program_state) {
+          const res = await bridgeWindow()!.pywebview!.api!.set_startup_program_state!(itemId, enable);
+          return parseBridgeResponse<ActionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: `Updated startup program state.` };
+  }
+
+  /**
+   * Remove a startup program permanently.
+   */
+  static async removeStartupProgram(itemId: string): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.remove_startup_program) {
+          const res = await bridgeWindow()!.pywebview!.api!.remove_startup_program!(itemId);
+          return parseBridgeResponse<ActionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: `Removed startup program.` };
+  }
+
+  /**
+   * Search workspace directories for large files exceeding min_size_mb.
+   */
+  static async scanLargeFiles(roots?: string[] | null, minSizeMb: number = 25): Promise<LargeFileItem[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.scan_large_files) {
+          const res = await bridgeWindow()!.pywebview!.api!.scan_large_files!(roots, minSizeMb);
+          return parseBridgeResponse<LargeFileItem[]>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to scan large files:', err);
+      }
+    }
+    return MOCK_LARGE_FILES;
+  }
+
+  /**
+   * Safely delete a large file, defaulting to Windows Recycle Bin.
+   */
+  static async deleteLargeFile(filePath: string, useRecycleBin: boolean = true): Promise<ActionResult & { freed_bytes?: number }> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.delete_large_file) {
+          const res = await bridgeWindow()!.pywebview!.api!.delete_large_file!(filePath, useRecycleBin);
+          return parseBridgeResponse<ActionResult & { freed_bytes?: number }>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: 'Deleted file.', freed_bytes: 22439526 };
+  }
+
+  /**
+   * Retrieve all registered installed desktop software and developer tools.
+   */
+  static async getInstalledApps(): Promise<InstalledAppItem[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_installed_apps) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_installed_apps!();
+          return parseBridgeResponse<InstalledAppItem[]>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to get installed apps:', err);
+      }
+    }
+    return MOCK_INSTALLED_APPS;
+  }
+
+  /**
+   * Launch the official Windows uninstaller for an application.
+   */
+  static async launchAppUninstaller(appId: string): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.launch_app_uninstaller) {
+          const res = await bridgeWindow()!.pywebview!.api!.launch_app_uninstaller!(appId);
+          return parseBridgeResponse<ActionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: `Launched uninstaller for application.` };
+  }
+
+  /**
+   * Open an application installation directory in Windows File Explorer.
+   */
+  static async openAppFolder(path: string): Promise<ActionResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.open_app_folder) {
+          const res = await bridgeWindow()!.pywebview!.api!.open_app_folder!(path);
+          return parseBridgeResponse<ActionResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: `Opened ${path} in File Explorer.` };
+  }
+
+  /**
+   * Scan workspace directories for duplicate files using 3-pass hash pipeline.
+   */
+  static async scanDuplicateFiles(roots?: string[] | null, minSizeKb: number = 10): Promise<DuplicateReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.scan_duplicate_files) {
+          const res = await bridgeWindow()!.pywebview!.api!.scan_duplicate_files!(roots, minSizeKb);
+          return parseBridgeResponse<DuplicateReport>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to scan duplicate files:', err);
+      }
+    }
+    return MOCK_DUPLICATE_REPORT;
+  }
+
+  /**
+   * Safely delete a duplicate file copy, defaulting to Windows Recycle Bin.
+   */
+  static async deleteDuplicateFile(filePath: string, useRecycleBin: boolean = true): Promise<ActionResult & { freed_bytes?: number }> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.delete_duplicate_file) {
+          const res = await bridgeWindow()!.pywebview!.api!.delete_duplicate_file!(filePath, useRecycleBin);
+          return parseBridgeResponse<ActionResult & { freed_bytes?: number }>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: 'Moved duplicate to Windows Recycle Bin.', freed_bytes: 22439526 };
   }
 }
 

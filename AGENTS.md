@@ -31,7 +31,12 @@ entropy/
 │   ├── graph.py              # In-memory EnvironmentGraph representation
 │   ├── findings.py           # Anomaly heuristics & graph-based diagnosis rules
 │   ├── file_locker.py        # Win32 Restart Manager file locking diagnostics
-│   └── docker_control.py     # Docker container control & daemon management
+│   ├── docker_control.py     # Docker container control & daemon management
+│   ├── system_info.py        # Hardware forensics, dual GPU, partition topology & live metrics
+│   ├── startup_manager.py    # Windows Task Manager synchronized startup app manager
+│   ├── large_files.py        # Workspace large file scanner with Recycle Bin safety
+│   ├── installed_apps.py     # Installed desktop applications & developer tools inventory
+│   └── duplicate_finder.py   # 3-pass cryptographic duplicate file hunter
 ├── collectors/               # Data collection modules
 │   ├── git.py                # Git status, branch, uncommitted files, unpushed commits
 │   ├── processes.py          # Active dev processes, listening ports, PID correlation
@@ -54,10 +59,15 @@ entropy/
 │   │   ├── components/       # Action-oriented React components
 │   │   │   ├── Sidebar.tsx   # Navigation & quick workspace switcher
 │   │   │   ├── OverviewView.tsx # Actionable dashboard with workspace table & quick actions
-│   │   │   ├── CleanupView.tsx  # Multi-tab disk reclaimer (System, Artifacts, Caches, Docker, Tuning)
+│   │   │   ├── CleanupView.tsx  # Multi-tab disk reclaimer (System, Artifacts, Caches, Docker, Tuning, Large Files, Duplicates)
 │   │   │   ├── WorkspaceView.tsx# Workspace details, git status, secrets & process list
 │   │   │   ├── WorkspaceAdvisorCard.tsx # Diagnostic health card with confirmation modal & health tips
-│   │   │   ├── SystemView.tsx   # Processes, Runtimes, Containers, Caches & RAM Booster
+│   │   │   ├── SystemView.tsx   # Overview, Startup Apps, Installed Software, Processes, Runtimes, Containers & Caches
+│   │   │   ├── MachineOverviewTab.tsx # Hardware specs, storage drives, partition topology & live throughput gauges
+│   │   │   ├── StartupManagerTab.tsx  # Windows startup apps toggle & removal synchronized with Task Manager
+│   │   │   ├── LargeFilesHunterTab.tsx# Categorized large file finder with Recycle Bin deletion
+│   │   │   ├── InstalledAppsTab.tsx   # Registered software inventory with dev filters & uninstaller launcher
+│   │   │   ├── DuplicateFinderTab.tsx # 3-pass hash duplicate hunter with batch cleanup
 │   │   │   ├── SettingsView.tsx # Scan directory configuration & preferences
 │   │   │   ├── CommandPalette.tsx # Global launcher overlay (Ctrl+K)
 │   │   │   ├── StorageTreemap.tsx # Interactive storage breakdown visualization

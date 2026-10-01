@@ -1,0 +1,578 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Copy,
+  RefreshCw,
+  FolderOpen,
+  Trash2,
+  Search,
+  AlertTriangle,
+  HardDrive,
+  CheckCircle2,
+  FileText,
+  SlidersHorizontal,
+  Loader2,
+  ShieldCheck,
+  Check,
+} from 'lucide-react';
+import { DuplicateGroupItem, DuplicateFileItem, DuplicateReport } from '../types/entropy';
+import { EntropyApiClient } from '../services/api';
+
+interface DuplicateFinderTabProps {
+  onNotice?: (notice: { type: 'success' | 'error' | 'info'; title: string; message: string }) => void;
+}
+
+function formatBytes(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined || isNaN(bytes) || bytes <= 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice }) => {
+  const [report, setReport] = useState<DuplicateReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [minSizeKb, setMinSizeKb] = useState<number>(10);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [confirmDeleteFile, setConfirmDeleteFile] = useState<DuplicateFileItem | null>(null);
+  const [confirmCleanGroup, setConfirmCleanGroup] = useState<{ group: DuplicateGroupItem; keep: 'newest' | 'oldest' } | null>(null);
+  const [deletingPath, setDeletingPath] = useState<string | null>(null);
+  const [cleaningGroupId, setCleaningGroupId] = useState<string | null>(null);
+
+  const fetchDuplicates = async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    else setLoading(true);
+
+    try {
+      const data = await EntropyApiClient.scanDuplicateFiles(null, minSizeKb);
+      setReport(data);
+    } catch (err) {
+      console.error('Failed to scan duplicate files:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchDuplicates();
+  }, [minSizeKb]);
+
+  // Keyboard shortcut to close modals on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setConfirmDeleteFile(null);
+        setConfirmCleanGroup(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleDeleteSingle = async (file: DuplicateFileItem) => {
+    setDeletingPath(file.path);
+    try {
+      const res = await EntropyApiClient.deleteDuplicateFile(file.path, true);
+      if (res.success) {
+        onNotice?.({
+          type: 'success',
+          title: 'Moved to Recycle Bin',
+          message: res.message || `Moved ${file.name} to Windows Recycle Bin.`,
+        });
+
+        // Optimistically remove deleted file from group in state
+        setReport((prev) => {
+          if (!prev) return prev;
+          const updatedGroups = prev.groups
+            .map((g) => {
+              const remainingFiles = g.files.filter((f) => f.path !== file.path);
+              if (remainingFiles.length < 2) return null; // No longer a duplicate group
+              const wasted = (remainingFiles.length - 1) * g.file_size_bytes;
+              return {
+                ...g,
+                file_count: remainingFiles.length,
+                wasted_bytes: wasted,
+                wasted_formatted: formatBytes(wasted),
+                files: remainingFiles,
+              };
+            })
+            .filter((g): g is DuplicateGroupItem => g !== null);
+
+          const totalWasted = updatedGroups.reduce((acc, g) => acc + g.wasted_bytes, 0);
+          return {
+            ...prev,
+            groups: updatedGroups,
+            total_groups: updatedGroups.length,
+            total_duplicate_files: updatedGroups.reduce((acc, g) => acc + g.file_count, 0),
+            total_wasted_bytes: totalWasted,
+            total_wasted_formatted: formatBytes(totalWasted),
+          };
+        });
+      } else {
+        onNotice?.({
+          type: 'error',
+          title: 'Deletion Failed',
+          message: res.error || 'Could not move file to Recycle Bin.',
+        });
+      }
+    } catch (err) {
+      onNotice?.({
+        type: 'error',
+        title: 'Error',
+        message: String(err),
+      });
+    } finally {
+      setDeletingPath(null);
+      setConfirmDeleteFile(null);
+    }
+  };
+
+  const handleCleanGroup = async (group: DuplicateGroupItem, keep: 'newest' | 'oldest') => {
+    setCleaningGroupId(group.group_id);
+    // Sort files to determine target to keep
+    const sorted = [...group.files].sort((a, b) => {
+      return keep === 'newest' ? b.last_modified - a.last_modified : a.last_modified - b.last_modified;
+    });
+
+    const fileToKeep = sorted[0];
+    const filesToDelete = sorted.slice(1);
+
+    let deletedCount = 0;
+    let totalFreed = 0;
+
+    for (const f of filesToDelete) {
+      try {
+        const res = await EntropyApiClient.deleteDuplicateFile(f.path, true);
+        if (res.success) {
+          deletedCount += 1;
+          totalFreed += res.freed_bytes || f.size_bytes;
+        }
+      } catch (err) {
+        console.error('Failed to delete file:', f.path, err);
+      }
+    }
+
+    onNotice?.({
+      type: 'success',
+      title: 'Group Cleaned',
+      message: `Preserved ${fileToKeep.name} (${keep}). Moved ${deletedCount} redundant copies (${formatBytes(totalFreed)}) to Recycle Bin.`,
+    });
+
+    // Remove group from report
+    setReport((prev) => {
+      if (!prev) return prev;
+      const updatedGroups = prev.groups.filter((g) => g.group_id !== group.group_id);
+      const totalWasted = updatedGroups.reduce((acc, g) => acc + g.wasted_bytes, 0);
+      return {
+        ...prev,
+        groups: updatedGroups,
+        total_groups: updatedGroups.length,
+        total_duplicate_files: updatedGroups.reduce((acc, g) => acc + g.file_count, 0),
+        total_wasted_bytes: totalWasted,
+        total_wasted_formatted: formatBytes(totalWasted),
+      };
+    });
+
+    setCleaningGroupId(null);
+    setConfirmCleanGroup(null);
+  };
+
+  const handleOpenFolder = async (filePath: string) => {
+    try {
+      const folder = filePath.substring(0, Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/')));
+      await EntropyApiClient.openInExplorer(folder);
+    } catch (err) {
+      console.error('Failed to open folder:', err);
+    }
+  };
+
+  // Filter groups by query
+  const filteredGroups = useMemo(() => {
+    if (!report?.groups) return [];
+    if (!searchQuery.trim()) return report.groups;
+    const q = searchQuery.toLowerCase();
+    return report.groups.filter((g) => {
+      return g.files.some((f) => f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q));
+    });
+  }, [report, searchQuery]);
+
+  return (
+    <div className="space-y-6">
+      {/* ── Summary Hero Cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Duplicate Groups */}
+        <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-[var(--color-text-secondary)]">Duplicate Groups</span>
+            <div className="text-xl font-bold font-mono text-[var(--color-text-primary)] mt-1">
+              {loading ? '—' : report?.total_groups ?? 0}
+            </div>
+            <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5">
+              Exact SHA-256 byte matches
+            </div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)]">
+            <Copy size={20} />
+          </div>
+        </div>
+
+        {/* Card 2: Redundant Copies */}
+        <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-[var(--color-text-secondary)]">Redundant Copies</span>
+            <div className="text-xl font-bold font-mono text-[var(--color-warning)] mt-1">
+              {loading ? '—' : (report?.total_duplicate_files ?? 0) - (report?.total_groups ?? 0)}
+            </div>
+            <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5">
+              Superfluous extra files
+            </div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] flex items-center justify-center text-[var(--color-warning)]">
+            <AlertTriangle size={20} />
+          </div>
+        </div>
+
+        {/* Card 3: Recoverable Space */}
+        <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-[var(--color-text-secondary)]">Recoverable Space</span>
+            <div className="text-xl font-bold font-mono text-[var(--color-success)] mt-1">
+              {loading ? '—' : report?.total_wasted_formatted ?? '0 B'}
+            </div>
+            <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5">
+              Space saved by cleaning duplicates
+            </div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-[var(--color-success-bg)] border border-[var(--color-success-border)] flex items-center justify-center text-[var(--color-success)]">
+            <HardDrive size={20} />
+          </div>
+        </div>
+
+        {/* Card 4: Safety & Refresh */}
+        <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-[var(--color-text-secondary)]">Recycle Bin Safety</span>
+            <div className="text-sm font-semibold text-[var(--color-success)] flex items-center gap-1.5 mt-1">
+              <ShieldCheck size={16} />
+              <span>100% Undoable</span>
+            </div>
+            <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5">
+              Moved to Recycle Bin
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void fetchDuplicates(true)}
+            disabled={refreshing || loading}
+            aria-label="Rescan duplicates"
+            className="p-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer transition-colors"
+          >
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Toolbar: Threshold Selector & Search ── */}
+      <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-xs">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filter duplicates by file name or directory path…"
+            aria-label="Filter duplicates"
+            className="w-full pl-9 pr-4 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-hidden focus:border-[var(--color-accent)] transition-colors"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal size={14} className="text-[var(--color-text-tertiary)]" />
+          <span className="text-xs text-[var(--color-text-tertiary)] shrink-0">Min size:</span>
+          <div className="flex items-center gap-1">
+            {[
+              { label: '10 KB', val: 10 },
+              { label: '100 KB', val: 100 },
+              { label: '1 MB', val: 1024 },
+              { label: '10 MB', val: 10240 },
+            ].map((opt) => (
+              <button
+                key={opt.val}
+                type="button"
+                onClick={() => setMinSizeKb(opt.val)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer ${
+                  minSizeKb === opt.val
+                    ? 'bg-[var(--color-accent)] text-white'
+                    : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)]'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Duplicate Groups List ── */}
+      <div className="space-y-4">
+        {loading ? (
+          <div className="p-12 text-center space-y-3 border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-1)]">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-[var(--color-accent)]" />
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Computing 3-pass cryptographic hashes across workspace files…
+            </p>
+          </div>
+        ) : filteredGroups.length === 0 ? (
+          <div className="p-12 text-center space-y-2 border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-1)]">
+            <CheckCircle2 className="w-8 h-8 mx-auto text-[var(--color-success)]" />
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Zero Duplicate Files Found!</h3>
+            <p className="text-xs text-[var(--color-text-tertiary)]">
+              All scanned files are unique. No redundant copies wasting disk storage.
+            </p>
+          </div>
+        ) : (
+          filteredGroups.map((group) => {
+            const newest = group.files[0];
+            const isGroupBusy = cleaningGroupId === group.group_id;
+
+            return (
+              <div
+                key={group.group_id}
+                className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-1)] overflow-hidden shadow-xs"
+              >
+                {/* Group Header */}
+                <div className="p-4 bg-[var(--color-surface-2)]/60 border-b border-[var(--color-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-[var(--color-surface-3)] flex items-center justify-center text-[var(--color-text-primary)] shrink-0">
+                      <Copy size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-[var(--color-text-primary)] truncate">
+                          {newest.name}
+                        </span>
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[var(--color-surface-3)] text-[var(--color-text-secondary)]">
+                          {group.file_count} identical copies
+                        </span>
+                        <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]">
+                          +{group.wasted_formatted} wasted
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-mono text-[var(--color-text-tertiary)] mt-0.5">
+                        SHA-256: {group.group_id}… • {group.file_size_formatted} per copy
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Batch Quick Action: Keep Newest */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmCleanGroup({ group, keep: 'newest' })}
+                      disabled={isGroupBusy}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                    >
+                      {isGroupBusy ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Check size={13} />
+                      )}
+                      <span>Keep Newest (Trash Others)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Copies List */}
+                <div className="divide-y divide-[var(--color-border-subtle)]">
+                  {group.files.map((file, idx) => {
+                    const isNewest = idx === 0;
+                    const isDeleting = deletingPath === file.path;
+
+                    return (
+                      <div
+                        key={file.path}
+                        className="p-3.5 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[var(--color-surface-2)]/40 transition-colors"
+                      >
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <FileText className="w-4 h-4 text-[var(--color-text-tertiary)] shrink-0 mt-0.5" />
+                          <div className="min-w-0 space-y-0.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-mono font-medium text-[var(--color-text-primary)] truncate">
+                                {file.path}
+                              </span>
+                              {isNewest && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
+                                  NEWEST
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-[var(--color-text-tertiary)] flex items-center gap-3">
+                              <span>Modified: <span className="font-mono">{file.last_modified_formatted}</span></span>
+                              <span>Size: <span className="font-mono">{formatBytes(file.size_bytes)}</span></span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* File Actions */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => void handleOpenFolder(file.path)}
+                            title="Open containing folder"
+                            aria-label={`Open folder for ${file.name}`}
+                            className="p-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                          >
+                            <FolderOpen size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteFile(file)}
+                            disabled={isDeleting || isGroupBusy}
+                            title="Move this copy to Recycle Bin"
+                            aria-label={`Move ${file.name} to Recycle Bin`}
+                            className="p-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] hover:bg-[var(--color-danger-bg)] text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger-border)] transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {isDeleting ? (
+                              <Loader2 size={14} className="animate-spin text-[var(--color-danger)]" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* ── Single File Delete Confirmation Modal ── */}
+      {confirmDeleteFile && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-[var(--color-warning)] shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  Move Duplicate to Recycle Bin?
+                </h3>
+                <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                  This duplicate copy will be safely moved to the Windows Recycle Bin. Other copies of this file remain intact.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)] space-y-1 text-xs font-mono">
+              <div className="text-[var(--color-text-primary)] truncate font-semibold">
+                {confirmDeleteFile.name}
+              </div>
+              <div className="text-[11px] text-[var(--color-text-tertiary)] break-all">
+                {confirmDeleteFile.path}
+              </div>
+              <div className="text-[11px] text-[var(--color-accent-strong)] font-semibold pt-1">
+                Freed Space: {formatBytes(confirmDeleteFile.size_bytes)}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteFile(null)}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteSingle(confirmDeleteFile)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-danger)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+              >
+                <Trash2 size={13} />
+                <span>Move to Recycle Bin</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Group Cleanup Confirmation Modal ── */}
+      {confirmCleanGroup && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 text-[var(--color-accent)] shrink-0">
+                <Check size={20} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  Keep {confirmCleanGroup.keep === 'newest' ? 'Newest' : 'Oldest'} File &amp; Clean Others?
+                </h3>
+                <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                  Entropy will keep the {confirmCleanGroup.keep} version and send the remaining{' '}
+                  <strong className="text-[var(--color-text-primary)]">
+                    {confirmCleanGroup.group.file_count - 1} redundant copies
+                  </strong>{' '}
+                  to the Windows Recycle Bin.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)] space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-[var(--color-text-secondary)]">File:</span>
+                <span className="font-semibold text-[var(--color-text-primary)]">
+                  {confirmCleanGroup.group.files[0].name}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--color-text-secondary)]">Copies to Recycle:</span>
+                <span className="font-mono text-[var(--color-warning)] font-semibold">
+                  {confirmCleanGroup.group.file_count - 1} files
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--color-text-secondary)]">Total Reclaimable Space:</span>
+                <span className="font-mono text-[var(--color-success)] font-semibold">
+                  {confirmCleanGroup.group.wasted_formatted}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmCleanGroup(null)}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCleanGroup(confirmCleanGroup.group, confirmCleanGroup.keep)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+              >
+                <Trash2 size={13} />
+                <span>Clean Redundant Copies</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

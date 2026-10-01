@@ -581,7 +581,7 @@ export function App() {
       if (overview) {
         return (
           <SystemView
-            initialTab="processes"
+            initialTab="overview"
             processes={overview.system?.processes || []}
             runtimes={overview.system?.runtimes || []}
             containers={overview.system?.containers || []}

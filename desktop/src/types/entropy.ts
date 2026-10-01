@@ -656,6 +656,177 @@ export interface UserProfileInfo {
   standard_dev_roots: string[];
 }
 
+export interface SystemOsInfo {
+  product_name: string;
+  version: string;
+  build: string;
+  arch: string;
+  hostname: string;
+}
+
+export interface SystemPcInfo {
+  manufacturer: string;
+  model: string;
+}
+
+export interface SystemCpuInfo {
+  name: string;
+  physical_cores: number;
+  logical_cores: number;
+  current_freq_mhz?: number | null;
+  max_freq_mhz?: number | null;
+  percent: number;
+}
+
+export interface SystemRamInfo {
+  total_bytes: number;
+  used_bytes: number;
+  available_bytes: number;
+  percent: number;
+  swap_total_bytes: number;
+  swap_used_bytes: number;
+}
+
+export interface SystemGpuInfo {
+  name: string;
+  adapter_ram_bytes?: number | null;
+  driver_version?: string | null;
+}
+
+export interface SystemBatteryInfo {
+  has_battery: boolean;
+  percent?: number | null;
+  power_plugged?: boolean | null;
+}
+
+export interface SystemDrivePartition {
+  mountpoint: string;
+  device: string;
+  label: string;
+  fstype: string;
+  total_bytes: number;
+  used_bytes: number;
+  free_bytes: number;
+  percent: number;
+  is_system: boolean;
+  status: 'healthy' | 'warning' | 'critical';
+  media_type?: string | null;
+  friendly_name?: string | null;
+}
+
+export interface PhysicalDiskInfo {
+  device_id: string;
+  friendly_name: string;
+  media_type: string;
+  bus_type: string;
+  size_bytes: number;
+}
+
+export interface RawPartitionInfo {
+  disk_number: number;
+  partition_number: number;
+  drive_letter?: string | null;
+  size_bytes: number;
+  partition_type: string;
+}
+
+export interface SystemSpecsReport {
+  os: SystemOsInfo;
+  pc: SystemPcInfo;
+  cpu: SystemCpuInfo;
+  ram: SystemRamInfo;
+  gpus: SystemGpuInfo[];
+  battery: SystemBatteryInfo;
+  uptime_seconds: number;
+  uptime_formatted: string;
+  drives: SystemDrivePartition[];
+  physical_disks?: PhysicalDiskInfo[];
+  raw_partitions?: RawPartitionInfo[];
+}
+
+export interface LiveSystemMetrics {
+  cpu_percent: number;
+  ram_percent: number;
+  ram_used_bytes: number;
+  ram_total_bytes: number;
+  disk_read_bytes_sec: number;
+  disk_write_bytes_sec: number;
+  net_sent_bytes_sec: number;
+  net_recv_bytes_sec: number;
+  uptime_seconds: number;
+  uptime_formatted: string;
+}
+
+export interface StartupProgramItem {
+  id: string;
+  name: string;
+  command: string;
+  exe_path: string;
+  exists: boolean;
+  is_enabled: boolean;
+  scope: 'user_registry' | 'system_registry' | 'startup_folder';
+  source: string;
+  can_modify: boolean;
+  impact: 'high' | 'medium' | 'low';
+}
+
+export interface LargeFileItem {
+  path: string;
+  name: string;
+  extension: string;
+  size_bytes: number;
+  last_modified: number;
+  category: 'media' | 'archive' | 'database' | 'model_ml' | 'binary' | 'dataset' | 'other';
+  workspace_root: string;
+  relative_path: string;
+}
+
+export interface InstalledAppItem {
+  id: string;
+  name: string;
+  version?: string | null;
+  publisher?: string | null;
+  install_date?: string | null;
+  size_bytes?: number | null;
+  size_formatted?: string;
+  install_location?: string | null;
+  scope: 'user' | 'system';
+  category: 'development' | 'browser' | 'communication' | 'productivity' | 'utility' | 'media' | 'game' | 'other';
+  can_uninstall: boolean;
+  uninstall_command?: string | null;
+  is_dev_tool: boolean;
+}
+
+export interface DuplicateFileItem {
+  path: string;
+  name: string;
+  extension: string;
+  size_bytes: number;
+  last_modified: number;
+  last_modified_formatted: string;
+  relative_path: string;
+  workspace_root: string;
+}
+
+export interface DuplicateGroupItem {
+  group_id: string;
+  file_size_bytes: number;
+  file_size_formatted: string;
+  file_count: number;
+  wasted_bytes: number;
+  wasted_formatted: string;
+  files: DuplicateFileItem[];
+}
+
+export interface DuplicateReport {
+  groups: DuplicateGroupItem[];
+  total_groups: number;
+  total_duplicate_files: number;
+  total_wasted_bytes: number;
+  total_wasted_formatted: string;
+  scanned_roots: string[];
+}
+
 
 
 

@@ -1,7 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, SquareTerminal, X, XCircle, Zap, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, SquareTerminal, X, XCircle, Zap, CheckCircle2, AlertTriangle, Info, Laptop, Power, Package } from 'lucide-react';
 import { CacheConnection, DockerConnection, ProcessConnection, RuntimeConnection, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
+import { MachineOverviewTab } from './MachineOverviewTab';
+import { StartupManagerTab } from './StartupManagerTab';
+import { InstalledAppsTab } from './InstalledAppsTab';
 
 interface SystemNotice {
   type: 'boost' | 'success' | 'warning' | 'error' | 'info';
@@ -12,7 +15,7 @@ interface SystemNotice {
 }
 
 interface SystemViewProps {
-  initialTab?: 'processes' | 'runtimes' | 'containers' | 'caches';
+  initialTab?: 'overview' | 'startup' | 'apps' | 'processes' | 'runtimes' | 'containers' | 'caches';
   processes?: ProcessConnection[];
   runtimes?: RuntimeConnection[];
   containers?: DockerConnection[];
@@ -83,7 +86,7 @@ function formatReadableProcessError(rawError?: string, procName?: string, pid?: 
 }
 
 export const SystemView: React.FC<SystemViewProps> = ({
-  initialTab = 'processes',
+  initialTab = 'overview',
   processes = [],
   runtimes = [],
   containers = [],
@@ -101,6 +104,17 @@ export const SystemView: React.FC<SystemViewProps> = ({
   const [confirmCleanSlate, setConfirmCleanSlate] = useState(false);
   const [cleanSlateLoading, setCleanSlateLoading] = useState(false);
   const [trimming, setTrimming] = useState(false);
+  const [startupCount, setStartupCount] = useState<number>(0);
+  const [appsCount, setAppsCount] = useState<number>(0);
+
+  useEffect(() => {
+    EntropyApiClient.getStartupPrograms()
+      .then((it) => setStartupCount(it.length))
+      .catch(() => {});
+    EntropyApiClient.getInstalledApps()
+      .then((it) => setAppsCount(it.length))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!notice) return;
@@ -506,6 +520,9 @@ export const SystemView: React.FC<SystemViewProps> = ({
       <div className="w-full px-4 sm:px-8 py-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="p-1 rounded-md bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] flex gap-1">
+            {tabButton('overview', 'Machine & Drives', Laptop, 1)}
+            {tabButton('startup', 'Startup Apps', Power, startupCount)}
+            {tabButton('apps', 'Installed Apps', Package, appsCount)}
             {tabButton('processes', 'Processes', Activity, processes.length)}
             {tabButton('runtimes', 'Runtimes', Cpu, runtimes.length)}
             {tabButton('containers', 'Containers', Boxes, containers.length)}
@@ -577,6 +594,26 @@ export const SystemView: React.FC<SystemViewProps> = ({
             </div>
           )}
         </div>
+
+        {tab === 'overview' && (
+          <MachineOverviewTab
+            onTrimWorkingSets={handleTrimAll}
+            trimming={trimming}
+          />
+        )}
+
+        {tab === 'startup' && (
+          <StartupManagerTab
+            onNotice={(n) => setNotice({ type: n.type, title: n.title, message: n.message })}
+          />
+        )}
+
+        {tab === 'apps' && (
+          <InstalledAppsTab
+            onNotice={(n) => setNotice({ type: n.type, title: n.title, message: n.message })}
+          />
+        )}
+
         {tab === 'processes' && (
           <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-surface-1)]">
             <div className="grid grid-cols-[1.1fr_90px_150px_1.6fr_132px] gap-4 px-4 py-2 text-[10px] uppercase tracking-[0.08em] text-[var(--color-text-tertiary)] border-b border-[var(--color-border-subtle)]">

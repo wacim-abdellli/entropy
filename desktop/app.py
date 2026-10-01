@@ -590,6 +590,66 @@ class EntropyDesktopApi:
         )
         return asdict(health)
 
+    def get_system_specs(self, force_refresh: bool = False) -> dict[str, Any]:
+        """Produce comprehensive forensic system specifications, storage partitions, and hardware inventory."""
+        from core.system_info import get_system_specs
+        return get_system_specs(force_refresh=force_refresh)
+
+    def get_live_system_metrics(self) -> dict[str, Any]:
+        """Return instant real-time throughput metrics (CPU, RAM, Disk I/O, Net I/O)."""
+        from core.system_info import get_live_metrics
+        return get_live_metrics()
+
+    def get_startup_programs(self) -> list[dict[str, Any]]:
+        """Retrieve Windows startup applications across HKCU, HKLM, and Startup folder."""
+        from core.startup_manager import get_startup_programs
+        return get_startup_programs()
+
+    def set_startup_program_state(self, item_id: str, enable: bool) -> dict[str, Any]:
+        """Enable or disable a Windows startup application using native StartupApproved hive."""
+        from core.startup_manager import set_startup_program_state
+        return set_startup_program_state(item_id, enable)
+
+    def remove_startup_program(self, item_id: str) -> dict[str, Any]:
+        """Remove a startup application permanently from HKCU Run or Startup folder."""
+        from core.startup_manager import remove_startup_program
+        return remove_startup_program(item_id)
+
+    def scan_large_files(self, roots: Optional[list[str]] = None, min_size_mb: int = 25) -> list[dict[str, Any]]:
+        """Search workspace directories for large files exceeding threshold."""
+        from core.large_files import scan_large_files
+        return scan_large_files(roots=roots, min_size_mb=min_size_mb)
+
+    def delete_large_file(self, file_path: str, use_recycle_bin: bool = True) -> dict[str, Any]:
+        """Safely delete a large file, defaulting to Windows Recycle Bin."""
+        from core.large_files import delete_large_file
+        return delete_large_file(file_path, use_recycle_bin=use_recycle_bin)
+
+    def get_installed_apps(self) -> list[dict[str, Any]]:
+        """Retrieve registered installed desktop software and developer applications."""
+        from core.installed_apps import get_installed_apps
+        return get_installed_apps()
+
+    def launch_app_uninstaller(self, app_id: str) -> dict[str, Any]:
+        """Launch the official Windows uninstaller for an application."""
+        from core.installed_apps import launch_uninstaller
+        return launch_uninstaller(app_id)
+
+    def open_app_folder(self, path: str) -> dict[str, Any]:
+        """Open an application installation folder in Windows File Explorer."""
+        from core.installed_apps import open_install_folder
+        return open_install_folder(path)
+
+    def scan_duplicate_files(self, roots: Optional[list[str]] = None, min_size_kb: int = 10) -> dict[str, Any]:
+        """Scan workspace roots for identical duplicate files using 3-pass hash pipeline."""
+        from core.duplicate_finder import scan_duplicate_files
+        return scan_duplicate_files(roots=roots, min_size_bytes=min_size_kb * 1024)
+
+    def delete_duplicate_file(self, file_path: str, use_recycle_bin: bool = True) -> dict[str, Any]:
+        """Safely delete duplicate file copy to Windows Recycle Bin."""
+        from core.duplicate_finder import delete_duplicate_file
+        return delete_duplicate_file(file_path, use_recycle_bin=use_recycle_bin)
+
 
 
 

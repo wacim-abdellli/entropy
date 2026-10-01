@@ -27,6 +27,7 @@ import {
   FolderCheck,
   PowerOff,
   X,
+  FileWarning,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -45,6 +46,8 @@ import { DevDriveCard } from './DevDriveCard';
 import { CleanupSafetyModal } from './CleanupSafetyModal';
 import { StorageTreemap, TreemapItem } from './StorageTreemap';
 import { SecretsRadarModal } from './SecretsRadarModal';
+import { LargeFilesHunterTab } from './LargeFilesHunterTab';
+import { DuplicateFinderTab } from './DuplicateFinderTab';
 
 interface CleanupViewProps {
   overview: EnvironmentOverview;
@@ -53,7 +56,7 @@ interface CleanupViewProps {
   isLoading?: boolean;
 }
 
-type CleanupTab = 'system' | 'artifacts' | 'caches' | 'docker' | 'tuning' | 'treemap';
+type CleanupTab = 'system' | 'artifacts' | 'caches' | 'docker' | 'tuning' | 'large_files' | 'duplicates' | 'treemap';
 
 const formatBytes = (bytes: number) => {
   if (bytes <= 0) return '0 B';
@@ -1157,7 +1160,35 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
             )}
           </button>
 
-          {/* Tab 6: Proportional Storage Treemap */}
+          {/* Tab 6: Large Files Hunter */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('large_files')}
+            className={`pb-2.5 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+              activeTab === 'large_files'
+                ? 'border-[var(--color-accent)] text-[var(--color-accent-strong)]'
+                : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <FileWarning size={14} className={activeTab === 'large_files' ? 'text-[var(--color-accent)]' : ''} />
+            <span>Large Files</span>
+          </button>
+
+          {/* Tab 7: Duplicate File Hunter */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('duplicates')}
+            className={`pb-2.5 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+              activeTab === 'duplicates'
+                ? 'border-[var(--color-accent)] text-[var(--color-accent-strong)]'
+                : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <Copy size={14} className={activeTab === 'duplicates' ? 'text-[var(--color-accent)]' : ''} />
+            <span>Duplicate Files</span>
+          </button>
+
+          {/* Tab 8: Proportional Storage Treemap */}
           <button
             type="button"
             onClick={() => setActiveTab('treemap')}
@@ -2020,7 +2051,21 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
           </div>
         )}
 
-        {/* ═══ TAB 6: Proportional Storage Treemap ═══ */}
+        {/* ═══ TAB 6: Large Files Hunter ═══ */}
+        {activeTab === 'large_files' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <LargeFilesHunterTab onNotice={({ message }) => setToastMessage(message)} />
+          </div>
+        )}
+
+        {/* ═══ TAB 7: Duplicate File Hunter ═══ */}
+        {activeTab === 'duplicates' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <DuplicateFinderTab onNotice={({ message }) => setToastMessage(message)} />
+          </div>
+        )}
+
+        {/* ═══ TAB 8: Proportional Storage Treemap ═══ */}
         {activeTab === 'treemap' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             <StorageTreemap items={treemapItems} />
