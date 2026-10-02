@@ -366,7 +366,7 @@ def serialize_graph_and_findings(graph: EnvironmentGraph, findings: list) -> str
     return json.dumps(data, indent=2, default=str)
 
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 
 def build_parser() -> argparse.ArgumentParser:
