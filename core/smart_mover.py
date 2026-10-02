@@ -328,7 +328,20 @@ def relocate_directory_junction(
     # ── Phase 3: Create NTFS Directory Junction (mklink /J) ──
     try:
         cmd = ['cmd.exe', '/c', 'mklink', '/J', src_abs, dest_path]
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
+        startupinfo = None
+        if os.name == "nt":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 1)
+            startupinfo.wShowWindow = 0
+        res = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=True,
+            creationflags=creationflags,
+            startupinfo=startupinfo,
+        )
         logger.info("Created directory junction: %s", res.stdout.strip())
     except subprocess.CalledProcessError as e:
         # Revert: rename backup back to source
@@ -415,7 +428,18 @@ def restore_directory_junction(junction_id: str) -> Dict[str, Any]:
         shutil.move(dest_path, orig_path)
     except Exception as e:
         # Re-link junction to prevent data loss
-        subprocess.run(['cmd.exe', '/c', 'mklink', '/J', orig_path, dest_path], check=False)
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
+        startupinfo = None
+        if os.name == "nt":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 1)
+            startupinfo.wShowWindow = 0
+        subprocess.run(
+            ['cmd.exe', '/c', 'mklink', '/J', orig_path, dest_path],
+            check=False,
+            creationflags=creationflags,
+            startupinfo=startupinfo,
+        )
         return {"success": False, "error": f"Failed to move files back: {e}"}
 
     # Update manifest

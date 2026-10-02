@@ -230,33 +230,64 @@ def _get_battery_info() -> Dict[str, Any]:
     }
 
 
-def _probe_gpus() -> List[Dict[str, Any]]:
-    """Probe GPUs via PowerShell Get-CimInstance Win32_VideoController."""
+def _run_silent_powershell(command: str, timeout: int = 6) -> Optional[str]:
+    """Execute a PowerShell command with zero console window or visual popup on Windows."""
     cmd = [
         "powershell",
         "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
         "-Command",
-        "Get-CimInstance Win32_VideoController | Select-Object -Property Name, AdapterRAM, DriverVersion | ConvertTo-Json",
+        command,
     ]
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
+    startupinfo = None
+    if os.name == "nt":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 1)
+        startupinfo.wShowWindow = 0  # SW_HIDE
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=6)
+        res = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            creationflags=creationflags,
+            startupinfo=startupinfo,
+        )
         if res.returncode == 0 and res.stdout.strip():
-            raw = json.loads(res.stdout)
-            items = raw if isinstance(raw, list) else [raw]
-            gpus = []
-            for item in items:
-                name = item.get("Name")
-                if not name:
-                    continue
-                ram = item.get("AdapterRAM")
-                # Sometimes 32-bit uint overflow occurs or AdapterRAM is negative in WMI
-                adapter_ram = int(ram) if ram and int(ram) > 0 else None
-                gpus.append({
-                    "name": str(name).strip(),
-                    "adapter_ram_bytes": adapter_ram,
-                    "driver_version": str(item.get("DriverVersion", "")).strip() or None,
-                })
-            return gpus
+            return res.stdout
+    except Exception as e:
+        logger.debug("PowerShell command failed: %s", e)
+    return None
+
+
+def _probe_gpus() -> List[Dict[str, Any]]:
+    """Probe GPUs via PowerShell Get-CimInstance Win32_VideoController."""
+    stdout = _run_silent_powershell(
+        "Get-CimInstance Win32_VideoController | Select-Object -Property Name, AdapterRAM, DriverVersion | ConvertTo-Json",
+        timeout=6,
+    )
+    if not stdout:
+        return []
+    try:
+        raw = json.loads(stdout)
+        items = raw if isinstance(raw, list) else [raw]
+        gpus = []
+        for item in items:
+            name = item.get("Name")
+            if not name:
+                continue
+            ram = item.get("AdapterRAM")
+            # Sometimes 32-bit uint overflow occurs or AdapterRAM is negative in WMI
+            adapter_ram = int(ram) if ram and int(ram) > 0 else None
+            gpus.append({
+                "name": str(name).strip(),
+                "adapter_ram_bytes": adapter_ram,
+                "driver_version": str(item.get("DriverVersion", "")).strip() or None,
+            })
+        return gpus
     except Exception as e:
         logger.debug("Failed to query GPUs via PowerShell: %s", e)
 
@@ -265,30 +296,28 @@ def _probe_gpus() -> List[Dict[str, Any]]:
 
 def _probe_physical_disks() -> List[Dict[str, Any]]:
     """Probe physical hardware drives (SSD/NVMe vs HDD, BusType, Size) via PowerShell."""
-    cmd = [
-        "powershell",
-        "-NoProfile",
-        "-Command",
+    stdout = _run_silent_powershell(
         "Get-PhysicalDisk | Select-Object DeviceId, FriendlyName, MediaType, BusType, Size | ConvertTo-Json",
-    ]
+        timeout=6,
+    )
+    if not stdout:
+        return []
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=6)
-        if res.returncode == 0 and res.stdout.strip():
-            raw = json.loads(res.stdout)
-            items = raw if isinstance(raw, list) else [raw]
-            disks = []
-            for item in items:
-                friendly = item.get("FriendlyName")
-                if not friendly:
-                    continue
-                disks.append({
-                    "device_id": str(item.get("DeviceId", "")),
-                    "friendly_name": str(friendly).strip(),
-                    "media_type": str(item.get("MediaType", "Fixed")).strip(),
-                    "bus_type": str(item.get("BusType", "")).strip(),
-                    "size_bytes": int(item.get("Size") or 0),
-                })
-            return disks
+        raw = json.loads(stdout)
+        items = raw if isinstance(raw, list) else [raw]
+        disks = []
+        for item in items:
+            friendly = item.get("FriendlyName")
+            if not friendly:
+                continue
+            disks.append({
+                "device_id": str(item.get("DeviceId", "")),
+                "friendly_name": str(friendly).strip(),
+                "media_type": str(item.get("MediaType", "Fixed")).strip(),
+                "bus_type": str(item.get("BusType", "")).strip(),
+                "size_bytes": int(item.get("Size") or 0),
+            })
+        return disks
     except Exception as e:
         logger.debug("Failed to query physical disks: %s", e)
     return []
@@ -296,30 +325,28 @@ def _probe_physical_disks() -> List[Dict[str, Any]]:
 
 def _probe_raw_partitions() -> List[Dict[str, Any]]:
     """Query low-level partition table on disk to detect Linux, recovery, or unassigned partitions."""
-    cmd = [
-        "powershell",
-        "-NoProfile",
-        "-Command",
+    stdout = _run_silent_powershell(
         "Get-Partition | Select-Object DiskNumber, PartitionNumber, DriveLetter, Size, Type | ConvertTo-Json",
-    ]
+        timeout=6,
+    )
+    if not stdout:
+        return []
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=6)
-        if res.returncode == 0 and res.stdout.strip():
-            raw = json.loads(res.stdout)
-            items = raw if isinstance(raw, list) else [raw]
-            partitions = []
-            for item in items:
-                size = item.get("Size")
-                if not size:
-                    continue
-                partitions.append({
-                    "disk_number": int(item.get("DiskNumber", 0)),
-                    "partition_number": int(item.get("PartitionNumber", 0)),
-                    "drive_letter": str(item.get("DriveLetter") or "").strip() or None,
-                    "size_bytes": int(size),
-                    "partition_type": str(item.get("Type", "Unknown")),
-                })
-            return partitions
+        raw = json.loads(stdout)
+        items = raw if isinstance(raw, list) else [raw]
+        partitions = []
+        for item in items:
+            size = item.get("Size")
+            if not size:
+                continue
+            partitions.append({
+                "disk_number": int(item.get("DiskNumber", 0)),
+                "partition_number": int(item.get("PartitionNumber", 0)),
+                "drive_letter": str(item.get("DriveLetter") or "").strip() or None,
+                "size_bytes": int(size),
+                "partition_type": str(item.get("Type", "Unknown")),
+            })
+        return partitions
     except Exception as e:
         logger.debug("Failed to query raw partitions: %s", e)
     return []
