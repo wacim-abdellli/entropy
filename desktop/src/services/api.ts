@@ -45,6 +45,8 @@ import {
   SsdDriveOverview,
   DriveCategoryBreakdown,
   PathBreakdownReport,
+  ShrinkAdvisoryReport,
+  LaunchDiskManagementResult,
 } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
@@ -65,6 +67,7 @@ import {
   MOCK_SSD_DRIVES,
   MOCK_DRIVE_BREAKDOWN,
   MOCK_PATH_BREAKDOWN,
+  MOCK_SHRINK_ADVISORY,
 } from './mockData';
 
 interface ActionResult {
@@ -166,6 +169,8 @@ interface PyWebViewApi {
   get_ssd_drives_overview?(): Promise<SsdDriveOverview[] | string>;
   get_drive_category_breakdown?(drive: string): Promise<DriveCategoryBreakdown | string>;
   scan_path_breakdown?(path: string, depth?: number): Promise<PathBreakdownReport | string>;
+  get_shrink_advisory?(drive?: string): Promise<ShrinkAdvisoryReport | string>;
+  launch_disk_management?(): Promise<LaunchDiskManagementResult | string>;
 }
 
 interface EntropyWindow extends Window {
@@ -2091,6 +2096,41 @@ export class EntropyApiClient {
     }
     return MOCK_PATH_BREAKDOWN;
   }
+
+  /**
+   * Get 100% safe shrink advisory calculations and step-by-step guidance for drive partitioning.
+   */
+  static async getShrinkAdvisory(drive = 'C'): Promise<ShrinkAdvisoryReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_shrink_advisory) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_shrink_advisory!(drive);
+          return parseBridgeResponse<ShrinkAdvisoryReport>(res);
+        }
+      } catch (err: unknown) {
+        console.error(`Failed to get shrink advisory for drive ${drive}:`, err);
+      }
+    }
+    return MOCK_SHRINK_ADVISORY;
+  }
+
+  /**
+   * Launch official Windows Disk Management console (diskmgmt.msc).
+   */
+  static async launchDiskManagement(): Promise<LaunchDiskManagementResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.launch_disk_management) {
+          const res = await bridgeWindow()!.pywebview!.api!.launch_disk_management!();
+          return parseBridgeResponse<LaunchDiskManagementResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, error: errorMessage(err) };
+      }
+    }
+    return { success: true, message: 'Launched Windows Disk Management (diskmgmt.msc).' };
+  }
 }
+
 
 

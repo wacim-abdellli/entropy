@@ -12,21 +12,14 @@ import {
   CheckCircle2,
   AlertTriangle,
   Folder,
-  ArrowRight,
-  Code2,
   Terminal,
   Clock,
-  Layers,
   Search,
-  Check,
-  Info,
-  XCircle,
 } from 'lucide-react';
 import {
   StorageRecommendationReport,
   DormantWorkspaceItem,
   StaleDownloadItem,
-  AiModelStorageItem,
 } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 

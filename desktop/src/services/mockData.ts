@@ -1716,5 +1716,55 @@ export const MOCK_PATH_BREAKDOWN = {
   ]
 };
 
+export const MOCK_SHRINK_ADVISORY = {
+  drive: "C",
+  mountpoint: "C:\\",
+  total_bytes: 385474744320,
+  total_formatted: "359.0 GB",
+  used_bytes: 306261131264,
+  used_formatted: "285.2 GB",
+  free_bytes: 79213613056,
+  free_formatted: "73.8 GB",
+  can_shrink: true,
+  min_system_buffer_gb: 25,
+  max_safe_shrink_mb: 50013,
+  max_safe_shrink_formatted: "48.8 GB",
+  recommended_shrink_mb: 35000,
+  recommended_shrink_formatted: "35.0 GB",
+  c_remaining_free_formatted: "38.8 GB",
+  suggested_letter: "D",
+  available_letters: ["D", "E", "F", "G", "H"],
+  safety_notes: [
+    "Windows Disk Management natively prevents shrinking past unmovable files.",
+    "Entropy enforces a 25 GB safety margin on C: for Windows updates and daily tasks.",
+    "All personal documents, Desktop, code repositories, and installed applications remain completely intact."
+  ],
+  steps: [
+    {
+      step: 1,
+      title: "Open Windows Disk Management",
+      instruction: "Click the button below to launch the official Windows Disk Management tool (diskmgmt.msc).",
+      action: "launch_diskmgmt" as const
+    },
+    {
+      step: 2,
+      title: "Shrink (C:) Volume",
+      instruction: "In Disk Management, right-click your (C:) partition in the lower graphical panel and select 'Shrink Volume...'."
+    },
+    {
+      step: 3,
+      title: "Enter the Shrink Amount",
+      instruction: "In the dialog field 'Enter the amount of space to shrink in MB', paste the recommended value: 35000 MB (35.0 GB).",
+      copy_value: "35000"
+    },
+    {
+      step: 4,
+      title: "Create Simple Volume (D:)",
+      instruction: "Right-click the newly created black 'Unallocated' space, select 'New Simple Volume', assign letter D:, and format with label 'DevStorage'."
+    }
+  ]
+};
+
+
 
 

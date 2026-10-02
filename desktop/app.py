@@ -721,9 +721,15 @@ class EntropyDesktopApi:
         from core.ssd_lens import scan_path_breakdown
         return scan_path_breakdown(target_path=target_path, max_depth=max_depth)
 
+    def get_shrink_advisory(self, drive: str = "C") -> dict[str, Any]:
+        """Calculate 100% safe shrink parameters and step-by-step guidance for drive partitioning."""
+        from core.partition_wizard import get_shrink_advisory
+        return get_shrink_advisory(drive_letter=drive)
 
-
-
+    def launch_disk_management(self) -> dict[str, Any]:
+        """Launch official Windows Disk Management console (diskmgmt.msc)."""
+        from core.partition_wizard import launch_windows_disk_management
+        return launch_windows_disk_management()
 
 def _run_desktop() -> None:
     import argparse

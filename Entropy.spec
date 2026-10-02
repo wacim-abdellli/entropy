@@ -54,6 +54,7 @@ hiddenimports = [
     'core.smart_mover',
     'core.dormant_detector',
     'core.ssd_lens',
+    'core.partition_wizard',
     'collectors',
     'collectors.artifacts',
     'collectors.git',

@@ -1055,11 +1055,42 @@ export interface PathBreakdownReport {
   error?: string;
 }
 
+// ── Partition Shrink & Secondary Drive Wizard ──
 
+export interface ShrinkStepItem {
+  step: number;
+  title: string;
+  instruction: string;
+  action?: 'launch_diskmgmt';
+  copy_value?: string;
+}
 
+export interface ShrinkAdvisoryReport {
+  drive: string;
+  mountpoint: string;
+  total_bytes: number;
+  total_formatted: string;
+  used_bytes: number;
+  used_formatted: string;
+  free_bytes: number;
+  free_formatted: string;
+  can_shrink: boolean;
+  min_system_buffer_gb: number;
+  max_safe_shrink_mb: number;
+  max_safe_shrink_formatted: string;
+  recommended_shrink_mb: number;
+  recommended_shrink_formatted: string;
+  c_remaining_free_formatted: string;
+  suggested_letter: string;
+  available_letters: string[];
+  safety_notes: string[];
+  steps: ShrinkStepItem[];
+  error?: string;
+}
 
-
-
-
-
+export interface LaunchDiskManagementResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
 

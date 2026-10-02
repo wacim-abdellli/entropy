@@ -11,6 +11,8 @@ import {
   Undo2,
   Info,
   XCircle,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
 import {
   RelocationCandidateItem,
@@ -18,6 +20,7 @@ import {
   ActiveJunctionItem,
 } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
+import { ShrinkGuideModal } from './ShrinkGuideModal';
 
 interface RescueDriveTabProps {
   onActionComplete?: () => Promise<void> | void;
@@ -36,6 +39,7 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
 
   // Relocation Modal State
   const [targetCandidate, setTargetCandidate] = useState<RelocationCandidateItem | null>(null);
+  const [showShrinkGuide, setShowShrinkGuide] = useState(false);
   const [isRelocating, setIsRelocating] = useState(false);
   const [relocateError, setRelocateError] = useState<string | null>(null);
   const [relocateSuccess, setRelocateSuccess] = useState<string | null>(null);
@@ -105,6 +109,10 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
     const gb = totalReclaimableBytes / (1024 * 1024 * 1024);
     return gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.round(totalReclaimableBytes / (1024 * 1024))} MB`;
   }, [totalReclaimableBytes]);
+
+  const hasSecondaryDrive = useMemo(() => {
+    return destinations.some((d) => !d.is_system);
+  }, [destinations]);
 
   const handleExecuteRelocation = async () => {
     if (!targetCandidate) return;
@@ -218,9 +226,13 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
               Selected Target Drive
             </p>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-xl font-bold font-mono text-[var(--color-accent)]">{selectedDrive}</span>
+              <span className="text-xl font-bold font-mono text-[var(--color-accent)]">
+                {hasSecondaryDrive ? selectedDrive : 'None (C: only)'}
+              </span>
               <span className="text-xs text-[var(--color-text-secondary)]">
-                {selectedDestinationInfo ? `${selectedDestinationInfo.free_formatted} free` : 'Available'}
+                {hasSecondaryDrive
+                  ? (selectedDestinationInfo ? `${selectedDestinationInfo.free_formatted} free` : 'Available')
+                  : 'Secondary drive needed'}
               </span>
             </div>
           </div>
@@ -236,6 +248,34 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
           </div>
         </div>
       </div>
+
+      {/* Single Drive Advisory Banner */}
+      {!hasSecondaryDrive && !loading && (
+        <div className="p-4 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-[var(--color-warning)]/20 text-[var(--color-warning)] border border-[var(--color-warning)]/30 shrink-0">
+              <Layers size={20} />
+            </div>
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+                <span>Single Drive Setup Detected (C:) &mdash; Create Secondary Drive (D:)</span>
+              </h3>
+              <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+                You have {totalReclaimableFormatted} of heavy developer data on C:, but only drive C: is currently mounted. Migrating within C: will not save space. Use our 100% safe Partition Guide to shrink unused space on C: and create drive D: in 4 simple steps.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowShrinkGuide(true)}
+            className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-warning)] text-black hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5 shrink-0"
+          >
+            <Sparkles size={14} />
+            <span>Partition &amp; Shrink Guide</span>
+          </button>
+        </div>
+      )}
 
       {/* Action Notification Alerts */}
       {relocateSuccess && (
@@ -272,9 +312,38 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
 
       {/* Target Drive & Destination Folder Selector */}
       <div className="p-4 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)]">
-        <h3 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider mb-3">
-          Destination Drive & Path Configuration
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">
+            Destination Drive &amp; Path Configuration
+          </h3>
+          {!hasSecondaryDrive && (
+            <button
+              type="button"
+              onClick={() => setShowShrinkGuide(true)}
+              className="text-xs font-medium text-[var(--color-accent)] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <Layers size={13} />
+              <span>Create Secondary Drive (D:)</span>
+            </button>
+          )}
+        </div>
+
+        {!hasSecondaryDrive && (
+          <div className="mb-3.5 p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={15} className="text-[var(--color-warning)] shrink-0" />
+              <span>Drive C: is your primary system drive. Offloading folders requires a secondary drive or partition.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowShrinkGuide(true)}
+              className="text-xs font-semibold text-[var(--color-accent)] hover:underline shrink-0 cursor-pointer ml-2"
+            >
+              Open Shrink Wizard &rarr;
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {destinations.map((dest) => {
             const isSelected = selectedDrive === dest.drive;
@@ -405,6 +474,16 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                     {isAlreadyJunction ? (
                       <span className="text-xs text-[var(--color-text-tertiary)] italic">Active Link</span>
+                    ) : !hasSecondaryDrive ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowShrinkGuide(true)}
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-medium border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning)] hover:brightness-110 transition-colors cursor-pointer flex items-center gap-1.5"
+                        title="Create secondary partition D: first to rescue C: drive"
+                      >
+                        <Layers size={13} />
+                        <span>Requires D: Drive &mdash; Setup Guide</span>
+                      </button>
                     ) : (
                       <button
                         type="button"
@@ -623,6 +702,17 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
         </div>,
         document.body
       )}
+
+      {/* Partition & Shrink Guide Modal */}
+      <ShrinkGuideModal
+        isOpen={showShrinkGuide}
+        onClose={() => setShowShrinkGuide(false)}
+        onDriveDetected={async (newDrive) => {
+          setSelectedDrive(newDrive);
+          await loadData(true);
+        }}
+      />
     </div>
   );
 };
+

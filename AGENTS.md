@@ -39,7 +39,8 @@ entropy/
 │   ├── network_monitor.py    # Active TCP/UDP connections, listening sockets & port diagnostics
 │   ├── smart_mover.py        # Smart File Mover ("Rescue C: Drive") via NTFS Directory Junctions
 │   ├── dormant_detector.py   # Inactive repo discovery, reconstructible artifacts & stale download hunter
-│   └── ssd_lens.py           # SSD capacity cartography, domain spectrum & hierarchical drill-down
+│   ├── ssd_lens.py           # SSD capacity cartography, domain spectrum & hierarchical drill-down
+│   └── partition_wizard.py   # 100% safe C: drive shrink & secondary partition (D:) wizard
 ├── collectors/               # Data collection modules
 │   ├── git.py                # Git status, branch, uncommitted files, unpushed commits
 │   ├── processes.py          # Active dev processes, listening ports, PID correlation
@@ -80,6 +81,7 @@ entropy/
 │   │   │   ├── StorageTreemap.tsx # Interactive storage breakdown visualization
 │   │   │   ├── PathAuditorCard.tsx# PATH environment variable health & collision resolver
 │   │   │   ├── DevDriveCard.tsx # Windows 11 Dev Drive detection & acceleration
+│   │   │   ├── ShrinkGuideModal.tsx # 100% safe partition & C: shrink guide wizard modal
 │   │   │   ├── SecretsRadarModal.tsx # Cross-workspace secret scanner modal
 │   │   │   ├── FileLockModal.tsx# Process file-locking unlocker modal
 │   │   │   ├── CleanupSafetyModal.tsx # Destructive cleanup confirmation dialog
