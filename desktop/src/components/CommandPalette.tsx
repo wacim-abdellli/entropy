@@ -222,6 +222,19 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     });
 
     items.push({
+      id: 'cmd-partition-wizard',
+      title: 'Partition & Shrink Guide (Create Drive D:)',
+      subtitle: '100% safe guide to shrink C: and create a secondary partition for dev offloading',
+      category: 'Action',
+      icon: <Layers className="w-4 h-4 text-[var(--color-accent)]" />,
+      actionHint: 'Rescue C:',
+      action: () => {
+        onNavigate('cleanup');
+        onClose();
+      },
+    });
+
+    items.push({
       id: 'cmd-ai-advisor',
       title: 'AI Advisor Configuration',
       subtitle: 'Configure Entropy Platform AI, local Ollama, or offline rules engine',
