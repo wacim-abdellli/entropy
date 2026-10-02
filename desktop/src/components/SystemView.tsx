@@ -295,15 +295,23 @@ export const SystemView: React.FC<SystemViewProps> = ({
     <button
       type="button"
       onClick={() => setTab(id)}
-      className={`h-8 px-2.5 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
+      className={`h-8 px-3 rounded-lg text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer shrink-0 ${
         tab === id
-          ? 'bg-[var(--color-surface-3)] text-[var(--color-text-primary)] font-medium'
+          ? 'bg-[var(--color-surface-3)] text-[var(--color-text-primary)] font-medium shadow-xs'
           : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
       }`}
     >
-      <Icon className="w-3.5 h-3.5" />
-      {label}
-      <span className="font-mono text-[10px]">{count}</span>
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      <span>{label}</span>
+      <span
+        className={`font-mono text-[10px] px-1.5 py-0.2 rounded-full ${
+          tab === id
+            ? 'bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-semibold'
+            : 'bg-[var(--color-surface-2)]/60 text-[var(--color-text-tertiary)]'
+        }`}
+      >
+        {count}
+      </span>
     </button>
   );
 
@@ -550,82 +558,16 @@ export const SystemView: React.FC<SystemViewProps> = ({
         />
       </header>
       <div className="w-full px-4 sm:px-8 py-6 space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="p-1 rounded-md bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] flex gap-1">
-            {tabButton('overview', 'Machine & Drives', Laptop, 1)}
-            {tabButton('startup', 'Startup Apps', Power, startupCount)}
-            {tabButton('apps', 'Installed Apps', Package, appsCount)}
-            {tabButton('processes', 'Processes', Activity, processes.length)}
-            {tabButton('network', 'Ports & Network', Radio, listeningPortCount)}
-            {tabButton('runtimes', 'Runtimes', Cpu, runtimes.length)}
-            {tabButton('containers', 'Containers', Boxes, containers.length)}
-            {tabButton('caches', 'Caches', Database, caches.length)}
-          </div>
-          {tab === 'processes' && (
-            <div className="p-1 rounded-md bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] flex gap-1">
-              {currentWorkspace && (
-                <button
-                  type="button"
-                  onClick={() => setScope('workspace')}
-                  className={`h-7 px-2.5 text-xs rounded font-medium transition-colors cursor-pointer ${
-                    scope === 'workspace'
-                      ? 'bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30'
-                      : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
-                  }`}
-                  title={`Show only processes running in ${currentWorkspace.name}`}
-                >
-                  <FolderGit2 className="inline w-3 h-3 mr-1" />
-                  {currentWorkspace.name} ({workspaceProcesses.length})
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setScope('developer')}
-                className={`h-7 px-2 text-xs rounded transition-colors cursor-pointer ${
-                  scope === 'developer'
-                    ? 'bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)]'
-                    : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
-                }`}
-              >
-                <Filter className="inline w-3 h-3 mr-1" />
-                Developer ({developerProcessCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setScope('all')}
-                className={`h-7 px-2 text-xs rounded transition-colors cursor-pointer ${
-                  scope === 'all'
-                    ? 'bg-[var(--color-surface-3)] text-white font-medium'
-                    : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
-                }`}
-              >
-                All ({processes.length})
-              </button>
-              <button
-                type="button"
-                onClick={handleTrimAll}
-                disabled={trimming}
-                className="h-7 px-2.5 text-xs font-semibold rounded bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30 hover:bg-[var(--color-accent-muted)]/80 transition-colors cursor-pointer flex items-center gap-1.5 ml-auto disabled:opacity-50"
-                title="Trim dormant physical memory working sets without stopping any app (Non-destructive)"
-                aria-label="Boost RAM: Trim working sets across developer processes"
-              >
-                <Zap className={`w-3 h-3 text-[var(--color-accent-strong)] ${trimming ? 'animate-spin' : ''}`} />
-                {trimming ? 'Boosting…' : 'Boost RAM'}
-              </button>
-              {developerProcessCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setConfirmCleanSlate(true)}
-                  className="h-7 px-2.5 text-xs font-semibold rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] hover:bg-[var(--color-success)]/20 transition-colors cursor-pointer flex items-center gap-1.5 ml-1.5"
-                  title="Terminate background dev servers to reclaim RAM"
-                  aria-label={`Clean Slate: Reclaim ${bytes(totalDevRam)} of dev server memory`}
-                >
-                  <Zap className="w-3 h-3 text-[var(--color-success)]" />
-                  Clean Slate ({bytes(totalDevRam)})
-                </button>
-              )}
-            </div>
-          )}
+        {/* Navigation Tabs Bar */}
+        <div className="p-1 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] flex items-center gap-1 overflow-x-auto max-w-full shadow-xs">
+          {tabButton('overview', 'Machine & Drives', Laptop, 1)}
+          {tabButton('startup', 'Startup Apps', Power, startupCount)}
+          {tabButton('apps', 'Installed Apps', Package, appsCount)}
+          {tabButton('processes', 'Processes', Activity, processes.length)}
+          {tabButton('network', 'Ports & Network', Radio, listeningPortCount)}
+          {tabButton('runtimes', 'Runtimes', Cpu, runtimes.length)}
+          {tabButton('containers', 'Containers', Boxes, containers.length)}
+          {tabButton('caches', 'Caches', Database, caches.length)}
         </div>
 
         {tab === 'overview' && (
@@ -654,7 +596,84 @@ export const SystemView: React.FC<SystemViewProps> = ({
         )}
 
         {tab === 'processes' && (
-          <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-surface-1)]">
+          <div className="space-y-3.5">
+            {/* Processes Toolbar: Scope Filters & Memory Reclaim Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Scope Filter Pills */}
+              <div className="p-1 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] flex items-center gap-1 shadow-xs">
+                {currentWorkspace && (
+                  <button
+                    type="button"
+                    onClick={() => setScope('workspace')}
+                    className={`h-7 px-2.5 text-xs rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      scope === 'workspace'
+                        ? 'bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30 shadow-xs'
+                        : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                    }`}
+                    title={`Show only processes running in ${currentWorkspace.name}`}
+                  >
+                    <FolderGit2 className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                    <span>{currentWorkspace.name}</span>
+                    <span className="font-mono text-[10px] text-[var(--color-text-tertiary)]">({workspaceProcesses.length})</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setScope('developer')}
+                  className={`h-7 px-2.5 text-xs rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    scope === 'developer'
+                      ? 'bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30 shadow-xs'
+                      : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                  }`}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Developer</span>
+                  <span className="font-mono text-[10px] text-[var(--color-text-tertiary)]">({developerProcessCount})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScope('all')}
+                  className={`h-7 px-2.5 text-xs rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    scope === 'all'
+                      ? 'bg-[var(--color-surface-3)] text-white font-medium shadow-xs'
+                      : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                  }`}
+                >
+                  <span>All</span>
+                  <span className="font-mono text-[10px] text-[var(--color-text-tertiary)]">({processes.length})</span>
+                </button>
+              </div>
+
+              {/* Memory Reclaim Actions */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleTrimAll}
+                  disabled={trimming}
+                  className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)] border border-[var(--color-accent)]/30 hover:bg-[var(--color-accent-muted)]/80 transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-xs shrink-0"
+                  title="Trim dormant physical memory working sets without stopping any app (Non-destructive)"
+                  aria-label="Boost RAM: Trim working sets across developer processes"
+                >
+                  <Zap className={`w-3.5 h-3.5 text-[var(--color-accent-strong)] ${trimming ? 'animate-spin' : ''}`} />
+                  <span>{trimming ? 'Boosting…' : 'Boost RAM'}</span>
+                </button>
+                {developerProcessCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmCleanSlate(true)}
+                    className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] hover:bg-[var(--color-success)]/20 transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs shrink-0"
+                    title="Terminate background dev servers to reclaim RAM"
+                    aria-label={`Clean Slate: Reclaim ${bytes(totalDevRam)} of dev server memory`}
+                  >
+                    <Zap className="w-3.5 h-3.5 text-[var(--color-success)]" />
+                    <span>Clean Slate ({bytes(totalDevRam)})</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Process Table */}
+            <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-surface-1)]">
             <div className="grid grid-cols-[1.1fr_90px_150px_1.6fr_132px] gap-4 px-4 py-2 text-[10px] uppercase tracking-[0.08em] text-[var(--color-text-tertiary)] border-b border-[var(--color-border-subtle)]">
               <span>Process</span>
               <span>Memory</span>
@@ -755,7 +774,8 @@ export const SystemView: React.FC<SystemViewProps> = ({
               </p>
             )}
           </div>
-        )}
+        </div>
+      )}
         {tab === 'runtimes' && (
           <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-surface-1)]">
             {runtimes

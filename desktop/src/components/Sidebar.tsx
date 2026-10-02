@@ -52,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className="h-14 px-3 lg:px-4 flex items-center justify-center lg:justify-start border-b border-[var(--color-border-subtle)] gap-2.5">
       <EntropyLogo size={26} className="drop-shadow-[0_0_12px_rgba(56,189,248,0.4)] transition-transform hover:scale-105 shrink-0" />
       <span className="hidden lg:inline text-sm font-semibold tracking-tight text-[var(--color-text-primary)]">Entropy</span>
-      <span className="hidden lg:inline ml-auto text-[10px] font-mono text-[var(--color-text-tertiary)] bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded border border-[var(--color-border-subtle)]">v0.1</span>
+      <span className="hidden lg:inline ml-auto text-[10px] font-mono text-[var(--color-text-tertiary)] bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded border border-[var(--color-border-subtle)]">v0.2.1</span>
     </div>
 
     <div className="px-2 lg:px-3 pt-3">
