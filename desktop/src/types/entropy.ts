@@ -907,6 +907,155 @@ export interface RestoreJunctionResult {
   error?: string;
 }
 
+// ── Smart Storage Recommendations Engine ──
+
+export interface DormantArtifactItem {
+  name: string;
+  path: string;
+  size_bytes: number;
+  size_formatted: string;
+  rebuild_command: string;
+}
+
+export interface DormantWorkspaceItem {
+  path: string;
+  name: string;
+  inactivity_days: number;
+  last_active_timestamp: number;
+  last_active_formatted: string;
+  is_git: boolean;
+  is_clean: boolean;
+  artifacts: DormantArtifactItem[];
+  total_reclaimable_bytes: number;
+  total_reclaimable_formatted: string;
+}
+
+export interface StaleDownloadItem {
+  path: string;
+  name: string;
+  extension: string;
+  size_bytes: number;
+  size_formatted: string;
+  age_days: number;
+  last_modified: number;
+  category: 'installer' | 'archive' | 'disk_image';
+}
+
+export interface AiModelStorageItem {
+  id: string;
+  name: string;
+  framework: string;
+  path: string;
+  size_bytes: number;
+  size_formatted: string;
+  last_modified: number;
+}
+
+export interface StorageRecommendationReport {
+  total_reclaimable_bytes: number;
+  total_reclaimable_formatted: string;
+  dormant_workspaces: DormantWorkspaceItem[];
+  dormant_workspaces_bytes: number;
+  dormant_workspaces_formatted: string;
+  stale_downloads: StaleDownloadItem[];
+  stale_downloads_bytes: number;
+  stale_downloads_formatted: string;
+  ai_models: AiModelStorageItem[];
+  ai_models_bytes: number;
+  ai_models_formatted: string;
+}
+
+export interface CleanDormantResult {
+  success: boolean;
+  cleaned_artifacts: string[];
+  freed_bytes: number;
+  freed_formatted: string;
+  errors?: string[];
+  error?: string;
+}
+
+export interface CleanStaleDownloadsResult {
+  success: boolean;
+  deleted_count: number;
+  failed_count: number;
+  freed_bytes: number;
+  freed_formatted: string;
+  deleted_paths: string[];
+  error?: string;
+}
+
+// ── SSD Storage Lens & Space Cartography ──
+
+export interface SsdDriveOverview {
+  drive: string;
+  mountpoint: string;
+  label: string;
+  fstype: string;
+  total_bytes: number;
+  used_bytes: number;
+  free_bytes: number;
+  percent_used: number;
+  total_formatted: string;
+  used_formatted: string;
+  free_formatted: string;
+  is_system: boolean;
+  is_dev_drive: boolean;
+}
+
+export interface DriveCategoryItem {
+  id: string;
+  label: string;
+  description: string;
+  size_bytes: number;
+  size_formatted: string;
+  percent_of_used: number;
+  color_var: string;
+  is_reclaimable: boolean;
+}
+
+export interface DriveCategoryBreakdown {
+  drive: string;
+  total_bytes: number;
+  total_formatted: string;
+  used_bytes: number;
+  used_formatted: string;
+  free_bytes: number;
+  free_formatted: string;
+  percent_used: number;
+  total_reclaimable_bytes: number;
+  total_reclaimable_formatted: string;
+  categories: DriveCategoryItem[];
+}
+
+export interface PathBreakdownBreadcrumb {
+  name: string;
+  path: string;
+}
+
+export interface PathBreakdownNode {
+  id: string;
+  name: string;
+  path: string;
+  size_bytes: number;
+  size_formatted: string;
+  is_dir: boolean;
+  category: 'artifact' | 'cache' | 'virtual_disk' | 'ai_model' | 'download' | 'media' | 'source_code' | 'system' | 'folder' | 'file';
+  category_label: string;
+  last_modified: number;
+  percentage: number;
+}
+
+export interface PathBreakdownReport {
+  path: string;
+  name: string;
+  breadcrumbs: PathBreakdownBreadcrumb[];
+  total_size_bytes: number;
+  total_size_formatted: string;
+  items: PathBreakdownNode[];
+  error?: string;
+}
+
+
 
 
 

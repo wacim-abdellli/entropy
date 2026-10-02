@@ -29,6 +29,7 @@ import {
   X,
   FileWarning,
   FolderSync,
+  Sparkles,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -50,6 +51,8 @@ import { SecretsRadarModal } from './SecretsRadarModal';
 import { LargeFilesHunterTab } from './LargeFilesHunterTab';
 import { DuplicateFinderTab } from './DuplicateFinderTab';
 import { RescueDriveTab } from './RescueDriveTab';
+import { SmartRecommendationsTab } from './SmartRecommendationsTab';
+import { SsdStorageLensTab } from './SsdStorageLensTab';
 
 interface CleanupViewProps {
   overview: EnvironmentOverview;
@@ -58,7 +61,7 @@ interface CleanupViewProps {
   isLoading?: boolean;
 }
 
-type CleanupTab = 'system' | 'artifacts' | 'caches' | 'rescue_drive' | 'docker' | 'tuning' | 'large_files' | 'duplicates' | 'treemap';
+type CleanupTab = 'recommendations' | 'system' | 'artifacts' | 'caches' | 'rescue_drive' | 'docker' | 'tuning' | 'large_files' | 'duplicates' | 'ssd_lens' | 'treemap';
 
 const formatBytes = (bytes: number) => {
   if (bytes <= 0) return '0 B';
@@ -1061,6 +1064,23 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
         {/* Tab Switcher */}
         <div className="flex items-center gap-2 mt-4 border-b border-[var(--color-border-subtle)] overflow-x-auto">
+          {/* Tab 0: Smart Recommendations */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('recommendations')}
+            className={`pb-2.5 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+              activeTab === 'recommendations'
+                ? 'border-[var(--color-accent)] text-[var(--color-accent-strong)]'
+                : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <Sparkles size={14} className={activeTab === 'recommendations' ? 'text-[var(--color-accent)]' : 'text-[var(--color-warning)]'} />
+            <span>Smart Recommendations</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
+              AUTO
+            </span>
+          </button>
+
           {/* Tab 1: Windows & System Junk */}
           <button
             type="button"
@@ -1213,6 +1233,23 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
             <span>Rescue C: Drive</span>
           </button>
 
+          {/* Tab: SSD Storage Lens & Space Cartography */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('ssd_lens')}
+            className={`pb-2.5 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+              activeTab === 'ssd_lens'
+                ? 'border-[var(--color-accent)] text-[var(--color-accent-strong)]'
+                : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <HardDrive size={14} className={activeTab === 'ssd_lens' ? 'text-[var(--color-accent)]' : ''} />
+            <span>SSD Storage Lens</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[var(--color-accent-muted)] text-[var(--color-accent-strong)]">
+              CARTOGRAPHY
+            </span>
+          </button>
+
           {/* Tab 8: Proportional Storage Treemap */}
           <button
             type="button"
@@ -1234,6 +1271,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
       {/* ── Tab Content Area ── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-8 py-6 space-y-6 w-full max-w-full min-w-0 pb-24">
+
+        {/* ═══ TAB 0: Smart Storage Recommendations ═══ */}
+        {activeTab === 'recommendations' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <SmartRecommendationsTab onActionComplete={onRefresh} />
+          </div>
+        )}
 
         {/* ═══ TAB 1: Windows & System Junk ═══ */}
         {activeTab === 'system' && (
@@ -2094,6 +2138,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         {activeTab === 'rescue_drive' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             <RescueDriveTab onActionComplete={onRefresh} />
+          </div>
+        )}
+
+        {/* ═══ TAB: SSD Storage Lens & Space Cartography ═══ */}
+        {activeTab === 'ssd_lens' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <SsdStorageLensTab />
           </div>
         )}
 

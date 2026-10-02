@@ -52,6 +52,8 @@ hiddenimports = [
     'core.duplicate_finder',
     'core.network_monitor',
     'core.smart_mover',
+    'core.dormant_detector',
+    'core.ssd_lens',
     'collectors',
     'collectors.artifacts',
     'collectors.git',

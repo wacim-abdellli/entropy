@@ -39,6 +39,12 @@ import {
   ActiveJunctionItem,
   RelocationResult,
   RestoreJunctionResult,
+  StorageRecommendationReport,
+  CleanDormantResult,
+  CleanStaleDownloadsResult,
+  SsdDriveOverview,
+  DriveCategoryBreakdown,
+  PathBreakdownReport,
 } from '../types/entropy';
 import {
   MOCK_AFTERSALES_INSPECTION,
@@ -55,6 +61,10 @@ import {
   MOCK_RELOCATION_CANDIDATES,
   MOCK_AVAILABLE_DESTINATIONS,
   MOCK_ACTIVE_JUNCTIONS,
+  MOCK_STORAGE_RECOMMENDATIONS,
+  MOCK_SSD_DRIVES,
+  MOCK_DRIVE_BREAKDOWN,
+  MOCK_PATH_BREAKDOWN,
 } from './mockData';
 
 interface ActionResult {
@@ -150,6 +160,12 @@ interface PyWebViewApi {
   get_active_junctions?(): Promise<ActiveJunctionItem[] | string>;
   relocate_directory_junction?(source_path: string, target_parent_dir: string, custom_name?: string): Promise<RelocationResult | string>;
   restore_directory_junction?(junction_id: string): Promise<RestoreJunctionResult | string>;
+  get_storage_recommendations?(): Promise<StorageRecommendationReport | string>;
+  clean_dormant_workspace?(path: string, artifacts?: string[]): Promise<CleanDormantResult | string>;
+  clean_stale_downloads?(file_paths: string[]): Promise<CleanStaleDownloadsResult | string>;
+  get_ssd_drives_overview?(): Promise<SsdDriveOverview[] | string>;
+  get_drive_category_breakdown?(drive: string): Promise<DriveCategoryBreakdown | string>;
+  scan_path_breakdown?(path: string, depth?: number): Promise<PathBreakdownReport | string>;
 }
 
 interface EntropyWindow extends Window {
@@ -1949,6 +1965,131 @@ export class EntropyApiClient {
       success: true,
       message: `Restored junction ${junctionId} back to C: drive.`,
     };
+  }
+
+  /**
+   * Get smart storage recommendations (dormant workspaces, stale downloads, AI models).
+   */
+  static async getStorageRecommendations(): Promise<StorageRecommendationReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_storage_recommendations) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_storage_recommendations!();
+          return parseBridgeResponse<StorageRecommendationReport>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to get storage recommendations:', err);
+      }
+    }
+    return MOCK_STORAGE_RECOMMENDATIONS;
+  }
+
+  /**
+   * Clean reconstructible artifacts from a dormant workspace.
+   */
+  static async cleanDormantWorkspace(
+    path: string,
+    artifacts?: string[]
+  ): Promise<CleanDormantResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.clean_dormant_workspace) {
+          const res = await bridgeWindow()!.pywebview!.api!.clean_dormant_workspace!(path, artifacts);
+          return parseBridgeResponse<CleanDormantResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, cleaned_artifacts: [], freed_bytes: 0, freed_formatted: '0 B', error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      cleaned_artifacts: artifacts || ['node_modules'],
+      freed_bytes: 2576980377,
+      freed_formatted: '2.4 GB',
+    };
+  }
+
+  /**
+   * Clean stale downloaded installers and archives (moves to Windows Recycle Bin).
+   */
+  static async cleanStaleDownloads(filePaths: string[]): Promise<CleanStaleDownloadsResult> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.clean_stale_downloads) {
+          const res = await bridgeWindow()!.pywebview!.api!.clean_stale_downloads!(filePaths);
+          return parseBridgeResponse<CleanStaleDownloadsResult>(res);
+        }
+      } catch (err: unknown) {
+        return { success: false, deleted_count: 0, failed_count: filePaths.length, freed_bytes: 0, freed_formatted: '0 B', deleted_paths: [], error: errorMessage(err) };
+      }
+    }
+    return {
+      success: true,
+      deleted_count: filePaths.length,
+      failed_count: 0,
+      freed_bytes: 3580887039,
+      freed_formatted: '3.3 GB',
+      deleted_paths: filePaths,
+    };
+  }
+
+  /**
+   * Get all SSD/NVMe/hard drive mount points with capacity and Dev Drive detection.
+   */
+  static async getSsdDrivesOverview(): Promise<SsdDriveOverview[]> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_ssd_drives_overview) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_ssd_drives_overview!();
+          return parseBridgeResponse<SsdDriveOverview[]>(res);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to get SSD drives overview:', err);
+      }
+    }
+    return MOCK_SSD_DRIVES;
+  }
+
+  /**
+   * Get developer domain category storage breakdown for a specific drive.
+   */
+  static async getDriveCategoryBreakdown(drive: string): Promise<DriveCategoryBreakdown> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.get_drive_category_breakdown) {
+          const res = await bridgeWindow()!.pywebview!.api!.get_drive_category_breakdown!(drive);
+          return parseBridgeResponse<DriveCategoryBreakdown>(res);
+        }
+      } catch (err: unknown) {
+        console.error(`Failed to get category breakdown for drive ${drive}:`, err);
+      }
+    }
+    return MOCK_DRIVE_BREAKDOWN;
+  }
+
+  /**
+   * Scan hierarchical folder breakdown for drill-down storage cartography.
+   */
+  static async scanPathBreakdown(path: string, depth = 1): Promise<PathBreakdownReport> {
+    if (isPyWebView()) {
+      try {
+        if (bridgeWindow()?.pywebview?.api?.scan_path_breakdown) {
+          const res = await bridgeWindow()!.pywebview!.api!.scan_path_breakdown!(path, depth);
+          return parseBridgeResponse<PathBreakdownReport>(res);
+        }
+      } catch (err: unknown) {
+        return {
+          path,
+          name: path.split('\\').filter(Boolean).pop() || path,
+          breadcrumbs: [{ name: path, path }],
+          total_size_bytes: 0,
+          total_size_formatted: '0 B',
+          items: [],
+          error: errorMessage(err),
+        };
+      }
+    }
+    return MOCK_PATH_BREAKDOWN;
   }
 }
 

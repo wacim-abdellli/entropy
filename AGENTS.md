@@ -36,9 +36,10 @@ entropy/
 │   ├── startup_manager.py    # Windows Task Manager synchronized startup app manager
 │   ├── large_files.py        # Workspace large file scanner with Recycle Bin safety
 │   ├── installed_apps.py     # Installed desktop applications & developer tools inventory
-│   ├── duplicate_finder.py   # 3-pass cryptographic duplicate file hunter
 │   ├── network_monitor.py    # Active TCP/UDP connections, listening sockets & port diagnostics
-│   └── smart_mover.py        # Smart File Mover ("Rescue C: Drive") via NTFS Directory Junctions
+│   ├── smart_mover.py        # Smart File Mover ("Rescue C: Drive") via NTFS Directory Junctions
+│   ├── dormant_detector.py   # Inactive repo discovery, reconstructible artifacts & stale download hunter
+│   └── ssd_lens.py           # SSD capacity cartography, domain spectrum & hierarchical drill-down
 ├── collectors/               # Data collection modules
 │   ├── git.py                # Git status, branch, uncommitted files, unpushed commits
 │   ├── processes.py          # Active dev processes, listening ports, PID correlation
@@ -72,6 +73,8 @@ entropy/
 │   │   │   ├── DuplicateFinderTab.tsx # 3-pass hash duplicate hunter with batch cleanup
 │   │   │   ├── NetworkMonitorTab.tsx  # Process-correlated socket forensics & port releaser
 │   │   │   ├── RescueDriveTab.tsx     # Smart File Mover ("Rescue C: Drive") directory junction manager
+│   │   │   ├── SmartRecommendationsTab.tsx # Dormant workspace reclaim, downloads recycling & AI model storage
+│   │   │   ├── SsdStorageLensTab.tsx  # Multi-drive capacity lens, space distribution spectrum & deep treemap cartography
 │   │   │   ├── SettingsView.tsx # Scan directory configuration & preferences
 │   │   │   ├── CommandPalette.tsx # Global launcher overlay (Ctrl+K)
 │   │   │   ├── StorageTreemap.tsx # Interactive storage breakdown visualization

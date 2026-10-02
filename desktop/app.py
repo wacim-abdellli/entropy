@@ -689,6 +689,39 @@ class EntropyDesktopApi:
         from core.smart_mover import restore_directory_junction
         return restore_directory_junction(junction_id=junction_id)
 
+    def get_storage_recommendations(self) -> dict[str, Any]:
+        """Discover dormant projects, stale downloads, and AI models for smart cleanup."""
+        from core.dormant_detector import get_storage_recommendations
+        return get_storage_recommendations()
+
+    def clean_dormant_workspace(
+        self, workspace_path: str, artifact_names: Optional[list[str]] = None
+    ) -> dict[str, Any]:
+        """Safely delete reconstructible build folders from a dormant workspace."""
+        from core.dormant_detector import clean_dormant_workspace
+        return clean_dormant_workspace(workspace_path=workspace_path, artifact_names=artifact_names)
+
+    def clean_stale_downloads(self, file_paths: list[str]) -> dict[str, Any]:
+        """Safely delete obsolete installers from Downloads by moving to the Windows Recycle Bin."""
+        from core.dormant_detector import clean_stale_downloads
+        return clean_stale_downloads(file_paths=file_paths)
+
+    def get_ssd_drives_overview(self) -> list[dict[str, Any]]:
+        """List active physical and logical storage drives with live capacity metrics."""
+        from core.ssd_lens import get_ssd_drives_overview
+        return get_ssd_drives_overview()
+
+    def get_drive_category_breakdown(self, drive_letter: str = "C:") -> dict[str, Any]:
+        """Calculate semantic developer domain storage breakdown for a drive."""
+        from core.ssd_lens import get_drive_category_breakdown
+        return get_drive_category_breakdown(drive_letter=drive_letter)
+
+    def scan_path_breakdown(self, target_path: str, max_depth: int = 1) -> dict[str, Any]:
+        """Perform hierarchical directory space analysis with breadcrumb support."""
+        from core.ssd_lens import scan_path_breakdown
+        return scan_path_breakdown(target_path=target_path, max_depth=max_depth)
+
+
 
 
 

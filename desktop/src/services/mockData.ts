@@ -1444,4 +1444,277 @@ export const MOCK_AVAILABLE_DESTINATIONS: AvailableDestinationItem[] = [
 
 export const MOCK_ACTIVE_JUNCTIONS: ActiveJunctionItem[] = [];
 
+export const MOCK_STORAGE_RECOMMENDATIONS = {
+  total_reclaimable_bytes: 28450123789,
+  total_reclaimable_formatted: "26.5 GB",
+  dormant_workspaces: [
+    {
+      path: "C:\\Users\\pc\\Desktop\\hackathon-old",
+      name: "hackathon-old",
+      inactivity_days: 120,
+      last_active_timestamp: Date.now() / 1000 - 120 * 86400,
+      last_active_formatted: "4 months ago",
+      is_git: true,
+      is_clean: true,
+      artifacts: [
+        {
+          name: "node_modules",
+          path: "C:\\Users\\pc\\Desktop\\hackathon-old\\node_modules",
+          size_bytes: 2576980377,
+          size_formatted: "2.4 GB",
+          rebuild_command: "npm install",
+        },
+        {
+          name: ".next",
+          path: "C:\\Users\\pc\\Desktop\\hackathon-old\\.next",
+          size_bytes: 789123456,
+          size_formatted: "752.6 MB",
+          rebuild_command: "npm run build",
+        }
+      ],
+      total_reclaimable_bytes: 3366103833,
+      total_reclaimable_formatted: "3.1 GB",
+    },
+    {
+      path: "C:\\Users\\pc\\Desktop\\rust-cli-test",
+      name: "rust-cli-test",
+      inactivity_days: 75,
+      last_active_timestamp: Date.now() / 1000 - 75 * 86400,
+      last_active_formatted: "2 months ago",
+      is_git: true,
+      is_clean: true,
+      artifacts: [
+        {
+          name: "target",
+          path: "C:\\Users\\pc\\Desktop\\rust-cli-test\\target",
+          size_bytes: 4831838208,
+          size_formatted: "4.5 GB",
+          rebuild_command: "cargo build",
+        }
+      ],
+      total_reclaimable_bytes: 4831838208,
+      total_reclaimable_formatted: "4.5 GB",
+    }
+  ],
+  dormant_workspaces_bytes: 8197942041,
+  dormant_workspaces_formatted: "7.6 GB",
+  stale_downloads: [
+    {
+      path: "C:\\Users\\pc\\Downloads\\archlinux-2025.12.01-x86_64.iso",
+      name: "archlinux-2025.12.01-x86_64.iso",
+      extension: ".iso",
+      size_bytes: 1503238553,
+      size_formatted: "1.4 GB",
+      age_days: 279,
+      last_modified: Date.now() / 1000 - 279 * 86400,
+      category: "disk_image" as const,
+    },
+    {
+      path: "C:\\Users\\pc\\Downloads\\idea-2026.1.1.exe",
+      name: "idea-2026.1.1.exe",
+      extension: ".exe",
+      size_bytes: 1181116006,
+      size_formatted: "1.1 GB",
+      age_days: 155,
+      last_modified: Date.now() / 1000 - 155 * 86400,
+      category: "installer" as const,
+    },
+    {
+      path: "C:\\Users\\pc\\Downloads\\581.80-notebook-win10-win11-64bit.exe",
+      name: "581.80-notebook-win10-win11-64bit.exe",
+      extension: ".exe",
+      size_bytes: 896532480,
+      size_formatted: "855.0 MB",
+      age_days: 251,
+      last_modified: Date.now() / 1000 - 251 * 86400,
+      category: "installer" as const,
+    }
+  ],
+  stale_downloads_bytes: 3580887039,
+  stale_downloads_formatted: "3.3 GB",
+  ai_models: [
+    {
+      id: "C:\\Users\\pc\\.ollama\\models",
+      name: "Ollama Local Models (Llama-3, Mistral)",
+      framework: "Ollama",
+      path: "C:\\Users\\pc\\.ollama\\models",
+      size_bytes: 16671294709,
+      size_formatted: "15.5 GB",
+      last_modified: Date.now() / 1000 - 45 * 86400,
+    }
+  ],
+  ai_models_bytes: 16671294709,
+  ai_models_formatted: "15.5 GB",
+};
+
+export const MOCK_SSD_DRIVES = [
+  {
+    drive: "C:",
+    mountpoint: "C:\\",
+    label: "Windows SSD",
+    fstype: "NTFS",
+    total_bytes: 512110190592,
+    used_bytes: 367001600000,
+    free_bytes: 145108590592,
+    percent_used: 71.7,
+    total_formatted: "476.9 GB",
+    used_formatted: "341.8 GB",
+    free_formatted: "135.1 GB",
+    is_system: true,
+    is_dev_drive: false,
+  },
+  {
+    drive: "D:",
+    mountpoint: "D:\\",
+    label: "Dev Storage",
+    fstype: "ReFS",
+    total_bytes: 1024220381184,
+    used_bytes: 412316860000,
+    free_bytes: 611903521184,
+    percent_used: 40.3,
+    total_formatted: "953.8 GB",
+    used_formatted: "384.0 GB",
+    free_formatted: "569.8 GB",
+    is_system: false,
+    is_dev_drive: true,
+  }
+];
+
+export const MOCK_DRIVE_BREAKDOWN = {
+  drive: "C:",
+  total_bytes: 512110190592,
+  total_formatted: "476.9 GB",
+  used_bytes: 367001600000,
+  used_formatted: "341.8 GB",
+  free_bytes: 145108590592,
+  free_formatted: "135.1 GB",
+  percent_used: 71.7,
+  total_reclaimable_bytes: 68719476736,
+  total_reclaimable_formatted: "64.0 GB",
+  categories: [
+    {
+      id: "artifacts",
+      label: "Project Build Artifacts",
+      description: "node_modules, target, .venv, bin/obj across developer workspaces",
+      size_bytes: 45097156608,
+      size_formatted: "42.0 GB",
+      percent_of_used: 12.3,
+      color_var: "var(--color-success)",
+      is_reclaimable: true,
+    },
+    {
+      id: "caches",
+      label: "Package Manager Caches",
+      description: "Global npm, pip, cargo, nuget, gradle, maven download caches",
+      size_bytes: 23622320128,
+      size_formatted: "22.0 GB",
+      percent_of_used: 6.4,
+      color_var: "var(--color-warning)",
+      is_reclaimable: true,
+    },
+    {
+      id: "vhdx",
+      label: "Virtual Disks & Containers",
+      description: "WSL2 Linux and Docker Desktop dynamic virtual hard disks (.vhdx)",
+      size_bytes: 19327352832,
+      size_formatted: "18.0 GB",
+      percent_of_used: 5.3,
+      color_var: "var(--color-info)",
+      is_reclaimable: true,
+    },
+    {
+      id: "ai_models",
+      label: "AI & ML Model Weights",
+      description: "Ollama local model blobs, Hugging Face Hub checkpoints",
+      size_bytes: 16106127360,
+      size_formatted: "15.0 GB",
+      percent_of_used: 4.4,
+      color_var: "#a855f7",
+      is_reclaimable: true,
+    },
+    {
+      id: "downloads",
+      label: "Stale Installers & Archives",
+      description: "Older .exe installers, ISO images, and zip archives in Downloads",
+      size_bytes: 12884901888,
+      size_formatted: "12.0 GB",
+      percent_of_used: 3.5,
+      color_var: "#f97316",
+      is_reclaimable: true,
+    },
+    {
+      id: "system_junk",
+      label: "Windows System Junk",
+      description: "Temp files, Delivery Optimization, crash dumps, and Recycle Bin",
+      size_bytes: 9663676416,
+      size_formatted: "9.0 GB",
+      percent_of_used: 2.6,
+      color_var: "var(--color-danger)",
+      is_reclaimable: true,
+    },
+    {
+      id: "other",
+      label: "Windows OS & Applications",
+      description: "Operating system files, installed software binaries, and user documents",
+      size_bytes: 240298064768,
+      size_formatted: "223.8 GB",
+      percent_of_used: 65.5,
+      color_var: "var(--color-text-tertiary)",
+      is_reclaimable: false,
+    }
+  ]
+};
+
+export const MOCK_PATH_BREAKDOWN = {
+  path: "C:\\Users\\pc\\Desktop",
+  name: "Desktop",
+  breadcrumbs: [
+    { name: "C:", path: "C:\\" },
+    { name: "Users", path: "C:\\Users" },
+    { name: "pc", path: "C:\\Users\\pc" },
+    { name: "Desktop", path: "C:\\Users\\pc\\Desktop" }
+  ],
+  total_size_bytes: 5690831667,
+  total_size_formatted: "5.3 GB",
+  items: [
+    {
+      id: "C:\\Users\\pc\\Desktop\\devops",
+      name: "devops",
+      path: "C:\\Users\\pc\\Desktop\\devops",
+      size_bytes: 3221225472,
+      size_formatted: "3.0 GB",
+      is_dir: true,
+      category: "folder" as const,
+      category_label: "Directory",
+      last_modified: Date.now() / 1000 - 86400 * 5,
+      percentage: 56.6,
+    },
+    {
+      id: "C:\\Users\\pc\\Desktop\\entropy",
+      name: "entropy",
+      path: "C:\\Users\\pc\\Desktop\\entropy",
+      size_bytes: 589824000,
+      size_formatted: "562.5 MB",
+      is_dir: true,
+      category: "folder" as const,
+      category_label: "Directory",
+      last_modified: Date.now() / 1000 - 3600,
+      percentage: 10.4,
+    },
+    {
+      id: "C:\\Users\\pc\\Desktop\\seve",
+      name: "seve",
+      path: "C:\\Users\\pc\\Desktop\\seve",
+      size_bytes: 428343296,
+      size_formatted: "408.5 MB",
+      is_dir: true,
+      category: "folder" as const,
+      category_label: "Directory",
+      last_modified: Date.now() / 1000 - 86400 * 20,
+      percentage: 7.5,
+    }
+  ]
+};
+
+
 
