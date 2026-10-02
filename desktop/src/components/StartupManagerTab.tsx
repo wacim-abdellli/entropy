@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Power,
   RefreshCw,
@@ -408,11 +409,18 @@ export const StartupManagerTab: React.FC<StartupManagerTabProps> = ({ onNotice }
       </div>
 
       {/* Confirmation Dialog for Permanent Removal */}
-      {confirmDelete && (
+      {confirmDelete && typeof document !== 'undefined' && createPortal(
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirmDelete(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setConfirmDelete(null);
+          }}
+          tabIndex={-1}
         >
           <div className="bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-start gap-3 mb-4">
@@ -451,7 +459,8 @@ export const StartupManagerTab: React.FC<StartupManagerTabProps> = ({ onNotice }
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

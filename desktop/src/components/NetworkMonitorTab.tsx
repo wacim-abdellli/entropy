@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Globe,
   Radio,
@@ -460,14 +461,18 @@ export const NetworkMonitorTab: React.FC<NetworkMonitorTabProps> = ({ onActionCo
       )}
 
       {/* Confirmation Modal for Freeing Port / Killing Process */}
-      {targetConn && (
+      {targetConn && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
           role="dialog"
           aria-modal="true"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setTargetConn(null);
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isTerminating) setTargetConn(null);
           }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !isTerminating) setTargetConn(null);
+          }}
+          tabIndex={-1}
         >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3 mb-4">
@@ -534,7 +539,8 @@ export const NetworkMonitorTab: React.FC<NetworkMonitorTabProps> = ({ onActionCo
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

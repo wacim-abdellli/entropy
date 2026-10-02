@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   HardDrive,
   FolderSync,
@@ -456,14 +457,18 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
       )}
 
       {/* Relocation Confirmation Modal */}
-      {targetCandidate && (
+      {targetCandidate && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
           role="dialog"
           aria-modal="true"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setTargetCandidate(null);
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isRelocating) setTargetCandidate(null);
           }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !isRelocating) setTargetCandidate(null);
+          }}
+          tabIndex={-1}
         >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl w-full max-w-lg p-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3 mb-4">
@@ -536,18 +541,23 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Restore Confirmation Modal */}
-      {targetRestoreJunction && (
+      {targetRestoreJunction && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
           role="dialog"
           aria-modal="true"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setTargetRestoreJunction(null);
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isRestoring) setTargetRestoreJunction(null);
           }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !isRestoring) setTargetRestoreJunction(null);
+          }}
+          tabIndex={-1}
         >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3 mb-4">
@@ -593,7 +603,8 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Copy,
   RefreshCw,
@@ -452,11 +453,18 @@ export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice
       </div>
 
       {/* ── Single File Delete Confirmation Modal ── */}
-      {confirmDeleteFile && (
+      {confirmDeleteFile && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
           role="dialog"
           aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirmDeleteFile(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setConfirmDeleteFile(null);
+          }}
+          tabIndex={-1}
         >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-start gap-3">
@@ -503,15 +511,23 @@ export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Group Cleanup Confirmation Modal ── */}
-      {confirmCleanGroup && (
+      {confirmCleanGroup && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
           role="dialog"
           aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirmCleanGroup(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setConfirmCleanGroup(null);
+          }}
+          tabIndex={-1}
         >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-start gap-3">
@@ -571,7 +587,8 @@ export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

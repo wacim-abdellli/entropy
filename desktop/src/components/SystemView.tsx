@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Activity, Boxes, Check, Copy, Cpu, Database, ExternalLink, Filter, FolderGit2, FolderOpen, SquareTerminal, X, XCircle, Zap, CheckCircle2, AlertTriangle, Info, Laptop, Power, Package, Radio } from 'lucide-react';
 import { CacheConnection, DockerConnection, ProcessConnection, RuntimeConnection, WorkspaceSummary } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
@@ -307,7 +308,7 @@ export const SystemView: React.FC<SystemViewProps> = ({
   );
 
   return (
-    <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full max-w-full bg-[var(--color-surface-0)] animate-enter">
+    <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full max-w-full bg-[var(--color-surface-0)]">
       {notice && (
         <div
           role="status"
@@ -401,8 +402,19 @@ export const SystemView: React.FC<SystemViewProps> = ({
           </div>
         </div>
       )}
-      {confirm && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
+      {confirm && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirm(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setConfirm(null);
+          }}
+          tabIndex={-1}
+        >
           <div className="w-full max-w-sm rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] p-5 shadow-2xl space-y-4">
             <div className="flex justify-between gap-4">
               <div>
@@ -441,10 +453,22 @@ export const SystemView: React.FC<SystemViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-      {confirmCleanSlate && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
+      {confirmCleanSlate && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !cleanSlateLoading) setConfirmCleanSlate(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !cleanSlateLoading) setConfirmCleanSlate(false);
+          }}
+          tabIndex={-1}
+        >
           <div className="w-full max-w-md rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] p-5 shadow-2xl space-y-4">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-[var(--color-success-bg)] text-[var(--color-success)] shrink-0">
@@ -494,7 +518,8 @@ export const SystemView: React.FC<SystemViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       <header className="sticky top-0 z-10 h-14 px-7 flex items-center justify-between border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-0)]/95 backdrop-blur">
         <div>

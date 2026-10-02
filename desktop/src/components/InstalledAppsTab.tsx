@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Package,
   Search,
@@ -518,11 +519,18 @@ export const InstalledAppsTab: React.FC<InstalledAppsTabProps> = ({ onNotice }) 
       </div>
 
       {/* ── Uninstall Confirmation Modal ── */}
-      {confirmUninstallApp && (
+      {confirmUninstallApp && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
           role="dialog"
           aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirmUninstallApp(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setConfirmUninstallApp(null);
+          }}
+          tabIndex={-1}
         >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-start gap-3">
@@ -595,7 +603,8 @@ export const InstalledAppsTab: React.FC<InstalledAppsTabProps> = ({ onNotice }) 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

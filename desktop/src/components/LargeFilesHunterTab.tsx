@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   FileWarning,
   RefreshCw,
@@ -336,11 +337,18 @@ export const LargeFilesHunterTab: React.FC<LargeFilesHunterTabProps> = ({ onNoti
       </div>
 
       {/* Recycle Bin Delete Confirmation Dialog */}
-      {confirmDelete && (
+      {confirmDelete && typeof document !== 'undefined' && createPortal(
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !deleting) setConfirmDelete(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !deleting) setConfirmDelete(null);
+          }}
+          tabIndex={-1}
         >
           <div className="bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-start gap-3 mb-4">
@@ -382,7 +390,8 @@ export const LargeFilesHunterTab: React.FC<LargeFilesHunterTabProps> = ({ onNoti
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
