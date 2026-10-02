@@ -298,7 +298,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg">Entropy Desktop</h3>
-                  <div className="text-sm text-[var(--color-text-secondary)]">Version 0.1.0</div>
+                  <div className="text-sm text-[var(--color-text-secondary)]">Version 0.2.1</div>
                 </div>
               </div>
               <p className="text-[var(--color-text-secondary)] text-sm mt-4">
