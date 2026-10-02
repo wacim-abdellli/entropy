@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -187,6 +187,23 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   const [gitNotice, setGitNotice] = useState<string | null>(null);
   const [gitLoadingPath, setGitLoadingPath] = useState<string | null>(null);
+
+  // Auto-dismiss floating notifications
+  useEffect(() => {
+    if (!cleanSlateNotice) return;
+    const timer = setTimeout(() => {
+      setCleanSlateNotice(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [cleanSlateNotice]);
+
+  useEffect(() => {
+    if (!gitNotice) return;
+    const timer = setTimeout(() => {
+      setGitNotice(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [gitNotice]);
 
   const workspaces = useMemo(() => overview?.workspaces || [], [overview?.workspaces]);
   const artifacts = useMemo(() => overview?.system?.artifacts || [], [overview?.system?.artifacts]);

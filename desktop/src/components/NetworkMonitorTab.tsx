@@ -38,6 +38,23 @@ export const NetworkMonitorTab: React.FC<NetworkMonitorTabProps> = ({ onActionCo
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
+  // Auto-dismiss notices
+  useEffect(() => {
+    if (!actionSuccess) return;
+    const timer = setTimeout(() => {
+      setActionSuccess(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [actionSuccess]);
+
+  useEffect(() => {
+    if (!actionError) return;
+    const timer = setTimeout(() => {
+      setActionError(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [actionError]);
+
   const fetchConnections = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);

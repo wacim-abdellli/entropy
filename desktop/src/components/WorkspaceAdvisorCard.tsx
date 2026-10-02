@@ -49,6 +49,16 @@ export const WorkspaceHealthCard: React.FC<WorkspaceAdvisorCardProps> = ({
   // Action state
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<{ id: string; success: boolean; text: string } | null>(null);
+
+  // Auto-dismiss action feedback notice
+  useEffect(() => {
+    if (!actionNotice) return;
+    const timer = setTimeout(() => {
+      setActionNotice(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [actionNotice]);
+
   const [prevPath, setPrevPath] = useState(workspacePath);
 
   if (workspacePath !== prevPath) {

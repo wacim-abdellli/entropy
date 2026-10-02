@@ -184,6 +184,15 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
 
+  // Auto-dismiss floating toast notification
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
   // Live Progress HUD state
   const [liveModalOpen, setLiveModalOpen] = useState(false);
   const [liveProgress, setLiveProgress] = useState<CleanupLiveProgress | null>(null);

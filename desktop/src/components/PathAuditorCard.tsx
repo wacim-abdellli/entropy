@@ -25,6 +25,15 @@ export const PathAuditorCard: React.FC<PathAuditorCardProps> = ({ onRefreshParen
   const [showDetails, setShowDetails] = useState(false);
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
+  // Auto-dismiss prune result notification
+  useEffect(() => {
+    if (!pruneResult) return;
+    const timer = setTimeout(() => {
+      setPruneResult(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [pruneResult]);
+
   const fetchAudit = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -56,7 +65,6 @@ export const PathAuditorCard: React.FC<PathAuditorCardProps> = ({ onRefreshParen
       });
     } finally {
       setIsPruning(false);
-      setTimeout(() => setPruneResult(null), 8000);
     }
   };
 

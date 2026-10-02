@@ -24,6 +24,15 @@ export const DevDriveCard: React.FC<DevDriveCardProps> = ({ onRefreshParent }) =
   const [isRelocating, setIsRelocating] = useState(false);
   const [relocateResult, setRelocateResult] = useState<DevDriveRelocateResult | null>(null);
 
+  // Auto-dismiss relocate result notification
+  useEffect(() => {
+    if (!relocateResult) return;
+    const timer = setTimeout(() => {
+      setRelocateResult(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [relocateResult]);
+
   const fetchStatus = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -60,7 +69,6 @@ export const DevDriveCard: React.FC<DevDriveCardProps> = ({ onRefreshParent }) =
       });
     } finally {
       setIsRelocating(false);
-      setTimeout(() => setRelocateResult(null), 8000);
     }
   };
 

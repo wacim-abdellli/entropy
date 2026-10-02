@@ -157,6 +157,15 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     text: string;
   } | null>(null);
 
+  // Auto-dismiss floating toast notification
+  useEffect(() => {
+    if (!actionResult) return;
+    const timer = setTimeout(() => {
+      setActionResult(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [actionResult]);
+
   // Stashes state
   const [stashes, setStashes] = useState<GitStashItem[]>([]);
 

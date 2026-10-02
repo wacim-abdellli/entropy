@@ -39,6 +39,15 @@ export const FileLockModal: React.FC<FileLockModalProps> = ({
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [copiedPid, setCopiedPid] = useState<number | null>(null);
 
+  // Auto-dismiss action message
+  useEffect(() => {
+    if (!actionMessage) return;
+    const timer = setTimeout(() => {
+      setActionMessage(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [actionMessage]);
+
   const runDiagnosis = useCallback(async (pathToScan: string) => {
     if (!pathToScan.trim()) return;
 

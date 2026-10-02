@@ -40,6 +40,23 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
   const [relocateError, setRelocateError] = useState<string | null>(null);
   const [relocateSuccess, setRelocateSuccess] = useState<string | null>(null);
 
+  // Auto-dismiss floating notices
+  useEffect(() => {
+    if (!relocateSuccess) return;
+    const timer = setTimeout(() => {
+      setRelocateSuccess(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [relocateSuccess]);
+
+  useEffect(() => {
+    if (!relocateError) return;
+    const timer = setTimeout(() => {
+      setRelocateError(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [relocateError]);
+
   // Rollback / Restore State
   const [targetRestoreJunction, setTargetRestoreJunction] = useState<ActiveJunctionItem | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
