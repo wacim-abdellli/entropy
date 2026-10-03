@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Copy,
@@ -14,6 +14,7 @@ import {
   Loader2,
   ShieldCheck,
   Check,
+  CheckSquare,
 } from 'lucide-react';
 import { DuplicateGroupItem, DuplicateFileItem, DuplicateReport } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
@@ -38,8 +39,13 @@ export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmDeleteFile, setConfirmDeleteFile] = useState<DuplicateFileItem | null>(null);
   const [confirmCleanGroup, setConfirmCleanGroup] = useState<{ group: DuplicateGroupItem; keep: 'newest' | 'oldest' } | null>(null);
+  const [confirmBatchClean, setConfirmBatchClean] = useState<{ keep: 'newest' | 'oldest' } | null>(null);
   const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const [cleaningGroupId, setCleaningGroupId] = useState<string | null>(null);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
+  const [isBatchCleaning, setIsBatchCleaning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
   const fetchDuplicates = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -48,6 +54,7 @@ export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice
     try {
       const data = await EntropyApiClient.scanDuplicateFiles(null, minSizeKb);
       setReport(data);
+      setSelectedGroupIds(new Set());
     } catch (err) {
       console.error('Failed to scan duplicate files:', err);
     } finally {
@@ -66,6 +73,7 @@ export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice
       if (e.key === 'Escape') {
         setConfirmDeleteFile(null);
         setConfirmCleanGroup(null);
+        setConfirmBatchClean(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -199,6 +207,122 @@ export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice
     });
   }, [report, searchQuery]);
 
+  // Derived selection states
+  const isAllSelected = useMemo(() => {
+    if (filteredGroups.length === 0) return false;
+    return filteredGroups.every((g) => selectedGroupIds.has(g.group_id));
+  }, [filteredGroups, selectedGroupIds]);
+
+  const isSomeSelected = useMemo(() => {
+    if (isAllSelected) return false;
+    return filteredGroups.some((g) => selectedGroupIds.has(g.group_id));
+  }, [filteredGroups, selectedGroupIds, isAllSelected]);
+
+  useEffect(() => {
+    if (selectAllCheckboxRef.current) {
+      selectAllCheckboxRef.current.indeterminate = isSomeSelected;
+    }
+  }, [isSomeSelected]);
+
+  const selectedGroups = useMemo(() => {
+    if (!report?.groups) return [];
+    return report.groups.filter((g) => selectedGroupIds.has(g.group_id));
+  }, [report, selectedGroupIds]);
+
+  const selectedWastedBytes = useMemo(() => {
+    return selectedGroups.reduce((acc, g) => acc + g.wasted_bytes, 0);
+  }, [selectedGroups]);
+
+  const selectedRedundantFilesCount = useMemo(() => {
+    return selectedGroups.reduce((acc, g) => acc + (g.file_count - 1), 0);
+  }, [selectedGroups]);
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedGroupIds(new Set());
+    } else {
+      setSelectedGroupIds(new Set(filteredGroups.map((g) => g.group_id)));
+    }
+  };
+
+  const handleToggleGroup = (groupId: string) => {
+    setSelectedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
+  const handleBatchClean = async (keep: 'newest' | 'oldest') => {
+    if (selectedGroups.length === 0) return;
+    setIsBatchCleaning(true);
+    setConfirmBatchClean(null);
+
+    let totalDeleted = 0;
+    let totalFreed = 0;
+    const cleanedGroupIds = new Set<string>();
+
+    for (let i = 0; i < selectedGroups.length; i++) {
+      const group = selectedGroups[i];
+      setBatchProgress({ current: i + 1, total: selectedGroups.length });
+
+      const sorted = [...group.files].sort((a, b) => {
+        return keep === 'newest' ? b.last_modified - a.last_modified : a.last_modified - b.last_modified;
+      });
+
+      const filesToDelete = sorted.slice(1);
+      let groupSuccess = true;
+
+      for (const f of filesToDelete) {
+        try {
+          const res = await EntropyApiClient.deleteDuplicateFile(f.path, true);
+          if (res.success) {
+            totalDeleted += 1;
+            totalFreed += res.freed_bytes || f.size_bytes;
+          } else {
+            groupSuccess = false;
+          }
+        } catch (err) {
+          console.error('Failed to delete duplicate file:', f.path, err);
+          groupSuccess = false;
+        }
+      }
+
+      if (groupSuccess || filesToDelete.length > 0) {
+        cleanedGroupIds.add(group.group_id);
+      }
+    }
+
+    onNotice?.({
+      type: 'success',
+      title: 'Batch Cleanup Complete',
+      message: `Cleaned ${cleanedGroupIds.size} duplicate groups. Moved ${totalDeleted} redundant copies (${formatBytes(totalFreed)}) to Windows Recycle Bin.`,
+    });
+
+    // Optimistically remove cleaned groups from report
+    setReport((prev) => {
+      if (!prev) return prev;
+      const updatedGroups = prev.groups.filter((g) => !cleanedGroupIds.has(g.group_id));
+      const totalWasted = updatedGroups.reduce((acc, g) => acc + g.wasted_bytes, 0);
+      return {
+        ...prev,
+        groups: updatedGroups,
+        total_groups: updatedGroups.length,
+        total_duplicate_files: updatedGroups.reduce((acc, g) => acc + g.file_count, 0),
+        total_wasted_bytes: totalWasted,
+        total_wasted_formatted: formatBytes(totalWasted),
+      };
+    });
+
+    setSelectedGroupIds(new Set());
+    setIsBatchCleaning(false);
+    setBatchProgress(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Summary Hero Cards ── */}
@@ -316,6 +440,96 @@ export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice
         </div>
       </div>
 
+      {/* ── Selection & Batch Action Bar ── */}
+      {!loading && filteredGroups.length > 0 && (
+        <div className="p-3.5 px-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                ref={selectAllCheckboxRef}
+                type="checkbox"
+                checked={isAllSelected}
+                onChange={handleToggleSelectAll}
+                className="w-4 h-4 rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-accent)] focus:ring-offset-0 bg-[var(--color-surface-2)] cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+                {isAllSelected ? 'Deselect All' : 'Select All'}
+              </span>
+            </label>
+
+            <span className="text-xs text-[var(--color-text-tertiary)] font-mono">
+              ({selectedGroupIds.size} of {filteredGroups.length} selected)
+            </span>
+
+            {selectedGroupIds.size > 0 && (
+              <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
+                +{formatBytes(selectedWastedBytes)} recoverable
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {selectedGroupIds.size > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSelectedGroupIds(new Set())}
+                  disabled={isBatchCleaning}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Clear Selection
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmBatchClean({ keep: 'newest' })}
+                  disabled={isBatchCleaning}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  {isBatchCleaning ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Check size={13} />
+                  )}
+                  <span>Clean Selected ({selectedGroupIds.size})</span>
+                </button>
+              </>
+            )}
+
+            {selectedGroupIds.size === 0 && (
+              <button
+                type="button"
+                onClick={handleToggleSelectAll}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-accent-strong)] hover:text-white hover:bg-[var(--color-accent)] bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <CheckSquare size={13} />
+                <span>Select All ({filteredGroups.length})</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Batch Cleaning Progress Bar ── */}
+      {isBatchCleaning && batchProgress && (
+        <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-accent)]/30 space-y-2 shadow-xs">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin text-[var(--color-accent)]" />
+              <span>Cleaning selected duplicate groups…</span>
+            </span>
+            <span className="font-mono text-[var(--color-text-secondary)]">
+              {batchProgress.current} / {batchProgress.total} groups
+            </span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-[var(--color-surface-3)] overflow-hidden">
+            <div
+              className="h-full rounded-full bg-[var(--color-accent)] transition-all duration-200"
+              style={{ width: `${Math.round((batchProgress.current / batchProgress.total) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── Duplicate Groups List ── */}
       <div className="space-y-4">
         {loading ? (
@@ -337,15 +551,27 @@ export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice
           filteredGroups.map((group) => {
             const newest = group.files[0];
             const isGroupBusy = cleaningGroupId === group.group_id;
+            const isSelected = selectedGroupIds.has(group.group_id);
 
             return (
               <div
                 key={group.group_id}
-                className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-1)] overflow-hidden shadow-xs"
+                className={`rounded-xl border transition-all overflow-hidden shadow-xs ${
+                  isSelected
+                    ? 'border-[var(--color-accent)]/50 ring-1 ring-[var(--color-accent)]/20 bg-[var(--color-surface-1)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface-1)]'
+                }`}
               >
                 {/* Group Header */}
                 <div className="p-4 bg-[var(--color-surface-2)]/60 border-b border-[var(--color-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleGroup(group.group_id)}
+                      aria-label={`Select duplicate group ${newest.name}`}
+                      className="w-4 h-4 rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-accent)] focus:ring-offset-0 bg-[var(--color-surface-2)] cursor-pointer shrink-0"
+                    />
                     <div className="w-8 h-8 rounded-lg bg-[var(--color-surface-3)] flex items-center justify-center text-[var(--color-text-primary)] shrink-0">
                       <Copy size={16} />
                     </div>
@@ -584,6 +810,118 @@ export const DuplicateFinderTab: React.FC<DuplicateFinderTabProps> = ({ onNotice
               >
                 <Trash2 size={13} />
                 <span>Clean Redundant Copies</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Batch Cleanup Confirmation Modal ── */}
+      {confirmBatchClean && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirmBatchClean(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setConfirmBatchClean(null);
+          }}
+          tabIndex={-1}
+        >
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 text-[var(--color-accent)] shrink-0">
+                <Check size={20} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  Clean {selectedGroupIds.size} Selected Duplicate Groups?
+                </h3>
+                <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                  Entropy will keep the {confirmBatchClean.keep} copy of each file and move all{' '}
+                  <strong className="text-[var(--color-text-primary)]">
+                    {selectedRedundantFilesCount} redundant copies
+                  </strong>{' '}
+                  to the Windows Recycle Bin.
+                </p>
+              </div>
+            </div>
+
+            {/* Policy Selector: Keep Newest vs Keep Oldest */}
+            <div className="p-3 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)] space-y-2">
+              <span className="text-xs font-medium text-[var(--color-text-secondary)]">Preservation Rule:</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmBatchClean({ keep: 'newest' })}
+                  className={`p-2.5 rounded-lg text-xs font-medium border text-left transition-all cursor-pointer ${
+                    confirmBatchClean.keep === 'newest'
+                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-text-primary)] font-semibold'
+                      : 'border-[var(--color-border)] bg-[var(--color-surface-1)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  }`}
+                >
+                  <div className="font-semibold text-xs text-[var(--color-text-primary)]">Keep Newest (Recommended)</div>
+                  <div className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">Trashes older duplicate versions</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmBatchClean({ keep: 'oldest' })}
+                  className={`p-2.5 rounded-lg text-xs font-medium border text-left transition-all cursor-pointer ${
+                    confirmBatchClean.keep === 'oldest'
+                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-text-primary)] font-semibold'
+                      : 'border-[var(--color-border)] bg-[var(--color-surface-1)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  }`}
+                >
+                  <div className="font-semibold text-xs text-[var(--color-text-primary)]">Keep Oldest</div>
+                  <div className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">Trashes newer duplicate versions</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Impact Summary */}
+            <div className="p-3 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)] space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-[var(--color-text-secondary)]">Selected Groups:</span>
+                <span className="font-semibold text-[var(--color-text-primary)] font-mono">
+                  {selectedGroupIds.size} groups
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--color-text-secondary)]">Redundant Copies to Recycle:</span>
+                <span className="font-mono text-[var(--color-warning)] font-semibold">
+                  {selectedRedundantFilesCount} files
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--color-text-secondary)]">Total Reclaimable Space:</span>
+                <span className="font-mono text-[var(--color-success)] font-semibold">
+                  {formatBytes(selectedWastedBytes)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-tertiary)] pt-1 border-t border-[var(--color-border-subtle)]">
+                <ShieldCheck size={13} className="text-[var(--color-success)]" />
+                <span>100% reversible via Windows Recycle Bin</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmBatchClean(null)}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleBatchClean(confirmBatchClean.keep)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+              >
+                <Trash2 size={13} />
+                <span>Move {selectedRedundantFilesCount} Files to Recycle Bin</span>
               </button>
             </div>
           </div>
