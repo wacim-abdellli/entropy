@@ -34,64 +34,64 @@ interface TreemapLayoutNode extends PathBreakdownNode {
   rect: Rect;
 }
 
-// Category palette using design tokens
+// Category palette using design tokens and subtle dark gradients
 const NODE_CATEGORY_STYLES: Record<string, { bg: string; border: string; text: string; dot: string }> = {
   artifact: {
-    bg: 'bg-[var(--color-success-bg)] hover:bg-[var(--color-success-bg)]',
-    border: 'border-[var(--color-success-border)] hover:border-[var(--color-success)]',
-    text: 'text-[var(--color-success)]',
-    dot: 'bg-[var(--color-success)]',
+    bg: 'bg-gradient-to-br from-emerald-950/40 via-emerald-900/20 to-[var(--color-surface-2)] hover:from-emerald-950/60 hover:to-[var(--color-surface-3)]',
+    border: 'border-emerald-500/30 hover:border-emerald-400',
+    text: 'text-emerald-400',
+    dot: 'bg-emerald-400',
   },
   cache: {
-    bg: 'bg-[var(--color-warning-bg)] hover:bg-[var(--color-warning-bg)]',
-    border: 'border-[var(--color-warning-border)] hover:border-[var(--color-warning)]',
-    text: 'text-[var(--color-warning)]',
-    dot: 'bg-[var(--color-warning)]',
+    bg: 'bg-gradient-to-br from-amber-950/40 via-amber-900/20 to-[var(--color-surface-2)] hover:from-amber-950/60 hover:to-[var(--color-surface-3)]',
+    border: 'border-amber-500/30 hover:border-amber-400',
+    text: 'text-amber-400',
+    dot: 'bg-amber-400',
   },
   virtual_disk: {
-    bg: 'bg-[var(--color-info-bg)] hover:bg-[var(--color-info-bg)]',
-    border: 'border-[var(--color-info-border)] hover:border-[var(--color-info)]',
-    text: 'text-[var(--color-info)]',
-    dot: 'bg-[var(--color-info)]',
+    bg: 'bg-gradient-to-br from-cyan-950/40 via-cyan-900/20 to-[var(--color-surface-2)] hover:from-cyan-950/60 hover:to-[var(--color-surface-3)]',
+    border: 'border-cyan-500/30 hover:border-cyan-400',
+    text: 'text-cyan-400',
+    dot: 'bg-cyan-400',
   },
   ai_model: {
-    bg: 'bg-purple-500/10 hover:bg-purple-500/15',
-    border: 'border-purple-500/25 hover:border-purple-500/40',
+    bg: 'bg-gradient-to-br from-purple-950/40 via-purple-900/20 to-[var(--color-surface-2)] hover:from-purple-950/60 hover:to-[var(--color-surface-3)]',
+    border: 'border-purple-500/30 hover:border-purple-400',
     text: 'text-purple-400',
     dot: 'bg-purple-400',
   },
   download: {
-    bg: 'bg-orange-500/10 hover:bg-orange-500/15',
-    border: 'border-orange-500/25 hover:border-orange-500/40',
+    bg: 'bg-gradient-to-br from-orange-950/40 via-orange-900/20 to-[var(--color-surface-2)] hover:from-orange-950/60 hover:to-[var(--color-surface-3)]',
+    border: 'border-orange-500/30 hover:border-orange-400',
     text: 'text-orange-400',
     dot: 'bg-orange-400',
   },
   system: {
-    bg: 'bg-[var(--color-danger-bg)] hover:bg-[var(--color-danger-bg)]',
-    border: 'border-[var(--color-danger-border)] hover:border-[var(--color-danger)]',
-    text: 'text-[var(--color-danger)]',
-    dot: 'bg-[var(--color-danger)]',
+    bg: 'bg-gradient-to-br from-rose-950/40 via-rose-900/20 to-[var(--color-surface-2)] hover:from-rose-950/60 hover:to-[var(--color-surface-3)]',
+    border: 'border-rose-500/30 hover:border-rose-400',
+    text: 'text-rose-400',
+    dot: 'bg-rose-400',
   },
   folder: {
-    bg: 'bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)]',
-    border: 'border-[var(--color-border)] hover:border-[var(--color-border-strong)]',
-    text: 'text-[var(--color-accent-strong)]',
+    bg: 'bg-gradient-to-br from-[#1a1f2c] via-[var(--color-surface-2)] to-[var(--color-surface-3)]/70 hover:from-[var(--color-surface-2)] hover:to-[var(--color-surface-3)]',
+    border: 'border-slate-700/50 hover:border-[var(--color-accent)]',
+    text: 'text-[var(--color-accent)]',
     dot: 'bg-[var(--color-accent)]',
   },
   source_code: {
-    bg: 'bg-[var(--color-accent-muted)] hover:bg-[var(--color-accent-muted)]',
-    border: 'border-[var(--color-accent)]/30 hover:border-[var(--color-accent)]',
-    text: 'text-[var(--color-accent-strong)]',
-    dot: 'bg-[var(--color-accent)]',
+    bg: 'bg-gradient-to-br from-blue-950/40 via-blue-900/20 to-[var(--color-surface-2)] hover:from-blue-950/60 hover:to-[var(--color-surface-3)]',
+    border: 'border-blue-500/30 hover:border-blue-400',
+    text: 'text-blue-400',
+    dot: 'bg-blue-400',
   },
   media: {
-    bg: 'bg-pink-500/10 hover:bg-pink-500/15',
-    border: 'border-pink-500/25 hover:border-pink-500/40',
+    bg: 'bg-gradient-to-br from-pink-950/40 via-pink-900/20 to-[var(--color-surface-2)] hover:from-pink-950/60 hover:to-[var(--color-surface-3)]',
+    border: 'border-pink-500/30 hover:border-pink-400',
     text: 'text-pink-400',
     dot: 'bg-pink-400',
   },
   file: {
-    bg: 'bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)]',
+    bg: 'bg-gradient-to-br from-[var(--color-surface-2)]/90 to-[var(--color-surface-3)]/40 hover:from-[var(--color-surface-3)] hover:to-[var(--color-surface-3)]/60',
     border: 'border-[var(--color-border-subtle)] hover:border-[var(--color-border)]',
     text: 'text-[var(--color-text-secondary)]',
     dot: 'bg-[var(--color-text-tertiary)]',
@@ -99,8 +99,25 @@ const NODE_CATEGORY_STYLES: Record<string, { bg: string; border: string; text: s
 };
 
 /**
- * Standard Squarified Treemap layout algorithm for fast drill-down cartography
+ * Standard Bruls-Huizing-van Wijk Squarified Treemap layout algorithm
+ * Always lays out rows along the SHORTER dimension to maintain 1:1 aspect ratios
  */
+function worstRatio(row: { area: number }[], length: number): number {
+  if (row.length === 0 || length <= 0) return Infinity;
+  const rowArea = row.reduce((acc, el) => acc + el.area, 0);
+  const thickness = rowArea / length;
+  if (thickness <= 0) return Infinity;
+
+  let maxRatio = 0;
+  for (const el of row) {
+    const elLength = el.area / thickness;
+    if (elLength <= 0) continue;
+    const ratio = Math.max(thickness / elLength, elLength / thickness);
+    if (ratio > maxRatio) maxRatio = ratio;
+  }
+  return maxRatio;
+}
+
 function computeSquarifiedTreemap(
   items: PathBreakdownNode[],
   width: number,
@@ -120,101 +137,104 @@ function computeSquarifiedTreemap(
   if (elements.length === 0) return [];
 
   const results: TreemapLayoutNode[] = [];
+  const remaining = { x: 0, y: 0, w: width, h: height };
+  let currentRow: typeof elements = [];
 
-  function layoutRow(row: typeof elements, rect: Rect, isHorizontal: boolean) {
-    const rowArea = row.reduce((acc, el) => acc + el.area, 0);
-    const rowThickness = isHorizontal ? rowArea / rect.w : rowArea / rect.h;
+  for (let i = 0; i < elements.length; i++) {
+    const nextItem = elements[i];
+    // Always lay out along the shorter dimension of remaining rectangle
+    const isVertical = remaining.w >= remaining.h;
+    const length = isVertical ? remaining.h : remaining.w;
+
+    if (currentRow.length === 0) {
+      currentRow.push(nextItem);
+    } else {
+      const currentWorst = worstRatio(currentRow, length);
+      const nextWorst = worstRatio([...currentRow, nextItem], length);
+
+      if (nextWorst <= currentWorst) {
+        currentRow.push(nextItem);
+      } else {
+        // Layout current row along shorter dimension
+        const rowArea = currentRow.reduce((acc, el) => acc + el.area, 0);
+        const thickness = rowArea / length;
+        let offset = 0;
+
+        for (const el of currentRow) {
+          const elLength = thickness > 0 ? el.area / thickness : 0;
+          if (isVertical) {
+            // Stack vertically in a column of width 'thickness'
+            results.push({
+              ...el.item,
+              rect: {
+                x: remaining.x,
+                y: remaining.y + offset,
+                w: Math.max(1, thickness),
+                h: Math.max(1, elLength),
+              },
+            });
+          } else {
+            // Stack horizontally in a row of height 'thickness'
+            results.push({
+              ...el.item,
+              rect: {
+                x: remaining.x + offset,
+                y: remaining.y,
+                w: Math.max(1, elLength),
+                h: Math.max(1, thickness),
+              },
+            });
+          }
+          offset += elLength;
+        }
+
+        if (isVertical) {
+          remaining.x += thickness;
+          remaining.w = Math.max(0, remaining.w - thickness);
+        } else {
+          remaining.y += thickness;
+          remaining.h = Math.max(0, remaining.h - thickness);
+        }
+
+        currentRow = [nextItem];
+      }
+    }
+  }
+
+  if (currentRow.length > 0) {
+    const isVertical = remaining.w >= remaining.h;
+    const length = isVertical ? remaining.h : remaining.w;
+    const rowArea = currentRow.reduce((acc, el) => acc + el.area, 0);
+    const thickness = length > 0 ? rowArea / length : 0;
     let offset = 0;
 
-    for (const el of row) {
-      const elLength = rowThickness > 0 ? el.area / rowThickness : 0;
-      if (isHorizontal) {
+    for (const el of currentRow) {
+      const elLength = thickness > 0 ? el.area / thickness : 0;
+      if (isVertical) {
         results.push({
           ...el.item,
           rect: {
-            x: rect.x + offset,
-            y: rect.y,
-            w: Math.max(1, elLength),
-            h: Math.max(1, rowThickness),
-          },
-        });
-        offset += elLength;
-      } else {
-        results.push({
-          ...el.item,
-          rect: {
-            x: rect.x,
-            y: rect.y + offset,
-            w: Math.max(1, rowThickness),
+            x: remaining.x,
+            y: remaining.y + offset,
+            w: Math.max(1, thickness),
             h: Math.max(1, elLength),
           },
         });
-        offset += elLength;
-      }
-    }
-  }
-
-  function worstRatio(row: typeof elements, length: number) {
-    if (row.length === 0 || length <= 0) return Infinity;
-    const rowArea = row.reduce((acc, el) => acc + el.area, 0);
-    const rowThickness = rowArea / length;
-    if (rowThickness <= 0) return Infinity;
-
-    let maxRatio = 0;
-    for (const el of row) {
-      const elLength = el.area / rowThickness;
-      if (elLength <= 0) continue;
-      const ratio = Math.max(rowThickness / elLength, elLength / rowThickness);
-      if (ratio > maxRatio) maxRatio = ratio;
-    }
-    return maxRatio;
-  }
-
-  function squarify(children: typeof elements, rect: Rect) {
-    if (children.length === 0) return;
-    if (rect.w <= 0 || rect.h <= 0) return;
-
-    const remainingRect = { ...rect };
-    let currentRow: typeof elements = [];
-
-    for (let i = 0; i < children.length; i++) {
-      const nextItem = children[i];
-      const isHorizontal = remainingRect.w >= remainingRect.h;
-      const length = isHorizontal ? remainingRect.w : remainingRect.h;
-
-      if (currentRow.length === 0) {
-        currentRow.push(nextItem);
       } else {
-        const currentWorst = worstRatio(currentRow, length);
-        const nextWorst = worstRatio([...currentRow, nextItem], length);
-
-        if (nextWorst <= currentWorst) {
-          currentRow.push(nextItem);
-        } else {
-          layoutRow(currentRow, remainingRect, isHorizontal);
-          const rowArea = currentRow.reduce((acc, el) => acc + el.area, 0);
-          const rowThickness = rowArea / length;
-
-          if (isHorizontal) {
-            remainingRect.y += rowThickness;
-            remainingRect.h = Math.max(0, remainingRect.h - rowThickness);
-          } else {
-            remainingRect.x += rowThickness;
-            remainingRect.w = Math.max(0, remainingRect.w - rowThickness);
-          }
-
-          currentRow = [nextItem];
-        }
+        results.push({
+          ...el.item,
+          rect: {
+            x: remaining.x + offset,
+            y: remaining.y,
+            w: Math.max(1, elLength),
+            h: Math.max(1, thickness),
+          },
+        });
       }
-    }
-
-    if (currentRow.length > 0) {
-      const isHorizontal = remainingRect.w >= remainingRect.h;
-      layoutRow(currentRow, remainingRect, isHorizontal);
+      offset += elLength;
     }
   }
 
-  squarify(elements, { x: 0, y: 0, w: width, h: height });
   return results;
 }
 
@@ -231,6 +251,7 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
   const [pathReport, setPathReport] = useState<PathBreakdownReport | null>(null);
   const [pathScanning, setPathScanning] = useState(false);
   const [hoveredNode, setHoveredNode] = useState<TreemapLayoutNode | null>(null);
+  const lastScannedPathRef = useRef<string | null>(null);
 
   // Treemap container size
   const treemapContainerRef = useRef<HTMLDivElement>(null);
@@ -304,9 +325,13 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
 
   // Scan path drill down
   const scanPath = useCallback(async (targetPath: string) => {
+    if (lastScannedPathRef.current === targetPath && pathScanning) return;
+    lastScannedPathRef.current = targetPath;
     setPathScanning(true);
+    setCurrentScanPath(targetPath);
     try {
       const rep = await EntropyApiClient.scanPathBreakdown(targetPath, 1);
+      lastScannedPathRef.current = rep.path;
       setPathReport(rep);
       setCurrentScanPath(rep.path);
     } catch (err) {
@@ -314,10 +339,10 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
     } finally {
       setPathScanning(false);
     }
-  }, []);
+  }, [pathScanning]);
 
   useEffect(() => {
-    if (currentScanPath) {
+    if (currentScanPath && lastScannedPathRef.current !== currentScanPath) {
       scanPath(currentScanPath);
     }
   }, [currentScanPath, scanPath]);
@@ -331,6 +356,7 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
   // Switch active drive
   const handleSelectDrive = (d: SsdDriveOverview) => {
     setSelectedDrive(d.drive);
+    setPathReport(null);
     setCurrentScanPath(d.mountpoint);
   };
 
@@ -591,7 +617,7 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
               <span>Proportional Storage Footprint (Click any directory to drill down)</span>
             </span>
             {pathScanning && (
-              <span className="flex items-center gap-1 text-[var(--color-accent)] font-medium">
+              <span className="flex items-center gap-1.5 text-[var(--color-accent)] font-medium bg-[var(--color-accent)]/10 px-2 py-0.5 rounded-md border border-[var(--color-accent)]/20 animate-pulse">
                 <RefreshCw size={11} className="animate-spin" />
                 <span>Scanning directory...</span>
               </span>
@@ -600,17 +626,26 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
 
           <div
             ref={treemapContainerRef}
-            className="w-full relative rounded-xl bg-[var(--color-surface-0)] border border-[var(--color-border)] overflow-hidden"
+            className="w-full relative rounded-xl bg-[var(--color-surface-0)] border border-[var(--color-border)] overflow-hidden shadow-inner select-none"
             style={{ height: dimensions.height }}
           >
+            {/* Tiles */}
             {layoutNodes.map((node) => {
               const style = NODE_CATEGORY_STYLES[node.category] || NODE_CATEGORY_STYLES.folder;
               const isHovered = hoveredNode?.id === node.id;
               const canDrillDown = node.is_dir;
 
-              // Hide labels if rectangle is too tiny
+              // Thresholds for text display
               const showText = node.rect.w > 65 && node.rect.h > 40;
               const showDetail = node.rect.w > 95 && node.rect.h > 60;
+              const showWatermark = node.rect.w > 120 && node.rect.h > 80;
+              const isTiny = !showText && node.rect.w > 28 && node.rect.h > 20;
+
+              // Inset tiles slightly for rounded card separation & elevation
+              const insetLeft = Math.round(node.rect.x) + 1.5;
+              const insetTop = Math.round(node.rect.y) + 1.5;
+              const insetWidth = Math.max(2, Math.round(node.rect.w) - 3);
+              const insetHeight = Math.max(2, Math.round(node.rect.h) - 3);
 
               return (
                 <div
@@ -620,19 +655,30 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
                   }}
                   onMouseEnter={() => setHoveredNode(node)}
                   onMouseLeave={() => setHoveredNode(null)}
-                  className={`absolute transition-all duration-150 p-2 select-none flex flex-col justify-between overflow-hidden border ${style.bg} ${style.border} ${
-                    canDrillDown ? 'cursor-pointer' : 'cursor-default'
-                  } ${isHovered ? 'z-10 ring-2 ring-[var(--color-accent)]' : 'z-0'}`}
+                  className={`absolute rounded-lg transition-all duration-150 p-2 select-none flex flex-col justify-between overflow-hidden border shadow-xs ${style.bg} ${style.border} ${
+                    canDrillDown ? 'cursor-pointer hover:brightness-110' : 'cursor-default'
+                  } ${isHovered ? 'z-20 ring-2 ring-[var(--color-accent)] shadow-xl scale-[1.002]' : 'z-10'}`}
                   style={{
-                    left: node.rect.x,
-                    top: node.rect.y,
-                    width: node.rect.w,
-                    height: node.rect.h,
+                    left: insetLeft,
+                    top: insetTop,
+                    width: insetWidth,
+                    height: insetHeight,
                   }}
                 >
+                  {/* Subtle ambient watermark icon for large tiles to prevent empty void appearance */}
+                  {showWatermark && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-[0.06] select-none text-[var(--color-text-primary)]">
+                      {node.is_dir ? (
+                        <Folder size={Math.min(72, Math.floor(node.rect.h * 0.45))} />
+                      ) : (
+                        <File size={Math.min(72, Math.floor(node.rect.h * 0.45))} />
+                      )}
+                    </div>
+                  )}
+
                   {showText && (
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1 min-w-0">
+                    <div className="min-w-0 z-10">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         {node.is_dir ? (
                           <Folder size={12} className={`${style.text} shrink-0`} />
                         ) : (
@@ -643,7 +689,7 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
                         </span>
                       </div>
                       {showDetail && (
-                        <div className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5 truncate">
+                        <div className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5 truncate pl-4">
                           {node.category_label}
                         </div>
                       )}
@@ -651,23 +697,95 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
                   )}
 
                   {showText && (
-                    <div className="flex items-center justify-between text-[11px] font-mono">
+                    <div className="flex items-center justify-between text-[11px] font-mono z-10">
                       <span className="font-bold text-[var(--color-text-primary)]">
                         {node.size_formatted}
                       </span>
-                      <span className="text-[10px] text-[var(--color-text-tertiary)]">
+                      <span className="text-[10px] text-[var(--color-text-tertiary)] font-medium">
                         {node.percentage}%
                       </span>
+                    </div>
+                  )}
+
+                  {/* Minimal fallback label for tiny slivers */}
+                  {isTiny && (
+                    <div className="flex items-center justify-center h-full text-[9px] font-mono font-semibold text-[var(--color-text-tertiary)] truncate">
+                      {node.percentage}%
                     </div>
                   )}
                 </div>
               );
             })}
 
+            {/* Empty state when scan completes with 0 items */}
             {layoutNodes.length === 0 && !pathScanning && (
               <div className="h-full flex flex-col items-center justify-center text-xs text-[var(--color-text-tertiary)] p-6 text-center">
                 <FolderOpen size={24} className="mb-2 opacity-50" />
                 <span>This directory is empty or contains no measurable storage files.</span>
+              </div>
+            )}
+
+            {/* ── Initial Loading State with Soft Shadow & Pulsing Skeleton ── */}
+            {pathScanning && !pathReport && (
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 bg-[var(--color-surface-0)]/90 backdrop-blur-md">
+                {/* Background skeleton grid to show proportional shapes */}
+                <div className="absolute inset-3 grid grid-cols-4 grid-rows-2 gap-2 opacity-25 pointer-events-none">
+                  <div className="col-span-2 row-span-2 rounded-xl bg-[var(--color-surface-3)] animate-pulse" />
+                  <div className="col-span-1 row-span-1 rounded-xl bg-[var(--color-surface-3)] animate-pulse delay-100" />
+                  <div className="col-span-1 row-span-1 rounded-xl bg-[var(--color-surface-3)] animate-pulse delay-200" />
+                  <div className="col-span-2 row-span-1 rounded-xl bg-[var(--color-surface-3)] animate-pulse delay-150" />
+                </div>
+
+                {/* Floating center loader card with deep drop-shadow */}
+                <div className="relative z-10 px-6 py-5 rounded-2xl bg-[var(--color-surface-1)]/95 border border-[var(--color-border)] shadow-2xl shadow-black/90 flex flex-col items-center gap-3 text-center max-w-sm">
+                  <div className="relative">
+                    <div className="absolute -inset-2 rounded-full bg-[var(--color-accent)]/20 blur-md animate-pulse" />
+                    <div className="relative p-3 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] shadow-inner">
+                      <RefreshCw size={22} className="animate-spin text-[var(--color-accent)]" />
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">Scanning Storage Footprint</h4>
+                    <p className="text-xs text-[var(--color-text-tertiary)] mt-1 font-mono truncate max-w-xs">{currentScanPath}</p>
+                  </div>
+                  <p className="text-[11px] text-[var(--color-text-tertiary)]">Calculating proportional directory weights and file sizes...</p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Drill-Down Loading Overlay with Frosted Shadow ── */}
+            {pathScanning && pathReport && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/45 backdrop-blur-[2px] transition-all duration-150 shadow-inner">
+                <div className="px-5 py-3 rounded-xl bg-[var(--color-surface-1)]/95 border border-[var(--color-border)] shadow-2xl shadow-black/90 flex items-center gap-3 animate-in fade-in duration-150">
+                  <RefreshCw size={15} className="animate-spin text-[var(--color-accent)] shrink-0" />
+                  <div className="text-xs">
+                    <span className="font-semibold text-[var(--color-text-primary)]">Scanning directory...</span>
+                    <span className="block text-[10px] text-[var(--color-text-tertiary)] font-mono truncate max-w-[240px]">
+                      {currentScanPath}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Hover Inspection Card with Deep Drop-Shadow ── */}
+            {hoveredNode && !pathScanning && (
+              <div className="absolute bottom-3 right-3 pointer-events-none z-30 max-w-sm rounded-xl bg-[var(--color-surface-1)]/95 border border-[var(--color-border)] p-3 shadow-2xl shadow-black/80 backdrop-blur-md flex items-start gap-2.5 text-xs animate-in fade-in duration-100">
+                <div className={`p-1.5 rounded-lg shrink-0 ${NODE_CATEGORY_STYLES[hoveredNode.category]?.bg || ''} ${NODE_CATEGORY_STYLES[hoveredNode.category]?.text || ''}`}>
+                  {hoveredNode.is_dir ? <Folder size={14} /> : <File size={14} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-[var(--color-text-primary)] truncate font-mono">{hoveredNode.name}</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-[var(--color-surface-2)] text-[var(--color-text-tertiary)]">{hoveredNode.category_label}</span>
+                  </div>
+                  <div className="text-[10px] text-[var(--color-text-tertiary)] font-mono truncate mt-0.5">{hoveredNode.path}</div>
+                  <div className="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-[var(--color-border-subtle)] font-mono text-[11px]">
+                    <span className="font-bold text-[var(--color-text-primary)]">{hoveredNode.size_formatted}</span>
+                    <span className="text-[var(--color-accent)]">{hoveredNode.percentage}% of folder</span>
+                    {hoveredNode.is_dir && <span className="text-[10px] text-[var(--color-text-tertiary)] ml-auto">Click to drill down &rarr;</span>}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -679,71 +797,94 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
             Contents of {pathReport?.name || currentScanPath} ({pathReport?.total_size_formatted || '0 B'})
           </div>
 
-          <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
-            {pathReport?.items.map((it) => {
-              const style = NODE_CATEGORY_STYLES[it.category] || NODE_CATEGORY_STYLES.folder;
-              return (
+          {pathScanning && !pathReport ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
                 <div
-                  key={it.path}
-                  className="p-2.5 rounded-xl bg-[var(--color-surface-2)]/50 hover:bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border)] transition-all flex items-center justify-between gap-3"
+                  key={i}
+                  className="p-3 rounded-xl bg-[var(--color-surface-2)]/40 border border-[var(--color-border-subtle)] shadow-sm animate-pulse flex items-center justify-between gap-3"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className={`p-1.5 rounded-lg ${style.bg} ${style.text} shrink-0`}>
-                      {it.is_dir ? <Folder size={14} /> : <File size={14} />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-[var(--color-text-primary)] truncate font-mono">
-                          {it.name}
-                        </span>
-                        <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-[var(--color-surface-3)] text-[var(--color-text-tertiary)]">
-                          {it.category_label}
-                        </span>
-                      </div>
-                      <div className="w-full max-w-xs h-1 rounded-full bg-[var(--color-surface-3)] mt-1.5 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-[var(--color-accent)]"
-                          style={{ width: `${Math.min(100, it.percentage)}%` }}
-                        />
-                      </div>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-[var(--color-surface-3)] shrink-0" />
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="h-3.5 bg-[var(--color-surface-3)] rounded w-1/3" />
+                      <div className="h-2 bg-[var(--color-surface-3)] rounded w-1/5" />
                     </div>
                   </div>
-
                   <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-right">
-                      <div className="text-xs font-bold font-mono text-[var(--color-text-primary)]">
-                        {it.size_formatted}
-                      </div>
-                      <div className="text-[10px] text-[var(--color-text-tertiary)] font-mono">
-                        {it.percentage}%
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenExplorer(it.path)}
-                      className="p-1.5 rounded-lg bg-[var(--color-surface-3)] hover:bg-[var(--color-surface-4)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
-                      title="Reveal in Explorer"
-                      aria-label="Reveal in Explorer"
-                    >
-                      <ExternalLink size={13} />
-                    </button>
-
-                    {it.is_dir && (
-                      <button
-                        type="button"
-                        onClick={() => scanPath(it.path)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--color-accent-muted)] hover:bg-[var(--color-accent)] text-[var(--color-accent-strong)] hover:text-white transition-all cursor-pointer flex items-center gap-1"
-                      >
-                        <span>Drill Down</span>
-                        <CornerDownRight size={12} />
-                      </button>
-                    )}
+                    <div className="w-16 h-4 bg-[var(--color-surface-3)] rounded" />
+                    <div className="w-7 h-7 bg-[var(--color-surface-3)] rounded-lg" />
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+              {pathReport?.items.map((it) => {
+                const style = NODE_CATEGORY_STYLES[it.category] || NODE_CATEGORY_STYLES.folder;
+                return (
+                  <div
+                    key={it.path}
+                    className="p-2.5 rounded-xl bg-[var(--color-surface-2)]/50 hover:bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border)] transition-all flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className={`p-1.5 rounded-lg ${style.bg} ${style.text} shrink-0`}>
+                        {it.is_dir ? <Folder size={14} /> : <File size={14} />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-[var(--color-text-primary)] truncate font-mono">
+                            {it.name}
+                          </span>
+                          <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-[var(--color-surface-3)] text-[var(--color-text-tertiary)]">
+                            {it.category_label}
+                          </span>
+                        </div>
+                        <div className="w-full max-w-xs h-1 rounded-full bg-[var(--color-surface-3)] mt-1.5 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[var(--color-accent)]"
+                            style={{ width: `${Math.min(100, it.percentage)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        <div className="text-xs font-bold font-mono text-[var(--color-text-primary)]">
+                          {it.size_formatted}
+                        </div>
+                        <div className="text-[10px] text-[var(--color-text-tertiary)] font-mono">
+                          {it.percentage}%
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenExplorer(it.path)}
+                        className="p-1.5 rounded-lg bg-[var(--color-surface-3)] hover:bg-[var(--color-surface-4)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                        title="Reveal in Explorer"
+                        aria-label="Reveal in Explorer"
+                      >
+                        <ExternalLink size={13} />
+                      </button>
+
+                      {it.is_dir && (
+                        <button
+                          type="button"
+                          onClick={() => scanPath(it.path)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--color-accent-muted)] hover:bg-[var(--color-accent)] text-[var(--color-accent-strong)] hover:text-white transition-all cursor-pointer flex items-center gap-1"
+                        >
+                          <span>Drill Down</span>
+                          <CornerDownRight size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
