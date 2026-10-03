@@ -20,10 +20,12 @@ Features:
 
 from __future__ import annotations
 
+import ctypes
 import json
 import logging
 import os
 import shutil
+import stat
 import subprocess
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -33,12 +35,105 @@ from typing import Any, Dict, List, Optional, Tuple
 import psutil
 
 from core.audit_log import log_deletion
+from core.cleanup_progress import progress_tracker
 from core.config import get_scan_roots
 from core.file_locker import find_locking_processes
 
 logger = logging.getLogger(__name__)
 
 JUNCTIONS_MANIFEST = Path.home() / ".entropy" / "junctions.json"
+FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+
+
+def is_junction_or_link(path: str) -> bool:
+    """Check if a path is an NTFS Directory Junction or symbolic link on Windows."""
+    try:
+        p_str = str(path)
+        if not os.path.exists(p_str) and not os.path.lexists(p_str):
+            return False
+        if os.name == "nt":
+            attrs = ctypes.windll.kernel32.GetFileAttributesW(p_str)
+            if attrs != 0xFFFFFFFF and (attrs & FILE_ATTRIBUTE_REPARSE_POINT):
+                return True
+        return os.path.islink(p_str)
+    except Exception:
+        return False
+
+
+def _robust_rmtree(path: str) -> None:
+    """Safely remove a directory tree, resetting read-only permissions on Windows."""
+    def _remove_readonly(func, p, excinfo):
+        try:
+            os.chmod(p, stat.S_IWRITE)
+            func(p)
+        except Exception as e:
+            logger.debug("Failed to reset permissions on %s: %s", p, e)
+
+    try:
+        shutil.rmtree(path, onerror=_remove_readonly)
+    except TypeError:
+        shutil.rmtree(path, onexc=lambda fn, p, exc: _remove_readonly(fn, p, None))
+
+
+def _copy_tree_with_progress(src_abs: str, dest_path: str, total_bytes: int) -> int:
+    """
+    Copies directory tree from src_abs to dest_path with live progress reporting.
+    Supports resuming: skips identical files (same size).
+    """
+    os.makedirs(dest_path, exist_ok=True)
+    copied_bytes = 0
+    total_bytes = max(1, total_bytes)
+
+    for root, dirs, files in os.walk(src_abs):
+        rel = os.path.relpath(root, src_abs)
+        dst_dir = os.path.join(dest_path, rel) if rel != "." else dest_path
+        os.makedirs(dst_dir, exist_ok=True)
+
+        for f in files:
+            src_file = os.path.join(root, f)
+            dst_file = os.path.join(dst_dir, f)
+            rel_file = os.path.join(rel, f) if rel != "." else f
+
+            try:
+                src_st = os.stat(src_file, follow_symlinks=False)
+                fsize = src_st.st_size
+
+                # If file already exists with same size, count as verified
+                if os.path.exists(dst_file):
+                    dst_st = os.stat(dst_file, follow_symlinks=False)
+                    if dst_st.st_size == fsize:
+                        copied_bytes += fsize
+                        percent = min(85, max(5, int((copied_bytes / total_bytes) * 85)))
+                        progress_tracker.update(
+                            current_file=rel_file,
+                            bytes_delta=fsize,
+                            percent=percent,
+                            log_line=f"Verified: {rel_file} ({_format_bytes(copied_bytes)} / {_format_bytes(total_bytes)})"
+                        )
+                        continue
+
+                # Copy in 4MB chunks for smooth progress
+                with open(src_file, "rb") as fsrc, open(dst_file, "wb") as fdst:
+                    while True:
+                        buf = fsrc.read(4 * 1024 * 1024)
+                        if not buf:
+                            break
+                        fdst.write(buf)
+                        copied_bytes += len(buf)
+                        percent = min(85, max(5, int((copied_bytes / total_bytes) * 85)))
+                        progress_tracker.update(
+                            current_file=rel_file,
+                            bytes_delta=len(buf),
+                            percent=percent,
+                            log_line=f"Transferring {rel_file} ({_format_bytes(copied_bytes)} / {_format_bytes(total_bytes)})"
+                        )
+
+                shutil.copystat(src_file, dst_file)
+            except Exception as e:
+                logger.warning("Error copying file %s: %s", src_file, e)
+                raise
+
+    return copied_bytes
 
 # Curated catalog of developer folders safe to relocate via directory junctions
 KNOWN_CANDIDATE_SPECS = [
@@ -217,8 +312,12 @@ def discover_relocation_candidates() -> List[Dict[str, Any]]:
             continue
 
         norm_path = os.path.normcase(target_path)
-        is_junc = os.path.islink(target_path) or (norm_path in manifest_by_orig)
-        size_bytes, count = _calc_directory_size(target_path)
+        is_junc = is_junction_or_link(target_path) or (norm_path in manifest_by_orig)
+        if is_junc and norm_path in manifest_by_orig:
+            size_bytes = manifest_by_orig[norm_path].get("size_bytes", 0)
+            count = 0
+        else:
+            size_bytes, count = _calc_directory_size(target_path)
 
         candidates.append(RelocationCandidate(
             id=spec["id"],
@@ -245,7 +344,7 @@ def get_active_junctions() -> List[Dict[str, Any]]:
     for item in manifest:
         orig = item.get("original_path", "")
         dest = item.get("destination_path", "")
-        is_live = os.path.islink(orig) and os.path.isdir(dest)
+        is_live = is_junction_or_link(orig) and os.path.isdir(dest)
         item["is_live"] = is_live
         results.append(item)
     return results
@@ -259,12 +358,13 @@ def relocate_directory_junction(
     """
     Safely move source directory from C: to target drive and establish an NTFS Directory Junction.
     Non-destructive: Uses verification before removing the original files from C:.
+    Tracks real-time progress via progress_tracker.
     """
     src_abs = os.path.abspath(source_path)
     if not os.path.isdir(src_abs):
         return {"success": False, "error": f"Source directory does not exist: {src_abs}"}
 
-    if os.path.islink(src_abs):
+    if is_junction_or_link(src_abs):
         return {"success": False, "error": f"Path is already a junction or symlink: {src_abs}"}
 
     # Safety boundary: Never touch Windows or System32
@@ -282,50 +382,61 @@ def relocate_directory_junction(
     folder_name = custom_name or os.path.basename(src_abs)
     dest_path = os.path.join(target_abs, folder_name)
 
-    if os.path.exists(dest_path):
-        return {"success": False, "error": f"Destination path already exists: {dest_path}"}
+    # Start progress tracker
+    progress_tracker.start(f"Relocating {folder_name} to {dest_path}")
+    progress_tracker.update(percent=2, log_line=f"Initiating migration: {src_abs} → {dest_path}")
 
     # Check disk space on target drive
     try:
         src_bytes, count = _calc_directory_size(src_abs)
         usage = psutil.disk_usage(os.path.splitdrive(dest_path)[0] + '\\')
-        if usage.free < int(src_bytes * 1.15):  # 15% buffer
-            return {
-                "success": False,
-                "error": f"Destination drive has insufficient space. Need {_format_bytes(int(src_bytes * 1.15))}, but only {_format_bytes(usage.free)} is free.",
-            }
+        dest_existing_bytes = 0
+        if os.path.exists(dest_path):
+            dest_existing_bytes, _ = _calc_directory_size(dest_path)
+        net_needed = max(0, src_bytes - dest_existing_bytes)
+        if net_needed > 0 and usage.free < int(net_needed * 1.15):
+            err_msg = f"Destination drive has insufficient space. Need {_format_bytes(int(net_needed * 1.15))}, but only {_format_bytes(usage.free)} is free."
+            progress_tracker.finish(error=err_msg)
+            return {"success": False, "error": err_msg}
     except Exception as e:
         logger.warning("Could not verify destination capacity: %s", e)
+        src_bytes, count = _calc_directory_size(src_abs)
 
     # Check for file locks
     lock_info = find_locking_processes(src_abs)
     if lock_info.get("is_locked"):
         lockers = lock_info.get("locking_processes", [])
         proc_names = ', '.join([p.get('name', 'unknown') for p in lockers[:3]])
+        err_msg = f"Directory is locked by active process(es): {proc_names}. Please close them before relocating."
+        progress_tracker.finish(error=err_msg)
         return {
             "success": False,
-            "error": f"Directory is locked by active process(es): {proc_names}. Please close them before relocating.",
+            "error": err_msg,
             "locking_processes": lockers,
         }
 
-    # ── Phase 1: Copy files to destination ──
-    logger.info("Copying %s to %s...", src_abs, dest_path)
+    # ── Phase 1: Copy files to destination with live progress ──
+    progress_tracker.set_phase(f"Copying files to {dest_path}...", 5)
     try:
-        shutil.copytree(src_abs, dest_path)
+        _copy_tree_with_progress(src_abs, dest_path, src_bytes)
     except Exception as e:
-        # Cleanup destination if copy failed
-        shutil.rmtree(dest_path, ignore_errors=True)
+        progress_tracker.finish(error=f"Failed to copy files: {e}")
         return {"success": False, "error": f"Failed to copy files to destination: {e}"}
 
     # ── Phase 2: Safety Rename on source ──
+    progress_tracker.set_phase("Preparing NTFS switch...", 86)
     backup_src = src_abs + ".entropy_bak"
+    if os.path.exists(backup_src):
+        _robust_rmtree(backup_src)
+
     try:
         os.rename(src_abs, backup_src)
     except Exception as e:
-        shutil.rmtree(dest_path, ignore_errors=True)
+        progress_tracker.finish(error=f"Failed to prepare original directory: {e}")
         return {"success": False, "error": f"Failed to rename original directory during migration: {e}"}
 
     # ── Phase 3: Create NTFS Directory Junction (mklink /J) ──
+    progress_tracker.set_phase("Establishing NTFS Directory Junction...", 90)
     try:
         cmd = ['cmd.exe', '/c', 'mklink', '/J', src_abs, dest_path]
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
@@ -343,26 +454,40 @@ def relocate_directory_junction(
             startupinfo=startupinfo,
         )
         logger.info("Created directory junction: %s", res.stdout.strip())
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         # Revert: rename backup back to source
-        os.rename(backup_src, src_abs)
-        shutil.rmtree(dest_path, ignore_errors=True)
-        return {"success": False, "error": f"Failed to create NTFS junction link: {e.stderr or e}"}
+        if os.path.exists(backup_src):
+            try:
+                os.rename(backup_src, src_abs)
+            except Exception:
+                pass
+        progress_tracker.finish(error=f"Failed to create NTFS junction link: {e}")
+        return {"success": False, "error": f"Failed to create NTFS junction link: {e}"}
 
     # ── Phase 4: Verify Junction Link ──
-    if not (os.path.islink(src_abs) and os.path.isdir(src_abs)):
+    progress_tracker.set_phase("Verifying junction integrity...", 94)
+    if not (is_junction_or_link(src_abs) and os.path.isdir(src_abs)):
         # Revert
         try:
             os.rmdir(src_abs)
         except OSError:
             pass
-        os.rename(backup_src, src_abs)
-        shutil.rmtree(dest_path, ignore_errors=True)
+        if os.path.exists(backup_src):
+            os.rename(backup_src, src_abs)
+        progress_tracker.finish(error="Junction link verification failed.")
         return {"success": False, "error": "Junction link verification failed."}
 
-    # ── Phase 5: Reclaim C: Space (remove backup) ──
+    # Verify listing directory through the junction
     try:
-        shutil.rmtree(backup_src)
+        _ = os.listdir(src_abs)
+    except Exception as e:
+        progress_tracker.finish(error=f"Junction link read check failed: {e}")
+        return {"success": False, "error": f"Junction link read check failed: {e}"}
+
+    # ── Phase 5: Reclaim C: Space (permanently delete backup from C:) ──
+    progress_tracker.set_phase(f"Reclaiming {_format_bytes(src_bytes)} on C: Drive (deleting original files)...", 97)
+    try:
+        _robust_rmtree(backup_src)
     except Exception as e:
         logger.warning("Could not delete backup directory %s: %s", backup_src, e)
 
@@ -392,6 +517,15 @@ def relocate_directory_junction(
         },
     )
 
+    progress_tracker.finish(
+        summary={
+            "total_freed_bytes": src_bytes,
+            "total_deleted_count": count,
+            "total_skipped_count": 0,
+            "destination": dest_path,
+        }
+    )
+
     return {
         "success": True,
         "message": f"Successfully relocated '{folder_name}' to {dest_path}. Reclaimed {_format_bytes(src_bytes)} on C: Drive.",
@@ -416,14 +550,19 @@ def restore_directory_junction(junction_id: str) -> Dict[str, Any]:
     if not os.path.exists(dest_path):
         return {"success": False, "error": f"Relocated files no longer exist at: {dest_path}"}
 
+    progress_tracker.start(f"Restoring '{matching['name']}' back to C: drive")
+    progress_tracker.set_phase("Removing junction link...", 10)
+
     # Remove junction pointer (in Windows rmdir on junction removes ONLY the link)
-    if os.path.islink(orig_path):
+    if is_junction_or_link(orig_path):
         try:
             os.rmdir(orig_path)
         except OSError as e:
+            progress_tracker.finish(error=f"Cannot remove junction link: {e}")
             return {"success": False, "error": f"Cannot remove junction link: {e}"}
 
     # Move files back to original location
+    progress_tracker.set_phase("Restoring files to original location on C:...", 40)
     try:
         shutil.move(dest_path, orig_path)
     except Exception as e:
@@ -440,11 +579,18 @@ def restore_directory_junction(junction_id: str) -> Dict[str, Any]:
             creationflags=creationflags,
             startupinfo=startupinfo,
         )
+        progress_tracker.finish(error=f"Failed to move files back: {e}")
         return {"success": False, "error": f"Failed to move files back: {e}"}
 
     # Update manifest
     manifest = [m for m in manifest if m["id"] != junction_id]
     _save_junctions_manifest(manifest)
+
+    progress_tracker.finish(
+        summary={
+            "destination": orig_path,
+        }
+    )
 
     return {
         "success": True,

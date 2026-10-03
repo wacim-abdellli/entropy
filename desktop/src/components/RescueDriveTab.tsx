@@ -21,6 +21,7 @@ import {
   RelocationCandidateItem,
   AvailableDestinationItem,
   ActiveJunctionItem,
+  CleanupLiveProgress,
 } from '../types/entropy';
 import { EntropyApiClient } from '../services/api';
 import { ShrinkGuideModal } from './ShrinkGuideModal';
@@ -55,7 +56,13 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
     }
     return 'D:\\';
   });
-  const [customTargetFolder, setCustomTargetFolder] = useState<string>('EntropyDev');
+  const [customTargetFolder, setCustomTargetFolder] = useState<string>(() => {
+    try {
+      return localStorage.getItem('entropy_rescue_subfolder') || 'code';
+    } catch {
+      return 'code';
+    }
+  });
 
   // Relocation Modal State
   const [targetCandidate, setTargetCandidate] = useState<RelocationCandidateItem | null>(null);
@@ -63,6 +70,12 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
   const [isRelocating, setIsRelocating] = useState(false);
   const [relocateError, setRelocateError] = useState<string | null>(null);
   const [relocateSuccess, setRelocateSuccess] = useState<string | null>(null);
+  const [relocationProgress, setRelocationProgress] = useState<CleanupLiveProgress | null>(null);
+  const [relocationFinished, setRelocationFinished] = useState<{
+    name: string;
+    freedFormatted: string;
+    destPath: string;
+  } | null>(null);
 
   // Auto-dismiss floating notices
   useEffect(() => {
@@ -154,8 +167,23 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
     setIsRelocating(true);
     setRelocateError(null);
     setRelocateSuccess(null);
+    setRelocationProgress(null);
+    setRelocationFinished(null);
 
     const targetParent = `${selectedDrive.replace(/[\\/]+$/, '')}\\${customTargetFolder.trim() || 'EntropyDev'}`;
+    const expectedDest = `${targetParent}\\${targetCandidate.id}`;
+
+    // Poll live progress from backend
+    const pollInterval = setInterval(async () => {
+      try {
+        const snap = await EntropyApiClient.getCleanupProgress();
+        if (snap) {
+          setRelocationProgress(snap);
+        }
+      } catch {
+        // ignore poll errors
+      }
+    }, 250);
 
     try {
       const res = await EntropyApiClient.relocateDirectoryJunction(
@@ -164,19 +192,35 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
         targetCandidate.id
       );
 
+      clearInterval(pollInterval);
+
       if (res.success) {
+        try {
+          const finalSnap = await EntropyApiClient.getCleanupProgress();
+          if (finalSnap) setRelocationProgress(finalSnap);
+        } catch {}
+
+        setRelocationFinished({
+          name: targetCandidate.name,
+          freedFormatted: res.freed_formatted || targetCandidate.size_formatted,
+          destPath: expectedDest,
+        });
+
         setRelocateSuccess(
-          `Successfully moved '${targetCandidate.name}' to ${targetParent} and created transparent NTFS Directory Junction. Reclaimed ${targetCandidate.size_formatted} on C: drive.`
+          `Successfully moved '${targetCandidate.name}' to ${expectedDest} and created transparent NTFS Directory Junction. Reclaimed ${targetCandidate.size_formatted} on C: drive.`
         );
-        setTargetCandidate(null);
+
+        // Clear session cache and silently reload data
+        cachedRescueData = null;
         await loadData(true);
         if (onActionComplete) await onActionComplete();
       } else {
         setRelocateError(res.error || 'Failed to relocate directory.');
+        setIsRelocating(false);
       }
     } catch (err: unknown) {
+      clearInterval(pollInterval);
       setRelocateError(err instanceof Error ? err.message : String(err));
-    } finally {
       setIsRelocating(false);
     }
   };
@@ -568,8 +612,13 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
                 <input
                   type="text"
                   value={customTargetFolder}
-                  onChange={(e) => setCustomTargetFolder(e.target.value)}
-                  placeholder="EntropyDev"
+                  onChange={(e) => {
+                    setCustomTargetFolder(e.target.value);
+                    try {
+                      localStorage.setItem('entropy_rescue_subfolder', e.target.value);
+                    } catch {}
+                  }}
+                  placeholder="code"
                   className="px-2.5 py-1 text-xs font-mono rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text-primary)] w-36 focus:outline-none focus:border-[var(--color-accent)]"
                 />
               </div>
@@ -799,77 +848,183 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
           tabIndex={-1}
         >
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shadow-2xl w-full max-w-lg p-6 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="p-2.5 rounded-xl bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 text-[var(--color-accent)] shrink-0">
-                <FolderSync size={22} />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-                  Relocate {targetCandidate.name} to {selectedDrive}?
-                </h3>
-                <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-                  Files will be moved to your secondary drive, and an NTFS directory junction will be placed at the original location. All tools, build scripts, and IDEs will continue functioning transparently.
-                </p>
-              </div>
-            </div>
+            {relocationFinished ? (
+              /* ── STATE 1: RELOCATION & RECLAMATION 100% COMPLETE ── */
+              <div className="space-y-4 text-center py-2 animate-in fade-in">
+                <div className="w-12 h-12 rounded-full bg-[var(--color-success-bg)] border border-[var(--color-success-border)] flex items-center justify-center mx-auto text-[var(--color-success)] shadow-sm">
+                  <CheckCircle2 size={28} />
+                </div>
 
-            {/* Diagnostic Details */}
-            <div className="p-3.5 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] space-y-2 mb-4 font-mono text-xs">
-              <div className="flex justify-between">
-                <span className="text-[var(--color-text-tertiary)]">Space Reclaimed on C:</span>
-                <span className="font-semibold text-[var(--color-success)]">{targetCandidate.size_formatted}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--color-text-tertiary)]">Source Path:</span>
-                <span className="text-[var(--color-text-secondary)] truncate max-w-xs">{targetCandidate.original_path}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--color-text-tertiary)]">Destination Path:</span>
-                <span className="text-[var(--color-accent)] truncate max-w-xs">
-                  {selectedDrive.replace(/[\\/]+$/, '')}\{customTargetFolder.trim() || 'EntropyDev'}\{targetCandidate.id}
-                </span>
-              </div>
-            </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                    Relocation &amp; Space Reclamation Complete!
+                  </h3>
+                  <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                    Reclaimed <strong className="text-[var(--color-success)] font-mono">{relocationFinished.freedFormatted}</strong> of space on C: drive.
+                  </p>
+                </div>
 
-            {/* Safety Guarantee Info */}
-            <div className="p-3 rounded-lg bg-[var(--color-surface-3)]/60 border border-[var(--color-border-subtle)] space-y-1.5 mb-5 text-xs text-[var(--color-text-secondary)]">
-              <div className="flex items-center gap-1.5 font-medium text-[var(--color-text-primary)]">
-                <ShieldCheck size={14} className="text-[var(--color-success)]" />
-                <span>100% Reversible &amp; Safe</span>
-              </div>
-              <p className="text-[11px] leading-relaxed">
-                Entropy uses a 2-phase migration with verification. You can revert this migration anytime with one click in the Rollback Manager.
-              </p>
-            </div>
+                <div className="p-3.5 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] text-left font-mono text-xs space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-tertiary)]">Original Path:</span>
+                    <span className="text-[var(--color-text-secondary)] truncate max-w-xs">{targetCandidate.original_path}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-tertiary)]">Target Junction:</span>
+                    <span className="text-[var(--color-accent)] truncate max-w-xs">{relocationFinished.destPath}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[var(--color-success)] pt-1.5 border-t border-[var(--color-border-subtle)] text-[11px]">
+                    <ShieldCheck size={13} className="shrink-0" />
+                    <span>NTFS Directory Junction established. Original files removed from C:.</span>
+                  </div>
+                </div>
 
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setTargetCandidate(null)}
-                disabled={isRelocating}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleExecuteRelocation}
-                disabled={isRelocating}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-              >
-                {isRelocating ? (
-                  <>
-                    <RefreshCw size={13} className="animate-spin" />
-                    <span>Migrating Files...</span>
-                  </>
-                ) : (
-                  <>
+                {/* 100% Progress Bar */}
+                <div className="space-y-1 text-left">
+                  <div className="flex justify-between text-xs font-mono">
+                    <span className="text-[var(--color-text-secondary)]">Migration Status</span>
+                    <span className="text-[var(--color-success)] font-semibold">100% Complete</span>
+                  </div>
+                  <div className="w-full bg-[var(--color-surface-3)] h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-[var(--color-success)] h-full rounded-full w-full transition-all duration-300" />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetCandidate(null);
+                      setRelocationFinished(null);
+                      setRelocationProgress(null);
+                    }}
+                    className="px-5 py-2 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white transition-colors cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : isRelocating ? (
+              /* ── STATE 2: ACTIVE PROGRESS BAR (0% -> 100%) ── */
+              <div className="space-y-4 py-2 animate-in fade-in">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 text-[var(--color-accent)] shrink-0">
+                    <FolderSync size={22} className="animate-spin" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                      Relocating {targetCandidate.name} to {selectedDrive}...
+                    </h3>
+                    <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                      Copying and verifying files before creating the transparent NTFS junction.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 100% Progress Bar Container */}
+                <div className="space-y-2 p-3.5 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-medium text-[var(--color-text-primary)] truncate max-w-[320px]">
+                      {relocationProgress?.current_phase || 'Analyzing and transferring files...'}
+                    </span>
+                    <span className="font-mono font-bold text-sm text-[var(--color-accent)]">
+                      {relocationProgress?.percent ?? 5}%
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-[var(--color-surface-3)] h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-[var(--color-accent)] h-full rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(5, relocationProgress?.percent ?? 5)}%` }}
+                    />
+                  </div>
+
+                  {relocationProgress?.current_file && (
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--color-text-tertiary)] truncate">
+                      <span className="truncate">File: {relocationProgress.current_file}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-surface-3)]/60 text-xs text-[var(--color-text-secondary)]">
+                  <Info size={15} className="text-[var(--color-accent)] shrink-0" />
+                  <span>
+                    Please do not close this window. Your original files on C: are safe and will only be deleted once the secondary drive files are completely verified.
+                  </span>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <span className="text-xs font-mono text-[var(--color-text-tertiary)] flex items-center gap-2">
+                    <RefreshCw size={12} className="animate-spin text-[var(--color-accent)]" />
+                    <span>Migrating files...</span>
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* ── STATE 3: PRE-FLIGHT CONFIRMATION ── */
+              <>
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="p-2.5 rounded-xl bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 text-[var(--color-accent)] shrink-0">
+                    <FolderSync size={22} />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                      Relocate {targetCandidate.name} to {selectedDrive}?
+                    </h3>
+                    <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                      Files will be moved to your secondary drive, and an NTFS directory junction will be placed at the original location. All tools, build scripts, and IDEs will continue functioning transparently.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Diagnostic Details */}
+                <div className="p-3.5 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] space-y-2 mb-4 font-mono text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-tertiary)]">Space Reclaimed on C:</span>
+                    <span className="font-semibold text-[var(--color-success)]">{targetCandidate.size_formatted}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-tertiary)]">Source Path:</span>
+                    <span className="text-[var(--color-text-secondary)] truncate max-w-xs">{targetCandidate.original_path}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--color-text-tertiary)]">Destination Path:</span>
+                    <span className="text-[var(--color-accent)] truncate max-w-xs">
+                      {selectedDrive.replace(/[\\/]+$/, '')}\{customTargetFolder.trim() || 'EntropyDev'}\{targetCandidate.id}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Safety Guarantee Info */}
+                <div className="p-3 rounded-lg bg-[var(--color-surface-3)]/60 border border-[var(--color-border-subtle)] space-y-1.5 mb-5 text-xs text-[var(--color-text-secondary)]">
+                  <div className="flex items-center gap-1.5 font-medium text-[var(--color-text-primary)]">
+                    <ShieldCheck size={14} className="text-[var(--color-success)]" />
+                    <span>100% Reversible &amp; Safe</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Entropy uses a 2-phase migration with verification. You can revert this migration anytime with one click in the Rollback Manager.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTargetCandidate(null)}
+                    className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecuteRelocation}
+                    className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-accent)] hover:opacity-90 text-white transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
                     <FolderSync size={13} />
                     <span>Confirm Relocation</span>
-                  </>
-                )}
-              </button>
-            </div>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>,
         document.body
