@@ -1875,7 +1875,7 @@ export class EntropyApiClient {
    * Discover safe-to-relocate developer folders and caches on C: drive.
    */
   static async discoverRelocationCandidates(): Promise<RelocationCandidateItem[]> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.discover_relocation_candidates) {
           const res = await bridgeWindow()!.pywebview!.api!.discover_relocation_candidates!();
@@ -1892,7 +1892,7 @@ export class EntropyApiClient {
    * List potential target drives for directory junction relocation.
    */
   static async getAvailableDestinations(): Promise<AvailableDestinationItem[]> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.get_available_destinations) {
           const res = await bridgeWindow()!.pywebview!.api!.get_available_destinations!();
@@ -1909,7 +1909,7 @@ export class EntropyApiClient {
    * List active directory junctions managed by Entropy.
    */
   static async getActiveJunctions(): Promise<ActiveJunctionItem[]> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.get_active_junctions) {
           const res = await bridgeWindow()!.pywebview!.api!.get_active_junctions!();
@@ -1976,7 +1976,7 @@ export class EntropyApiClient {
    * Get smart storage recommendations (dormant workspaces, stale downloads, AI models).
    */
   static async getStorageRecommendations(): Promise<StorageRecommendationReport> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.get_storage_recommendations) {
           const res = await bridgeWindow()!.pywebview!.api!.get_storage_recommendations!();
@@ -1996,7 +1996,7 @@ export class EntropyApiClient {
     path: string,
     artifacts?: string[]
   ): Promise<CleanDormantResult> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.clean_dormant_workspace) {
           const res = await bridgeWindow()!.pywebview!.api!.clean_dormant_workspace!(path, artifacts);
@@ -2018,7 +2018,7 @@ export class EntropyApiClient {
    * Clean stale downloaded installers and archives (moves to Windows Recycle Bin).
    */
   static async cleanStaleDownloads(filePaths: string[]): Promise<CleanStaleDownloadsResult> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.clean_stale_downloads) {
           const res = await bridgeWindow()!.pywebview!.api!.clean_stale_downloads!(filePaths);
@@ -2042,7 +2042,7 @@ export class EntropyApiClient {
    * Get all SSD/NVMe/hard drive mount points with capacity and Dev Drive detection.
    */
   static async getSsdDrivesOverview(): Promise<SsdDriveOverview[]> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.get_ssd_drives_overview) {
           const res = await bridgeWindow()!.pywebview!.api!.get_ssd_drives_overview!();
@@ -2059,7 +2059,7 @@ export class EntropyApiClient {
    * Get developer domain category storage breakdown for a specific drive.
    */
   static async getDriveCategoryBreakdown(drive: string): Promise<DriveCategoryBreakdown> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.get_drive_category_breakdown) {
           const res = await bridgeWindow()!.pywebview!.api!.get_drive_category_breakdown!(drive);
@@ -2076,7 +2076,7 @@ export class EntropyApiClient {
    * Scan hierarchical folder breakdown for drill-down storage cartography.
    */
   static async scanPathBreakdown(path: string, depth = 1): Promise<PathBreakdownReport> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.scan_path_breakdown) {
           const res = await bridgeWindow()!.pywebview!.api!.scan_path_breakdown!(path, depth);
@@ -2101,7 +2101,7 @@ export class EntropyApiClient {
    * Get 100% safe shrink advisory calculations and step-by-step guidance for drive partitioning.
    */
   static async getShrinkAdvisory(drive = 'C'): Promise<ShrinkAdvisoryReport> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.get_shrink_advisory) {
           const res = await bridgeWindow()!.pywebview!.api!.get_shrink_advisory!(drive);
@@ -2118,7 +2118,7 @@ export class EntropyApiClient {
    * Launch official Windows Disk Management console (diskmgmt.msc).
    */
   static async launchDiskManagement(): Promise<LaunchDiskManagementResult> {
-    if (isPyWebView()) {
+    if (await waitForPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.launch_disk_management) {
           const res = await bridgeWindow()!.pywebview!.api!.launch_disk_management!();
