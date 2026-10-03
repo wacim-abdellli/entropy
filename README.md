@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/wacim-abdellli/entropy/releases"><img src="https://img.shields.io/badge/Release-v0.2.3-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/wacim-abdellli/entropy/releases"><img src="https://img.shields.io/badge/Release-v0.2.4-blue.svg?style=flat-square" alt="Version"></a>
   <a href="https://github.com/wacim-abdellli/entropy/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-emerald.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64)-6366f1.svg?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/Frontend-React%2019%20%2B%20TypeScript-61dafb.svg?style=flat-square" alt="Frontend">
