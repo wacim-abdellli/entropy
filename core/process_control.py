@@ -196,19 +196,24 @@ def is_process_protected(
     if pid > 0:
         try:
             proc = psutil.Process(pid)
-            proc_name = proc.name().lower()
-            if proc_name in protected_set or proc_name.replace(".exe", "") in protected_set:
-                return True
-            if proc_name.endswith("service.exe") and proc_name not in DEV_PROCESS_NAMES:
-                return True
-            if any(term in proc_name for term in _PROTECTED_KEYWORDS):
-                return True
-            try:
-                proc_exe = (proc.exe() or "").lower()
-                if any(term in proc_exe for term in _PROTECTED_KEYWORDS):
-                    return True
-            except (psutil.AccessDenied, OSError):
+            live_proc_name = proc.name().lower()
+            # If a process name was already provided and does not match the live process name,
+            # this PID belongs to an unrelated OS process (recycled PID or synthetic test entity)
+            if name and live_proc_name != name.lower().strip() and live_proc_name.replace(".exe", "") != name.lower().strip().replace(".exe", ""):
                 pass
+            else:
+                if live_proc_name in protected_set or live_proc_name.replace(".exe", "") in protected_set:
+                    return True
+                if live_proc_name.endswith("service.exe") and live_proc_name not in DEV_PROCESS_NAMES:
+                    return True
+                if any(term in live_proc_name for term in _PROTECTED_KEYWORDS):
+                    return True
+                try:
+                    proc_exe = (proc.exe() or "").lower()
+                    if any(term in proc_exe for term in _PROTECTED_KEYWORDS):
+                        return True
+                except (psutil.AccessDenied, OSError):
+                    pass
         except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
             pass
 

@@ -28,6 +28,14 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
+# Configure UTF-8 encoding on Windows consoles/runners to prevent charmap errors
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from collectors.caches import collect_caches
 from collectors.docker import collect_docker
 from collectors.git import collect_git_repository

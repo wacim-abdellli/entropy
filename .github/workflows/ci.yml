@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+env:
+  PYTHONIOENCODING: "utf-8"
+  PYTHONUTF8: "1"
+
 jobs:
   frontend-verification:
     name: Frontend Verification
@@ -57,7 +61,7 @@ jobs:
           pip install psutil pywebview pythonnet
 
       - name: Run Python unit tests
-        run: python -m unittest discover tests
+        run: python -m unittest discover -v tests
 
   build-windows-app:
     name: Build Windows Desktop App & Setup Wizard

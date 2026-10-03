@@ -31,6 +31,7 @@ class TestProcessControl(unittest.TestCase):
         self.assertTrue(is_process_protected(99999, "csrss.exe"))
         self.assertFalse(is_process_protected(99999, "node.exe"))
         self.assertFalse(is_process_protected(99999, "python.exe"))
+        self.assertFalse(is_process_protected(5208, "powershell.exe", include_shells=False))
 
     def test_terminate_protected_process(self):
         """Attempting to terminate a protected process must return an error and fail safely."""
