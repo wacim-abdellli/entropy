@@ -162,9 +162,15 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
             <p className="text-[var(--color-text-secondary)] leading-relaxed">
               <strong>Will this break my existing projects?</strong> <strong>No.</strong> These caches in your AppData directory are simply copies of downloaded archive files (<code className="font-mono text-[var(--color-success)]">.tgz</code>, <code className="font-mono text-[var(--color-success)]">.whl</code>, <code className="font-mono text-[var(--color-success)]">.crate</code>).
             </p>
-            <div className="p-2.5 rounded-lg bg-[var(--color-surface-3)]/60 text-[11px] text-[var(--color-text-secondary)] space-y-1">
-              <div>✅ <strong>Installed projects are untouched:</strong> Your local <code className="font-mono text-[var(--color-text-primary)]">node_modules</code>, <code className="font-mono text-[var(--color-text-primary)]">.venv</code>, and build folders are NOT deleted by cleaning this tab.</div>
-              <div>✅ <strong>Self-healing:</strong> If a future install needs an archive that was cleared, npm/pip will simply re-download it fresh from the registry.</div>
+            <div className="p-2.5 rounded-lg bg-[var(--color-surface-3)]/60 text-[11px] text-[var(--color-text-secondary)] space-y-1.5">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 size={14} className="text-[var(--color-success)] shrink-0 mt-0.5" />
+                <span><strong>Installed projects are untouched:</strong> Your local <code className="font-mono text-[var(--color-text-primary)]">node_modules</code>, <code className="font-mono text-[var(--color-text-primary)]">.venv</code>, and build folders are NOT deleted by cleaning this tab.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 size={14} className="text-[var(--color-success)] shrink-0 mt-0.5" />
+                <span><strong>Self-healing:</strong> If a future install needs an archive that was cleared, npm/pip will simply re-download it fresh from the registry.</span>
+              </div>
             </div>
           </div>
 
@@ -182,8 +188,9 @@ export const CleanupSafetyModal: React.FC<CleanupSafetyModalProps> = ({
             <p className="text-[var(--color-text-secondary)] leading-relaxed">
               <strong>Is my source code safe?</strong> <strong>Yes.</strong> Entropy operates on a strict whitelist of disposable folders. Your source files, git commits, branches, and configuration files are never touched.
             </p>
-            <div className="p-2.5 rounded-lg bg-[var(--color-surface-3)]/60 text-[11px] text-[var(--color-text-secondary)]">
-              💡 <strong>Instant Rebuild:</strong> Every cleaned project can be restored at any time simply by running its rebuild command (<code className="font-mono text-[var(--color-info)]">npm install</code>, <code className="font-mono text-[var(--color-info)]">bundle install</code>, <code className="font-mono text-[var(--color-info)]">cargo build</code>).
+            <div className="p-2.5 rounded-lg bg-[var(--color-surface-3)]/60 text-[11px] text-[var(--color-text-secondary)] flex items-start gap-2">
+              <Info size={14} className="text-[var(--color-info)] shrink-0 mt-0.5" />
+              <span><strong>Instant Rebuild:</strong> Every cleaned project can be restored at any time simply by running its rebuild command (<code className="font-mono text-[var(--color-info)]">npm install</code>, <code className="font-mono text-[var(--color-info)]">bundle install</code>, <code className="font-mono text-[var(--color-info)]">cargo build</code>).</span>
             </div>
           </div>
 

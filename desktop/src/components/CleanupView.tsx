@@ -29,7 +29,6 @@ import {
   X,
   FileWarning,
   FolderSync,
-  Sparkles,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -676,7 +675,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         percent: 100,
         recent_logs: [
           ...(snap.recent_logs?.length ? snap.recent_logs : initialLogs),
-          `✓ Completed! Reclaimed ${formatBytes(freed)} (${deleted} files removed, ${skipped} in-use items safely skipped).`,
+          `[OK] Completed! Reclaimed ${formatBytes(freed)} (${deleted} files removed, ${skipped} in-use items safely skipped).`,
         ],
         done: true,
         error: null,
@@ -712,7 +711,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         items_skipped: prev?.items_skipped || 0,
         bytes_freed: prev?.bytes_freed || 0,
         percent: 100,
-        recent_logs: [...(prev?.recent_logs || []), `✕ Error encountered: ${String(err)}`],
+        recent_logs: [...(prev?.recent_logs || []), `[ERROR] Encountered: ${String(err)}`],
         done: true,
         error: String(err),
       }));
@@ -782,7 +781,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         percent: 100,
         recent_logs: [
           ...(snap.recent_logs?.length ? snap.recent_logs : initialLogs),
-          `✓ Finished! Deleted ${successCount} folder(s), reclaimed ${formatBytes(freed)}.`,
+          `[OK] Finished! Deleted ${successCount} folder(s), reclaimed ${formatBytes(freed)}.`,
         ],
         done: true,
         error: failedCount > 0 ? `${failedCount} folder(s) could not be removed.` : null,
@@ -824,7 +823,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         items_skipped: prev?.items_skipped || 0,
         bytes_freed: prev?.bytes_freed || 0,
         percent: 100,
-        recent_logs: [...(prev?.recent_logs || []), `✕ Deletion failed: ${String(error)}`],
+        recent_logs: [...(prev?.recent_logs || []), `[ERROR] Deletion failed: ${String(error)}`],
         done: true,
         error: String(error),
       }));
@@ -894,7 +893,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         percent: 100,
         recent_logs: [
           ...(snap.recent_logs?.length ? snap.recent_logs : initialLogs),
-          `✓ Purged ${successCount} caches: reclaimed ${formatBytes(freed)}.`,
+          `[OK] Purged ${successCount} caches: reclaimed ${formatBytes(freed)}.`,
         ],
         done: true,
         error: failedCount > 0 ? `${failedCount} caches failed to purge.` : null,
@@ -930,7 +929,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
         items_skipped: prev?.items_skipped || 0,
         bytes_freed: prev?.bytes_freed || 0,
         percent: 100,
-        recent_logs: [...(prev?.recent_logs || []), `✕ Cache purge failed: ${String(err)}`],
+        recent_logs: [...(prev?.recent_logs || []), `[ERROR] Cache purge failed: ${String(err)}`],
         done: true,
         error: String(err),
       }));
@@ -1064,7 +1063,7 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
 
         {/* Tab Switcher */}
         <div className="flex items-center gap-2 mt-4 border-b border-[var(--color-border-subtle)] overflow-x-auto">
-          {/* Tab 0: Smart Recommendations */}
+          {/* Tab 0: Cleanup Recommendations */}
           <button
             type="button"
             onClick={() => setActiveTab('recommendations')}
@@ -1074,11 +1073,8 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                 : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
-            <Sparkles size={14} className={activeTab === 'recommendations' ? 'text-[var(--color-accent)]' : 'text-[var(--color-warning)]'} />
-            <span>Smart Recommendations</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
-              AUTO
-            </span>
+            <FolderCheck size={14} className={activeTab === 'recommendations' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)]'} />
+            <span>Cleanup Recommendations</span>
           </button>
 
           {/* Tab 1: Windows & System Junk */}
@@ -2585,8 +2581,8 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
               >
                 {(liveProgress?.recent_logs || []).map((line, idx) => {
                   const isArrow = line.startsWith('→') || line.startsWith('Initializing');
-                  const isSuccess = line.startsWith('✓') || line.includes('Finished') || line.includes('Successfully');
-                  const isError = line.startsWith('✕') || line.includes('Failed') || line.includes('error');
+                  const isSuccess = line.startsWith('[OK]') || line.includes('Finished') || line.includes('Successfully');
+                  const isError = line.startsWith('[ERROR]') || line.includes('Failed') || line.includes('error');
                   return (
                     <div
                       key={idx}

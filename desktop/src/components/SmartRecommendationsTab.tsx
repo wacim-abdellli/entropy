@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Sparkles,
-  Archive,
+  Layers,
+  FolderGit2,
   Download,
-  Brain,
+  Database,
   Trash2,
   RefreshCw,
   ExternalLink,
@@ -263,14 +263,14 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-accent-strong)] mb-1">
-              <Sparkles size={14} className="text-[var(--color-accent)]" />
-              <span>Smart Storage Optimizer</span>
+              <Layers size={14} className="text-[var(--color-accent)]" />
+              <span>Storage Recommendations</span>
             </div>
             <h1 className="text-xl font-bold text-[var(--color-text-primary)] tracking-tight">
-              Recommended Space Reclaim
+              Reclaimable Disk Space
             </h1>
             <p className="text-xs text-[var(--color-text-secondary)] mt-1 max-w-xl leading-relaxed">
-              Entropy detected inactive repositories with reconstructible dependencies, obsolete setup installers in Downloads, and AI weights.
+              Analysis of inactive repositories with reconstructible dependencies, stale installers in Downloads, and local AI model checkpoints.
             </p>
           </div>
 
@@ -309,7 +309,7 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
           >
             <div className="flex items-center justify-between text-xs text-[var(--color-text-tertiary)] mb-1">
               <span className="flex items-center gap-1.5 font-medium">
-                <Archive size={14} className="text-[var(--color-warning)]" />
+                <FolderGit2 size={14} className="text-[var(--color-warning)]" />
                 Dormant Workspaces
               </span>
               <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-surface-1)]">
@@ -334,7 +334,7 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
           >
             <div className="flex items-center justify-between text-xs text-[var(--color-text-tertiary)] mb-1">
               <span className="flex items-center gap-1.5 font-medium">
-                <Download size={14} className="text-[#f97316]" />
+                <Download size={14} className="text-[var(--color-warning)]" />
                 Stale Downloads
               </span>
               <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-surface-1)]">
@@ -359,7 +359,7 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
           >
             <div className="flex items-center justify-between text-xs text-[var(--color-text-tertiary)] mb-1">
               <span className="flex items-center gap-1.5 font-medium">
-                <Brain size={14} className="text-[#a855f7]" />
+                <Database size={14} className="text-[var(--color-accent-strong)]" />
                 AI Model Weights
               </span>
               <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-surface-1)]">
@@ -399,7 +399,7 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
                 : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)]'
             }`}
           >
-            <Archive size={13} />
+            <FolderGit2 size={13} />
             <span>Workspaces ({dormantCount})</span>
           </button>
           <button
@@ -423,7 +423,7 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
                 : 'bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-3)]'
             }`}
           >
-            <Brain size={13} />
+            <Database size={13} />
             <span>AI Models ({aiCount})</span>
           </button>
         </div>
@@ -446,7 +446,7 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Archive size={16} className="text-[var(--color-warning)]" />
+              <FolderGit2 size={16} className="text-[var(--color-warning)]" />
               <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
                 Dormant Workspaces with Reconstructible Artifacts
               </h2>
@@ -457,8 +457,13 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
           </div>
 
           {filteredWorkspaces.length === 0 ? (
-            <div className="p-6 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] text-center text-xs text-[var(--color-text-tertiary)]">
-              No dormant workspaces found matching your criteria.
+            <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
+              <CheckCircle2 size={16} className="text-[var(--color-success)] shrink-0" />
+              <span>
+                {searchQuery
+                  ? 'No dormant workspaces found matching your search.'
+                  : 'All detected repositories have had git commits or file modifications within the last 30 days. No dormant workspaces found.'}
+              </span>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
@@ -547,10 +552,13 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
         <div className="space-y-3 pt-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Download size={16} className="text-[#f97316]" />
+              <Download size={16} className="text-[var(--color-warning)]" />
               <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
                 Stale Downloaded Installers &amp; Archives (&gt;30 Days)
               </h2>
+              <span className="text-xs text-[var(--color-text-tertiary)] font-mono">
+                {filteredDownloads.length} files ({report?.stale_downloads_formatted || '0 B'})
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -584,7 +592,7 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
           <div className="p-3 rounded-lg bg-[var(--color-surface-2)]/70 border border-[var(--color-border-subtle)] text-[11px] text-[var(--color-text-secondary)] flex items-center gap-2">
             <ShieldCheck size={14} className="text-[var(--color-success)] shrink-0" />
             <span>
-              Files are safely moved to the Windows Recycle Bin (undoable at any time) and logged to <code className="font-mono text-[var(--color-accent-strong)]">~/.entropy/audit.log</code>.
+              Scanned from <code className="font-mono text-[var(--color-accent-strong)]">Downloads</code> folder. Selected files are moved to the Windows Recycle Bin (restorable anytime from your Desktop) and logged to <code className="font-mono text-[var(--color-accent-strong)]">~/.entropy/audit.log</code>.
             </span>
           </div>
 
@@ -670,7 +678,7 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Brain size={16} className="text-[#a855f7]" />
+              <Database size={16} className="text-[var(--color-accent-strong)]" />
               <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
                 Local AI Model Storage &amp; Checkpoints
               </h2>
@@ -681,8 +689,11 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
           </div>
 
           {filteredAiModels.length === 0 ? (
-            <div className="p-6 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] text-center text-xs text-[var(--color-text-tertiary)]">
-              No local AI model storage (Ollama, HuggingFace) detected on this machine.
+            <div className="p-4 rounded-xl bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
+              <CheckCircle2 size={16} className="text-[var(--color-text-tertiary)] shrink-0" />
+              <span>
+                No local AI model caches detected in standard directories (<code className="font-mono text-[var(--color-text-tertiary)]">~/.ollama/models</code>, <code className="font-mono text-[var(--color-text-tertiary)]">~/.cache/huggingface</code>).
+              </span>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2.5">
@@ -696,7 +707,7 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
                       <span className="text-xs font-semibold text-[var(--color-text-primary)]">
                         {model.name}
                       </span>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-accent-bg)] text-[var(--color-accent-strong)] border border-[var(--color-accent-border)]">
                         {model.framework}
                       </span>
                     </div>
@@ -739,7 +750,7 @@ export const SmartRecommendationsTab: React.FC<SmartRecommendationsTabProps> = (
             <div className="bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-enter">
               <div className="flex items-start gap-3">
                 <div className="p-2.5 rounded-xl bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-[var(--color-warning)] shrink-0">
-                  <Archive size={20} />
+                  <FolderGit2 size={20} />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">

@@ -12,7 +12,6 @@ import {
   Info,
   XCircle,
   Layers,
-  Sparkles,
 } from 'lucide-react';
 import {
   RelocationCandidateItem,
@@ -271,7 +270,7 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
             onClick={() => setShowShrinkGuide(true)}
             className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-warning)] text-black hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5 shrink-0"
           >
-            <Sparkles size={14} />
+            <HardDrive size={14} />
             <span>Partition &amp; Shrink Guide</span>
           </button>
         </div>

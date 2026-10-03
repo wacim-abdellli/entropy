@@ -8,7 +8,6 @@ import {
   Check,
   CheckCircle2,
   AlertTriangle,
-  Sparkles,
   ArrowRight,
   X,
   RefreshCw,
@@ -226,7 +225,7 @@ export const ShrinkGuideModal: React.FC<ShrinkGuideModalProps> = ({
 
                 <div className="p-3 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] space-y-1">
                   <div className="flex items-center gap-1.5 text-[var(--color-text-primary)] font-semibold text-[11px]">
-                    <Sparkles size={14} className="text-[var(--color-accent)]" />
+                    <ShieldCheck size={14} className="text-[var(--color-accent)]" />
                     <span>25 GB OS Safety Margin</span>
                   </div>
                   <p className="text-[11px] text-[var(--color-text-tertiary)] leading-relaxed">

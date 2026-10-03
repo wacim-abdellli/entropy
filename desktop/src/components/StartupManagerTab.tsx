@@ -349,7 +349,14 @@ export const StartupManagerTab: React.FC<StartupManagerTabProps> = ({ onNotice }
                   <div className="text-xs font-mono">
                     <span className="text-[var(--color-text-secondary)]">{item.source}</span>
                     <span className="text-[10px] text-[var(--color-text-tertiary)] block">
-                      {item.can_modify ? 'User Profile' : 'System-Wide 🔒'}
+                      {item.can_modify ? (
+                        'User Profile'
+                      ) : (
+                        <span className="inline-flex items-center gap-1">
+                          <span>System-Wide</span>
+                          <Lock size={10} className="text-[var(--color-text-tertiary)]" />
+                        </span>
+                      )}
                     </span>
                   </div>
 

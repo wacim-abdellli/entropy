@@ -157,8 +157,9 @@ export const DevDriveCard: React.FC<DevDriveCardProps> = ({ onRefreshParent }) =
           {report.support_message}
         </p>
         {!report.is_supported && (
-          <div className="pt-2 text-[11px] text-[var(--color-text-tertiary)] border-t border-[var(--color-border-subtle)]">
-            💡 On Windows 10, maximum compile acceleration is achieved by enabling <strong>Win32 Long Paths</strong> and adding dev directories to <strong>Windows Defender Exclusions</strong> (see above cards).
+          <div className="pt-2 text-[11px] text-[var(--color-text-tertiary)] border-t border-[var(--color-border-subtle)] flex items-start gap-1.5">
+            <Info size={13} className="text-[var(--color-accent)] shrink-0 mt-0.5" />
+            <span>On Windows 10, maximum compile acceleration is achieved by enabling <strong>Win32 Long Paths</strong> and adding dev directories to <strong>Windows Defender Exclusions</strong> (see above cards).</span>
           </div>
         )}
       </div>

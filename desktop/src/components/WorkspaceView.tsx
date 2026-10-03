@@ -1854,8 +1854,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
               <p>
                 Runs <code className="font-mono text-[11px] text-[var(--color-accent-strong)]">git rm --cached</code> and adds this file to <code className="font-mono text-[11px]">.gitignore</code>.
               </p>
-              <p className="text-[var(--color-success)] font-medium">
-                ✓ Your physical file, API keys, and passwords on disk remain 100% untouched.
+              <p className="text-[var(--color-success)] font-medium flex items-center gap-1.5">
+                <CheckCircle2 size={13} className="shrink-0" />
+                <span>Your physical file, API keys, and passwords on disk remain 100% untouched.</span>
               </p>
             </div>
 
