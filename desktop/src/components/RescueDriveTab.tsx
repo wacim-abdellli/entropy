@@ -12,6 +12,10 @@ import {
   Info,
   XCircle,
   Layers,
+  Search,
+  Copy,
+  Check,
+  FolderCheck,
 } from 'lucide-react';
 import {
   RelocationCandidateItem,
@@ -31,6 +35,8 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
   const [junctions, setActiveJunctions] = useState<ActiveJunctionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
 
   // Selected target drive letter / directory
   const [selectedDrive, setSelectedDrive] = useState<string>('D:\\');
@@ -48,7 +54,7 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
     if (!relocateSuccess) return;
     const timer = setTimeout(() => {
       setRelocateSuccess(null);
-    }, 4000);
+    }, 4500);
     return () => clearTimeout(timer);
   }, [relocateSuccess]);
 
@@ -56,7 +62,7 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
     if (!relocateError) return;
     const timer = setTimeout(() => {
       setRelocateError(null);
-    }, 4000);
+    }, 4500);
     return () => clearTimeout(timer);
   }, [relocateError]);
 
@@ -112,6 +118,12 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
   const hasSecondaryDrive = useMemo(() => {
     return destinations.some((d) => !d.is_system);
   }, [destinations]);
+
+  const handleCopyPath = (path: string) => {
+    navigator.clipboard.writeText(path);
+    setCopiedPath(path);
+    setTimeout(() => setCopiedPath(null), 2000);
+  };
 
   const handleExecuteRelocation = async () => {
     if (!targetCandidate) return;
@@ -174,28 +186,54 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
     return destinations.find((d) => d.drive === selectedDrive);
   }, [destinations, selectedDrive]);
 
+  // Filter candidates by search query
+  const filteredCandidates = useMemo(() => {
+    if (!searchQuery.trim()) return candidates;
+    const q = searchQuery.toLowerCase().trim();
+    return candidates.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q) ||
+        c.original_path.toLowerCase().includes(q)
+    );
+  }, [candidates, searchQuery]);
+
+  const systemDriveInfo = useMemo(() => {
+    return destinations.find((d) => d.is_system) || destinations[0];
+  }, [destinations]);
+
   return (
-    <div className="space-y-6">
-      {/* Hero Header */}
+    <div className="space-y-5">
+      {/* ═══ Hero Header & Summary ═══ */}
       <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] p-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] border border-[var(--color-accent)]/20">
+              <div className="p-2 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] border border-[var(--color-accent)]/20 shrink-0">
                 <FolderSync size={20} />
               </div>
               <div>
                 <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
-                  Rescue C: Drive — Smart Directory Relocator
+                  Rescue C: Drive &mdash; Directory Relocator
                 </h2>
                 <p className="text-xs text-[var(--color-text-secondary)]">
-                  Migrate massive developer storage (Docker, package caches, build daemons) to secondary drives via transparent NTFS Directory Junctions without breaking any build tools.
+                  Migrate heavy developer storage (Docker, package caches, build daemons) to secondary drives via transparent NTFS Directory Junctions without breaking build tools.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {!hasSecondaryDrive && (
+              <button
+                type="button"
+                onClick={() => setShowShrinkGuide(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-warning)] text-black hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
+              >
+                <Layers size={13} />
+                <span>Partition Guide</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => loadData(true)}
@@ -210,83 +248,67 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
 
         {/* 3 Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-[var(--color-border-subtle)]">
-          <div className="p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
-            <p className="text-[11px] font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider">
+          {/* Card 1: Reclaimable */}
+          <div className="p-3.5 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] flex flex-col justify-between">
+            <p className="text-[11px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">
               Reclaimable on C: Drive
             </p>
-            <div className="flex items-baseline gap-2 mt-1">
+            <div className="flex items-baseline gap-2 mt-1.5">
               <span className="text-xl font-bold font-mono text-[var(--color-success)]">{totalReclaimableFormatted}</span>
-              <span className="text-xs text-[var(--color-text-secondary)]">ready to migrate</span>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
-            <p className="text-[11px] font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider">
-              Selected Target Drive
-            </p>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-xl font-bold font-mono text-[var(--color-accent)]">
-                {hasSecondaryDrive ? selectedDrive : 'None (C: only)'}
-              </span>
               <span className="text-xs text-[var(--color-text-secondary)]">
-                {hasSecondaryDrive
-                  ? (selectedDestinationInfo ? `${selectedDestinationInfo.free_formatted} free` : 'Available')
-                  : 'Secondary drive needed'}
+                across {candidates.filter((c) => c.is_moveable).length} folders
               </span>
             </div>
           </div>
 
-          <div className="p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)]">
-            <p className="text-[11px] font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider">
+          {/* Card 2: Selected Target Drive */}
+          <div className="p-3.5 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] flex flex-col justify-between">
+            <p className="text-[11px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">
+              Target Destination
+            </p>
+            <div className="flex items-center justify-between gap-2 mt-1.5 flex-wrap">
+              <span className="text-lg font-bold font-mono text-[var(--color-text-primary)]">
+                {hasSecondaryDrive ? selectedDrive : 'C: Only'}
+              </span>
+              {hasSecondaryDrive ? (
+                <span className="text-xs font-mono font-medium text-[var(--color-success)] bg-[var(--color-success-bg)] px-2 py-0.5 rounded border border-[var(--color-success-border)]">
+                  {selectedDestinationInfo ? `${selectedDestinationInfo.free_formatted} free` : 'Ready'}
+                </span>
+              ) : (
+                <span className="text-[10px] font-medium text-[var(--color-warning)] bg-[var(--color-warning-bg)] px-2 py-0.5 rounded border border-[var(--color-warning-border)] whitespace-nowrap">
+                  Secondary drive needed
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Card 3: Active Managed Junctions */}
+          <div className="p-3.5 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] flex flex-col justify-between">
+            <p className="text-[11px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">
               Active Managed Junctions
             </p>
-            <div className="flex items-baseline gap-2 mt-1">
+            <div className="flex items-baseline gap-2 mt-1.5">
               <span className="text-xl font-bold font-mono text-[var(--color-text-primary)]">{junctions.length}</span>
-              <span className="text-xs text-[var(--color-text-secondary)]">redirected links</span>
+              <span className="text-xs text-[var(--color-text-secondary)]">
+                {junctions.length === 1 ? 'redirected folder' : 'redirected folders'}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Single Drive Advisory Banner */}
-      {!hasSecondaryDrive && !loading && (
-        <div className="p-4 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-[var(--color-warning)]/20 text-[var(--color-warning)] border border-[var(--color-warning)]/30 shrink-0">
-              <Layers size={20} />
-            </div>
-            <div className="space-y-0.5">
-              <h3 className="text-xs font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
-                <span>Single Drive Setup Detected (C:) &mdash; Create Secondary Drive (D:)</span>
-              </h3>
-              <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
-                You have {totalReclaimableFormatted} of heavy developer data on C:, but only drive C: is currently mounted. Migrating within C: will not save space. Use our 100% safe Partition Guide to shrink unused space on C: and create drive D: in 4 simple steps.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowShrinkGuide(true)}
-            className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-warning)] text-black hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5 shrink-0"
-          >
-            <HardDrive size={14} />
-            <span>Partition &amp; Shrink Guide</span>
-          </button>
-        </div>
-      )}
-
-      {/* Action Notification Alerts */}
+      {/* ═══ Action Notification Alerts ═══ */}
       {relocateSuccess && (
-        <div className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success)] text-xs">
+        <div className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success)] text-xs animate-in fade-in">
           <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} />
+            <CheckCircle2 size={16} className="shrink-0" />
             <span>{relocateSuccess}</span>
           </div>
           <button
             type="button"
             onClick={() => setRelocateSuccess(null)}
-            className="p-1 hover:opacity-80 cursor-pointer"
+            className="p-1 hover:opacity-80 cursor-pointer shrink-0"
+            aria-label="Dismiss notice"
           >
             <XCircle size={14} />
           </button>
@@ -294,32 +316,40 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
       )}
 
       {relocateError && (
-        <div className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--color-danger-border)] bg-[var(--color-danger-bg)] text-[var(--color-danger)] text-xs">
+        <div className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--color-danger-border)] bg-[var(--color-danger-bg)] text-[var(--color-danger)] text-xs animate-in fade-in">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={16} />
+            <AlertTriangle size={16} className="shrink-0" />
             <span>{relocateError}</span>
           </div>
           <button
             type="button"
             onClick={() => setRelocateError(null)}
-            className="p-1 hover:opacity-80 cursor-pointer"
+            className="p-1 hover:opacity-80 cursor-pointer shrink-0"
+            aria-label="Dismiss error"
           >
             <XCircle size={14} />
           </button>
         </div>
       )}
 
-      {/* Target Drive & Destination Folder Selector */}
-      <div className="p-4 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)]">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">
-            Destination Drive &amp; Path Configuration
-          </h3>
-          {!hasSecondaryDrive && (
+      {/* ═══ Destination Drive & Path Configuration Panel ═══ */}
+      <div className="p-4 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] space-y-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <HardDrive size={16} className="text-[var(--color-accent)]" />
+            <h3 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">
+              Destination Drive &amp; Path Configuration
+            </h3>
+          </div>
+          {hasSecondaryDrive ? (
+            <span className="text-[11px] text-[var(--color-text-tertiary)] font-mono">
+              {destinations.filter((d) => !d.is_system).length} secondary drive(s) mounted
+            </span>
+          ) : (
             <button
               type="button"
               onClick={() => setShowShrinkGuide(true)}
-              className="text-xs font-medium text-[var(--color-accent)] hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-xs font-medium text-[var(--color-warning)] hover:underline flex items-center gap-1 cursor-pointer"
             >
               <Layers size={13} />
               <span>Create Secondary Drive (D:)</span>
@@ -327,90 +357,192 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
           )}
         </div>
 
-        {!hasSecondaryDrive && (
-          <div className="mb-3.5 p-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={15} className="text-[var(--color-warning)] shrink-0" />
-              <span>Drive C: is your primary system drive. Offloading folders requires a secondary drive or partition.</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowShrinkGuide(true)}
-              className="text-xs font-semibold text-[var(--color-accent)] hover:underline shrink-0 cursor-pointer ml-2"
-            >
-              Open Shrink Wizard &rarr;
-            </button>
-          </div>
-        )}
+        {/* CASE A: No secondary drive (Single Drive Setup) */}
+        {!hasSecondaryDrive ? (
+          <div className="p-4 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]/40 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] shrink-0">
+                  <Layers size={20} />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="text-xs font-semibold text-[var(--color-text-primary)]">
+                    Single Drive Detected (C:) &mdash; Secondary Drive or Partition Required
+                  </h4>
+                  <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+                    You have <strong className="text-[var(--color-success)]">{totalReclaimableFormatted}</strong> of developer storage on C:. Because moving within C: will not save space, offloading requires a secondary partition (D:) or external drive.
+                  </p>
+                </div>
+              </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {destinations.map((dest) => {
-            const isSelected = selectedDrive === dest.drive;
-            return (
               <button
-                key={dest.drive}
                 type="button"
-                onClick={() => setSelectedDrive(dest.drive)}
-                className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
-                  isSelected
-                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 ring-1 ring-[var(--color-accent)]'
-                    : 'border-[var(--color-border-subtle)] bg-[var(--color-surface-2)] hover:border-[var(--color-border)]'
-                }`}
+                onClick={() => setShowShrinkGuide(true)}
+                className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-[var(--color-warning)] text-black hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5 shrink-0"
+              >
+                <HardDrive size={14} />
+                <span>Partition &amp; Shrink Guide</span>
+              </button>
+            </div>
+
+            {/* Current C: Drive Status + Pending D: Drive Slot */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Drive C: (System Source) */}
+              <div className="p-3.5 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HardDrive size={15} className="text-[var(--color-text-secondary)]" />
+                    <span className="text-xs font-mono font-semibold text-[var(--color-text-primary)]">C:\ (System Drive)</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-[var(--color-surface-3)] text-[var(--color-text-tertiary)] font-medium">
+                    Source Drive
+                  </span>
+                </div>
+                <div className="w-full bg-[var(--color-surface-3)] h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-[var(--color-accent)] h-full rounded-full transition-all duration-300"
+                    style={{ width: `${systemDriveInfo?.percent_used || 75}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-[var(--color-text-tertiary)] font-mono">
+                  <span>{systemDriveInfo?.free_formatted || 'Free'} Free</span>
+                  <span>{systemDriveInfo?.percent_used || 75}% used</span>
+                </div>
+              </div>
+
+              {/* Pending Drive D: Slot */}
+              <div
+                onClick={() => setShowShrinkGuide(true)}
+                className="p-3.5 rounded-lg bg-[var(--color-surface-2)] border border-dashed border-[var(--color-warning-border)] hover:border-[var(--color-warning)] hover:bg-[var(--color-warning-bg)]/30 transition-all cursor-pointer space-y-2 group"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') setShowShrinkGuide(true);
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <HardDrive size={16} className={isSelected ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'} />
-                    <span className="text-xs font-semibold text-[var(--color-text-primary)] font-mono">{dest.drive}</span>
+                    <Layers size={15} className="text-[var(--color-warning)]" />
+                    <span className="text-xs font-mono font-semibold text-[var(--color-text-primary)]">D:\ (Secondary Partition)</span>
                   </div>
-                  {dest.is_system && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-surface-3)] text-[var(--color-text-tertiary)]">
-                      System C:
-                    </span>
-                  )}
-                  {dest.recommended && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
-                      Recommended
-                    </span>
-                  )}
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] font-medium group-hover:bg-[var(--color-warning)] group-hover:text-black transition-colors">
+                    Create in 4 Steps &rarr;
+                  </span>
                 </div>
-                <div className="mt-2 flex items-baseline justify-between text-xs">
-                  <span className="text-[var(--color-text-secondary)]">{dest.free_formatted} Free</span>
-                  <span className="font-mono text-[10px] text-[var(--color-text-tertiary)]">{dest.percent_used}% used</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+                  Safely shrink unused space on C: in Windows Disk Management without third-party tools or data loss.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* CASE B: Secondary drive(s) detected */
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {destinations.map((dest) => {
+                const isSelected = selectedDrive === dest.drive;
+                const isSystem = dest.is_system;
 
-        <div className="mt-3 pt-3 border-t border-[var(--color-border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[var(--color-text-secondary)]">
-          <div className="flex items-center gap-1.5">
-            <Info size={14} className="text-[var(--color-accent)] shrink-0" />
-            <span>
-              Target directory on {selectedDrive}: <strong className="font-mono text-[var(--color-text-primary)]">{selectedDrive}{customTargetFolder}\</strong>
-            </span>
+                return (
+                  <button
+                    key={dest.drive}
+                    type="button"
+                    disabled={isSystem}
+                    onClick={() => !isSystem && setSelectedDrive(dest.drive)}
+                    className={`p-3.5 rounded-lg border text-left transition-all ${
+                      isSystem
+                        ? 'opacity-60 bg-[var(--color-surface-2)]/50 border-[var(--color-border-subtle)] cursor-not-allowed'
+                        : isSelected
+                        ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 ring-1 ring-[var(--color-accent)] cursor-pointer'
+                        : 'border-[var(--color-border-subtle)] bg-[var(--color-surface-2)] hover:border-[var(--color-border)] cursor-pointer'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <HardDrive
+                          size={16}
+                          className={
+                            isSystem
+                              ? 'text-[var(--color-text-tertiary)]'
+                              : isSelected
+                              ? 'text-[var(--color-accent)]'
+                              : 'text-[var(--color-text-secondary)]'
+                          }
+                        />
+                        <span className="text-xs font-semibold text-[var(--color-text-primary)] font-mono">{dest.drive}</span>
+                      </div>
+                      {isSystem ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-surface-3)] text-[var(--color-text-tertiary)]">
+                          Source (C:)
+                        </span>
+                      ) : dest.recommended ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
+                          Recommended
+                        </span>
+                      ) : (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-surface-3)] text-[var(--color-text-secondary)]">
+                          Target
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2.5 flex items-baseline justify-between text-xs">
+                      <span className="text-[var(--color-text-secondary)] font-mono">{dest.free_formatted} Free</span>
+                      <span className="font-mono text-[10px] text-[var(--color-text-tertiary)]">{dest.percent_used}% used</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Target Folder Config */}
+            <div className="mt-3 pt-3 border-t border-[var(--color-border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[var(--color-text-secondary)]">
+              <div className="flex items-center gap-1.5">
+                <Info size={14} className="text-[var(--color-accent)] shrink-0" />
+                <span>
+                  Relocated items root on {selectedDrive}:{' '}
+                  <strong className="font-mono text-[var(--color-text-primary)]">
+                    {selectedDrive.replace(/[\\/]+$/, '')}\{customTargetFolder.trim() || 'EntropyDev'}\
+                  </strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-[var(--color-text-tertiary)]">Subfolder:</span>
+                <input
+                  type="text"
+                  value={customTargetFolder}
+                  onChange={(e) => setCustomTargetFolder(e.target.value)}
+                  placeholder="EntropyDev"
+                  className="px-2.5 py-1 text-xs font-mono rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text-primary)] w-36 focus:outline-none focus:border-[var(--color-accent)]"
+                />
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[var(--color-text-tertiary)]">Folder:</span>
-            <input
-              type="text"
-              value={customTargetFolder}
-              onChange={(e) => setCustomTargetFolder(e.target.value)}
-              placeholder="EntropyDev"
-              className="px-2 py-1 text-xs font-mono rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text-primary)] w-32 focus:outline-none focus:border-[var(--color-accent)]"
-            />
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Relocatable Candidates Catalog */}
+      {/* ═══ Heavy Developer Folders Catalog ═══ */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-            Heavy Developer Folders Detected on C: Drive
-          </h3>
-          <span className="text-xs text-[var(--color-text-tertiary)] font-mono">
-            {candidates.filter((c) => c.is_moveable).length} moveable
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+              Heavy Developer Folders Detected on C: Drive
+            </h3>
+            <span className="text-xs text-[var(--color-text-tertiary)] font-mono">
+              ({filteredCandidates.filter((c) => c.is_moveable).length} moveable)
+            </span>
+          </div>
+
+          {/* Quick Search Filter */}
+          <div className="relative w-full sm:w-64">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search folders or paths..."
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)]"
+            />
+          </div>
         </div>
 
         {loading ? (
@@ -419,16 +551,26 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
               <div key={i} className="h-20 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] animate-pulse" />
             ))}
           </div>
+        ) : filteredCandidates.length === 0 ? (
+          <div className="p-8 text-center rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] space-y-2">
+            <FolderCheck size={28} className="mx-auto text-[var(--color-text-tertiary)]" />
+            <p className="text-xs font-medium text-[var(--color-text-primary)]">
+              {searchQuery ? 'No matching developer folders found' : 'No heavy developer folders detected on C:'}
+            </p>
+            <p className="text-[11px] text-[var(--color-text-secondary)]">
+              {searchQuery ? 'Try clearing your search query.' : 'Your C: drive does not have massive package caches or container storage.'}
+            </p>
+          </div>
         ) : (
           <div className="space-y-2.5">
-            {candidates.map((cand) => {
+            {filteredCandidates.map((cand) => {
               const isAlreadyJunction = cand.is_junction;
               const isMoveable = cand.is_moveable;
 
               return (
                 <div
                   key={cand.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/40 transition-colors gap-3"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)]/40 transition-colors gap-3.5"
                 >
                   {/* Left: Info */}
                   <div className="space-y-1 min-w-0 flex-1">
@@ -460,28 +602,44 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
                       )}
                     </div>
 
-                    <p className="text-xs text-[var(--color-text-secondary)]">
+                    <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
                       {cand.description}
                     </p>
 
-                    <p className="text-[11px] font-mono text-[var(--color-text-tertiary)] truncate" title={cand.original_path}>
-                      {cand.original_path}
-                    </p>
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--color-text-tertiary)]">
+                      <span className="truncate max-w-md" title={cand.original_path}>
+                        {cand.original_path}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPath(cand.original_path)}
+                        className="p-1 hover:text-[var(--color-text-primary)] transition-colors cursor-pointer shrink-0"
+                        title="Copy original path"
+                      >
+                        {copiedPath === cand.original_path ? (
+                          <Check size={11} className="text-[var(--color-success)]" />
+                        ) : (
+                          <Copy size={11} />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Right: Relocate Action */}
+                  {/* Right: Actions */}
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                     {isAlreadyJunction ? (
-                      <span className="text-xs text-[var(--color-text-tertiary)] italic">Active Link</span>
+                      <span className="text-xs text-[var(--color-text-tertiary)] font-medium italic">
+                        Active Junction Link
+                      </span>
                     ) : !hasSecondaryDrive ? (
                       <button
                         type="button"
                         onClick={() => setShowShrinkGuide(true)}
-                        className="px-3.5 py-1.5 rounded-lg text-xs font-medium border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning)] hover:brightness-110 transition-colors cursor-pointer flex items-center gap-1.5"
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] hover:border-[var(--color-warning-border)] hover:bg-[var(--color-warning-bg)] transition-colors cursor-pointer flex items-center gap-1.5"
                         title="Create secondary partition D: first to rescue C: drive"
                       >
-                        <Layers size={13} />
-                        <span>Requires D: Drive &mdash; Setup Guide</span>
+                        <HardDrive size={13} />
+                        <span>Setup D: Drive</span>
                       </button>
                     ) : (
                       <button
@@ -502,18 +660,33 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
         )}
       </div>
 
-      {/* Active Junctions & Rollback Manager */}
-      {junctions.length > 0 && (
-        <div className="space-y-3 pt-4 border-t border-[var(--color-border-subtle)]">
-          <div className="flex items-center justify-between">
+      {/* ═══ Active Junctions & Rollback Manager ═══ */}
+      <div className="space-y-3 pt-4 border-t border-[var(--color-border-subtle)]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Undo2 size={16} className="text-[var(--color-accent)]" />
             <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
               Active Directory Junctions (Rollback Manager)
             </h3>
-            <span className="text-xs text-[var(--color-text-tertiary)] font-mono">
-              {junctions.length} registered
+          </div>
+          <span className="text-xs text-[var(--color-text-tertiary)] font-mono">
+            {junctions.length} registered
+          </span>
+        </div>
+
+        {junctions.length === 0 ? (
+          <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] p-4 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck size={16} className="text-[var(--color-success)] shrink-0" />
+              <span>
+                Directory Junctions are 100% reversible. Any relocated folders will appear here with an instant 1-click restore back to C: drive.
+              </span>
+            </div>
+            <span className="font-mono text-[11px] text-[var(--color-text-tertiary)] shrink-0 ml-2">
+              0 active links
             </span>
           </div>
-
+        ) : (
           <div className="space-y-2">
             {junctions.map((junc) => (
               <div
@@ -521,9 +694,9 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
                 className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] gap-3"
               >
                 <div className="space-y-1 min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-semibold text-[var(--color-text-primary)]">{junc.name}</span>
-                    <span className="text-xs font-mono text-[var(--color-success)]">{junc.size_formatted}</span>
+                    <span className="text-xs font-mono font-bold text-[var(--color-success)]">{junc.size_formatted}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-surface-3)] text-[var(--color-text-tertiary)]">
                       {new Date(junc.created_at).toLocaleDateString()}
                     </span>
@@ -548,10 +721,10 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Relocation Confirmation Modal */}
+      {/* ═══ Relocation Confirmation Modal ═══ */}
       {targetCandidate && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
@@ -575,7 +748,7 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
                   Relocate {targetCandidate.name} to {selectedDrive}?
                 </h3>
                 <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-                  Files will be copied to your secondary drive, and an NTFS directory junction will be placed at the original location. All tools, build scripts, and IDEs will continue functioning transparently.
+                  Files will be moved to your secondary drive, and an NTFS directory junction will be placed at the original location. All tools, build scripts, and IDEs will continue functioning transparently.
                 </p>
               </div>
             </div>
@@ -592,7 +765,9 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--color-text-tertiary)]">Destination Path:</span>
-                <span className="text-[var(--color-accent)] truncate max-w-xs">{selectedDrive}{customTargetFolder}\{targetCandidate.id}</span>
+                <span className="text-[var(--color-accent)] truncate max-w-xs">
+                  {selectedDrive.replace(/[\\/]+$/, '')}\{customTargetFolder.trim() || 'EntropyDev'}\{targetCandidate.id}
+                </span>
               </div>
             </div>
 
@@ -600,7 +775,7 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
             <div className="p-3 rounded-lg bg-[var(--color-surface-3)]/60 border border-[var(--color-border-subtle)] space-y-1.5 mb-5 text-xs text-[var(--color-text-secondary)]">
               <div className="flex items-center gap-1.5 font-medium text-[var(--color-text-primary)]">
                 <ShieldCheck size={14} className="text-[var(--color-success)]" />
-                <span>100% Reversible & Safe</span>
+                <span>100% Reversible &amp; Safe</span>
               </div>
               <p className="text-[11px] leading-relaxed">
                 Entropy uses a 2-phase migration with verification. You can revert this migration anytime with one click in the Rollback Manager.
@@ -640,7 +815,7 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
         document.body
       )}
 
-      {/* Restore Confirmation Modal */}
+      {/* ═══ Restore Confirmation Modal ═══ */}
       {targetRestoreJunction && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
@@ -702,7 +877,7 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
         document.body
       )}
 
-      {/* Partition & Shrink Guide Modal */}
+      {/* ═══ Partition & Shrink Guide Modal ═══ */}
       <ShrinkGuideModal
         isOpen={showShrinkGuide}
         onClose={() => setShowShrinkGuide(false)}
@@ -714,4 +889,3 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
     </div>
   );
 };
-

@@ -500,7 +500,7 @@ def serialize_workspace_inspection(
         },
         "metadata": {
             "scan_duration_ms": int((graph.scan_duration_seconds or 0) * 1000),
-            "engine_version": "0.2.4",
+            "engine_version": "0.2.5",
             "timestamp": graph.scan_timestamp,
             "hostname": graph.hostname,
             "root": target_project.path,
@@ -514,7 +514,7 @@ def serialize_workspace_inspection(
             "scope_type": graph.scope_type.value,
             "hostname": graph.hostname,
             "docker_available": graph.docker_available,
-            "engine_version": "0.2.4",
+            "engine_version": "0.2.5",
         },
     }
 
@@ -658,7 +658,7 @@ def serialize_environment_overview(
         "findings": [asdict(f) for f in findings],
         "metadata": {
             "scan_duration_ms": int((graph.scan_duration_seconds or 0) * 1000),
-            "engine_version": "0.2.4",
+            "engine_version": "0.2.5",
             "timestamp": graph.scan_timestamp,
             "hostname": graph.hostname,
             "scan_roots": graph.scan_roots,
@@ -672,6 +672,6 @@ def serialize_environment_overview(
             "scope_type": graph.scope_type.value,
             "hostname": graph.hostname,
             "docker_available": graph.docker_available,
-            "engine_version": "0.2.4",
+            "engine_version": "0.2.5",
         },
     }
