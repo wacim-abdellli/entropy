@@ -21,15 +21,18 @@
 
 ---
 
-## 💡 Overview
+## Overview
 
-**Entropy** is an all-in-one developer workspace management platform and Windows system reclaimer designed specifically for software engineers. It fuses a blazing-fast Python forensics engine with an action-oriented React 19 desktop interface to solve the daily chaos of modern software development:
+**Entropy** is an all-in-one developer workspace management engine and Windows workstation optimization suite designed specifically for software engineers. It fuses a forensic Python backend with an action-oriented React 19 desktop interface to resolve the disk bloat, system latency, and workspace sprawl of modern development stacks:
 
-- **Reclaim dozens of gigabytes** of forgotten build targets (`node_modules`, `target`, `.venv`, `.next`, `bin/obj`).
-- **Rescue full C: drives** by relocating massive package directories (`.gradle`, `.m2`, `AppData`, Android SDKs) to secondary drives via transparent NTFS Directory Junctions without breaking any builds.
-- **Guard uncommitted and unpushed work** before you switch contexts or experience drive failures.
+- **Reclaim dozens of gigabytes** of disposable build artifacts (`node_modules`, `target`, `.venv`, `.next`, `bin/obj`).
+- **Rescue C: drive storage** by moving heavy tool and SDK directories (`.gradle`, `.m2`, `AppData`, Android SDK) to secondary drives via transparent NTFS Directory Junctions without breaking paths or build tools.
+- **Inspect disk usage cartography** through an interactive SSD Storage Lens treemap categorized by development ecosystem.
+- **Safely shrink and repartition disks** using the built-in Windows Shrink & Partition Wizard.
+- **Find and batch-clean duplicate files** using a 3-pass cryptographic hash pipeline with 1-click "Select All" controls and Recycle Bin protection.
+- **Guard uncommitted and unpushed work** before you switch branches, clear workspaces, or encounter hardware issues.
 - **Inspect active developer network sockets** and free jammed development ports (`3000`, `5173`, `8080`, `5432`) in 1 click.
-- **Compact WSL2 & Docker virtual disks (`.vhdx`)** to recover gigabytes held by Linux subsystems.
+- **Compact WSL2 & Docker virtual disks (`.vhdx`)** to recover storage dynamically locked by Linux virtual disks.
 - **Tune Windows for developers** with Win32 Long Path support, Developer Mode, Defender exclusions, and PATH conflict resolution.
 
 ```text
@@ -47,104 +50,124 @@
 
 ---
 
-## ⚡ The Problem: Why Traditional Cleaners Fail Developers
+## Comparison: Why Traditional Cleaners Fail Developers
 
-Generic PC cleaners (CCleaner, BleachBit, CleanMyPC) treat local code directories as black boxes. They have no concept of Git repositories, build graphs, or development servers:
+Generic PC cleaners (CCleaner, BleachBit, CleanMyPC) treat local code directories as opaque black boxes. They have no concept of Git status, package manager graphs, or development servers:
 
-| Challenge | Generic Cleaners | Git CLI Alone | Windows Task Manager | **Entropy** |
+| Capability | Generic Cleaners | Git CLI Alone | Windows Task Manager | **Entropy** |
 | :--- | :---: | :---: | :---: | :---: |
 | **Identifies disposable build targets** (`node_modules`, `target/`) | ❌ Ignores | ❌ Ignores | ❌ Ignores | ✅ **Auto-sizes & Safely Cleans** |
-| **Relocates heavy dirs to D: without breaking paths** (NTFS Junctions) | ❌ | ❌ | ❌ | ✅ **1-Click Smart Mover** |
-| **Correlates open ports to project directories** | ❌ | ❌ | ⚠️ Shows raw PID only | ✅ **Correlated Port & PID Forensics** |
+| **Relocates heavy dirs to D: without breaking paths** (NTFS Junctions) | ❌ | ❌ | ❌ | ✅ **1-Click Smart Mover & Rollback** |
+| **Visual SSD Storage Lens with developer domain cartography** | ❌ | ❌ | ❌ | ✅ **Interactive Treemap Lens** |
+| **Windows Shrink & Partition Wizard** | ❌ | ❌ | ⚠️ Disk Mgmt GUI | ✅ **Safe Partition Calculator** |
+| **Duplicate Finder with multi-hash & batch "Select All"** | ⚠️ File name only | ❌ | ❌ | ✅ **3-Pass Cryptographic Hasher** |
+| **Correlates open ports to process binaries & PIDs** | ❌ | ❌ | ⚠️ Shows raw PID only | ✅ **Correlated Port & PID Forensics** |
 | **Unpushed work guardian** (flags local-only commits) | ❌ | ⚠️ Must check each repo | ❌ | ✅ **Cross-Repo Guardian Dashboard** |
 | **Compacts dynamic WSL2 & Docker VHDX disks** | ❌ | ❌ | ❌ | ✅ **Automated Disk Compactor** |
 | **Detects locked files & responsible processes** | ❌ | ❌ | ❌ | ✅ **Win32 Restart Manager Bridge** |
-| **Persistent append-only audit trail** | ❌ | ❌ | ❌ | ✅ **Forensic `audit.log`** |
+| **Persistent append-only audit trail** | ❌ | ❌ | ❌ | ✅ **Forensic `~/.entropy/audit.log`** |
 
 ---
 
-## ✨ Core Features & Cockpit Tour
+## Core Features & Capabilities
 
-### 🛟 1. Rescue C: Drive (Smart Directory Relocator)
-Running out of space on your primary Windows drive (`C:\`) is a developer nightmare. Heavy tools like Gradle, Maven, Android SDK, and npm store dozens of gigabytes in your user profile:
-- **Transparent NTFS Junctions (`mklink /J`)**: Seamlessly moves large directories to secondary drives (`D:\`, `E:\`) while creating an operating-system-level pointer on `C:`.
-- **Zero Configuration Breakage**: Your tools, IDEs, and build scripts continue reading from `C:\Users\...\.gradle`, but all underlying storage is absorbed by your secondary disk.
-- **1-Click Restore**: Every relocated directory is indexed in an active manifest and can be reverted back to `C:` at any time.
+### 1. Rescue C: Drive (Smart Directory Relocator)
+Primary SSDs (`C:\`) frequently run out of space due to heavy build runtimes, global caches, and SDKs residing in user profiles:
+- **Transparent NTFS Junctions (`mklink /J`)**: Relocates directories (`.gradle`, `.m2`, Android SDK, `AppData\Local`, `.nuget`, `.cache`) to secondary partitions (`D:\`, `E:\`) while leaving an OS-level directory junction on `C:`.
+- **Zero Tooling Breakage**: Build tools, IDEs, and compilers continue reading paths on `C:\` uninterrupted, with disk storage physically hosted on the destination drive.
+- **Native Win32 Reparse Point Verification**: Employs `DeviceIoControl` with `FSCTL_GET_REPARSE_POINT` to accurately verify junction status, bypassing standard shell and symlink detection edge cases.
+- **Real-Time 0–100% Progress Telemetry**: Displays transfer velocity (MB/s), live file ticker, elapsed duration, and estimated completion time during relocation.
+- **Full Space Reclamation**: Safely purges original files after junction creation and verifies that free space on `C:` increases.
+- **1-Click Rollback Manager**: Keeps an active registry of all moved paths and allows instant reversion of junctions back to `C:` with zero data loss.
+- **Drive Capacity Alerts**: Proactively displays warning thresholds when `C:` free space drops below critical limits.
 
-### 🌐 2. Process-Correlated Network & Port Forensics
-Never manually run `netstat -ano | findstr 3000` again:
-- **Process Correlation**: Lists every active listening TCP/UDP socket mapped directly to its binary name (`node.exe`, `python.exe`, `postgres.exe`), process ID, and local/remote addresses.
+### 2. SSD Storage Lens & Drilldown Cartography
+Inspect disk usage through a visual cartography model tuned for developer machines:
+- **Domain-Categorized Storage Treemap**: Aggregates and displays disk occupancy categorized by runtime (Node.js, Rust/Cargo, Python, Android SDK, Gradle, Docker, Windows Caches).
+- **Interactive Drilldown**: Direct inspection of the heaviest storage nodes across all scanned developer roots.
+- **Smooth Loading State**: Asynchronous background indexing with pulsing loading skeletons for seamless navigation.
+- **Dev Drive (ReFS) Integration**: Identifies formatted Dev Drives and recommends optimal cache placement for up to 30% faster compilation and package management operations.
+
+### 3. Windows Shrink & Partition Wizard
+Manage Windows partition sizing without risky third-party partition software:
+- **Safe Capacity Calculations**: Queries Windows Storage Management CIM/WMI to compute maximum shrinkable boundaries without disturbing unmovable operating system files.
+- **Guided Setup Workflow**: Step-by-step instructions for shrinking `C:` partitions and carving out dedicated secondary drives (`D:\`, `E:\`) or high-performance ReFS Dev Drives.
+
+### 4. 3-Pass Cryptographic Duplicate Hunter
+Find and clean identical duplicate files with zero false-positive risk:
+- **Tier 1 (Size Clustering)**: Fast file-size grouping to isolate potential candidates.
+- **Tier 2 (Head/Tail Fast Hash)**: Computes partial MD5 of file boundaries to eliminate non-matching candidates in milliseconds.
+- **Tier 3 (Full SHA-256 Hash)**: Cryptographically confirms identical byte sequences.
+- **Batch Selection Controls**: Integrated "Select All", "Deselect All", and smart selection rules ("Keep Newest", "Keep Oldest") for rapid multi-file triage.
+- **Recycle Bin Integration**: Deletions default to the Windows Recycle Bin for instantaneous recovery.
+
+### 5. Multi-Engine Disk Reclaimer
+Reclaim gigabytes of space across developer environments and operating system caches:
+- **Disposable Build Artifacts**: `node_modules`, `target`, `dist`, `.next`, `build`, `bin`, `obj`, `__pycache__`, `.venv`, `.pytest_cache`, `.turbo`.
+- **Global Package Caches**: `npm`, `pnpm`, `yarn`, `pip`, `cargo`, `nuget`, `go-build`, `maven`, `gradle`, `cocoapods`.
+- **WSL 2 & Docker Virtual Disks**: Compacts dynamically expanding `ext4.vhdx` virtual disks for WSL2 and Docker Desktop.
+- **Windows System Junk**: User and system temp directories, crash dumps, Windows error reporting logs, browser caches, and Windows Recycle Bin.
+- **Docker Daemon Pruning**: Prunes stopped containers, dangling images, unused volumes, and build caches.
+
+### 6. Process-Correlated Network & Port Forensics
+Eliminate port collision issues when development servers fail to bind:
+- **Process Correlation**: Lists active listening TCP/UDP sockets mapped to process names (`node.exe`, `python.exe`, `postgres.exe`), PIDs, and local addresses.
 - **Developer Port Highlights**: Automatically flags standard development ports (`3000`, `5173`, `8080`, `5432`, `27017`, `6379`, `8000`).
-- **1-Click Port Releaser**: Safely terminate rogue or frozen background processes holding a port with built-in confirmation dialogues.
+- **1-Click Port Releaser**: Terminate unresponsive or orphaned development servers holding ports with confirmation dialogues.
 
-### 🖥️ 3. Machine Hardware Forensics & Live Telemetry
-Deep, real-time forensic inspection of your Windows workstation:
-- **Dual-GPU Telemetry**: Accurately detects dedicated and integrated GPUs (NVIDIA GeForce RTX, AMD Radeon, Intel Iris/UHD) with dedicated video memory (VRAM) sizing and driver version tracking.
-- **Physical Drive & Media Forensics**: Identifies NVMe SSDs, SATA SSDs, and HDDs, device bus types, and disk serials.
-- **Partition Topology**: Maps Windows partitions, EFI system partitions, recovery partitions, and dual-boot Linux installations.
+### 7. Workstation Hardware Forensics & Live Telemetry
+Deep, real-time forensic inspection of Windows hardware:
+- **Dual-GPU Telemetry**: Detects dedicated and integrated GPUs (NVIDIA GeForce RTX, AMD Radeon, Intel Iris/UHD) with dedicated video memory (VRAM) sizing and driver version tracking.
+- **Physical Drive & Media Forensics**: Identifies NVMe SSDs, SATA SSDs, HDDs, device bus types, and disk serials.
+- **Partition Topology**: Maps Windows partitions, EFI system partitions, recovery partitions, and dual-boot installations.
 - **Live Throughput Gauges**: Real-time non-blocking Disk I/O (MB/s Read/Write) and Network I/O (KB/s Sent/Received).
 
-### 🛡️ 4. Workspace Health & Unpushed Work Guardian
-Managing multiple repositories across your system often leads to forgotten, unpushed work:
-- **Unpushed Commits Warning**: Scans upstream tracking branches to alert you if a repository has local commits that exist nowhere else (`commits_ahead`).
-- **Stale Dependencies Alert**: Compares the modification timestamp of your package lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `Cargo.lock`, `poetry.lock`) against installed modules to warn you when dependencies are out of sync.
+### 8. Workspace Health & Unpushed Work Guardian
+Maintain hygiene across dozens of local code repositories:
+- **Unpushed Commits Warning**: Compares local branches against upstream tracking branches (`@{u}..HEAD`) to flag unpushed commits (`commits_ahead`).
+- **Dependency Freshness Monitor**: Compares modification timestamps of package lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `Cargo.lock`, `poetry.lock`) against installed modules to detect out-of-sync dependencies.
 - **Secrets Radar**: Automatically inspects untracked or committed files for leaked API keys, tokens, or credentials (`.env`, `id_rsa`, `.pem`).
 - **File Lock Diagnostics**: Integrated Win32 Restart Manager identifies the exact process locking a file when builds fail with `EBUSY` or `Access Denied`.
 
-### 🧹 5. Multi-Engine Disk Reclaimer
-Reclaim gigabytes of space across every tier of your operating system:
-- **Disposable Build Artifacts**: `node_modules`, `target`, `dist`, `.next`, `build`, `bin`, `obj`, `__pycache__`, `.venv`, `.pytest_cache`, `.turbo`.
-- **Global Package Caches**: `npm`, `pnpm`, `yarn`, `pip`, `cargo`, `nuget`, `go-build`, `maven`, `gradle`, and `cocoapods`.
-- **WSL 2 & Docker Virtual Disks**: Compacts dynamically expanding `ext4.vhdx` virtual hard disks for WSL2 and Docker Desktop.
-- **Windows System Junk**: User & System Temp, crash dumps, Windows error reporting logs, browser caches, and Windows Recycle Bin.
-- **Docker Daemon Pruning**: Cleans stopped containers, dangling images, unused volumes, and build cache.
-
-### 🕵️ 6. 3-Pass Cryptographic Duplicate Hunter
-Identifies duplicate files with 100% collision resistance using a three-tier algorithmic pipeline:
-1. **Pass 1 (Size Clustering)**: Fast file-size grouping isolates candidate matches.
-2. **Pass 2 (Head/Tail Fast Hash)**: Computes partial MD5 of file boundaries to eliminate non-matches in milliseconds.
-3. **Pass 3 (Full SHA-256 Hash)**: Cryptographically verifies identical content.
-- Supports batch smart selection (e.g., keep newest or keep oldest) with safe deletion to the Windows Recycle Bin.
-
-### 🚀 7. Startup App Manager (Task Manager Synchronized)
-Examine and control every application configured to launch at Windows boot:
+### 9. Startup App Manager (Task Manager Synchronized)
+Audit and manage applications configured to launch at Windows boot:
 - Synchronized with Windows Task Manager across both Current User (`HKCU`) and Local Machine (`HKLM`) registry hives.
 - Safely toggle or remove resource-heavy background updaters and startup apps without manual registry edits.
 
-### ⚙️ 8. Windows Developer Tuning & Path Auditor
-Optimize Windows 10/11 specifically for software development workflows:
-- **Win32 Long Paths (`LongPathsEnabled`)**: Removes the 260-character MAX_PATH limitation that frequently breaks deep Node.js and Python packages.
-- **Windows Developer Mode**: Enables native symlink creation without requiring administrative privilege escalation.
-- **Windows Defender Exclusions**: Automatically whitelists designated build root directories to prevent antivirus real-time scans from bottlenecking compilation speeds.
-- **Windows 11 Dev Drive (ReFS)**: Detects ReFS-formatted Dev Drives and relocates global package caches for up to 30% faster file operations.
-- **User PATH Auditor**: Inspects the Windows `PATH` environment variable, identifies dead or non-existent directories, highlights tool collisions (e.g., multiple Python or Node installations), and offers safe pruning.
+### 10. Windows Developer Tuning & Path Auditor
+Optimize Windows 10 and 11 configurations for software development:
+- **Win32 Long Paths (`LongPathsEnabled`)**: Removes the 260-character MAX_PATH limitation that breaks deep package dependency trees.
+- **Windows Developer Mode**: Enables native symlink creation without requiring administrative privilege elevation.
+- **Windows Defender Exclusions**: Whitelists designated build root directories to prevent real-time antivirus scans from slowing down builds.
+- **User PATH Auditor**: Inspects the Windows `PATH` environment variable, identifies missing directories, highlights duplicate entries, and checks tool collisions.
 
 ---
 
-## 🔒 Safety & Trust Architecture
+## Safety & Trust Architecture
 
-Entropy was engineered from day one with strict safety guardrails for developers:
+Entropy was engineered with strict safety guardrails for developer workstations:
 
-1. **Persistent Append-Only Audit Log**: Every single deletion or relocation is permanently logged to `~/.entropy/audit.log` with UTC timestamps, reclaimed bytes, affected paths, and execution outcomes.
-2. **Git Tracking Verification**: Build artifact folders (`node_modules`, `target`) are verified against `git ls-files` before deletion to guarantee that no source code accidentally placed inside build directories is ever lost.
-3. **Recycle Bin Protection**: Large files and duplicate deletions default to the Windows Recycle Bin for instant file recovery.
-4. **100% Silent Execution**: All Windows system diagnostics, PowerShell CIM queries, and `mklink` operations run silently in the background with `CREATE_NO_WINDOW` and hidden window styles — zero flashing blue console windows.
-5. **Zero Telemetry & 100% Local**: Entropy never phones home. All scans, metadata, and forensics remain strictly on your local machine.
+1. **Persistent Append-Only Audit Log**: Every deletion or relocation is recorded in `~/.entropy/audit.log` with UTC timestamps, reclaimed bytes, affected paths, and execution outcomes.
+2. **Git Tracking Verification**: Build artifact folders (`node_modules`, `target`) are verified against `git ls-files` before deletion to prevent accidental removal of tracked source files.
+3. **Recycle Bin Protection**: Large file and duplicate deletions default to the Windows Recycle Bin for instantaneous recovery.
+4. **Command Allowlisting**: Package reinstall commands are checked against strict allowlists to prevent shell metacharacter injection.
+5. **100% Silent Execution**: All Windows system diagnostics, CIM queries, and `mklink` operations execute with `CREATE_NO_WINDOW` and hidden window styles — zero flashing console windows.
+6. **Zero Telemetry & 100% Local**: Entropy runs entirely on your local machine with zero external network tracking or data transmission.
 
 ---
 
-## 📦 Installation & Download
+## Installation & Download
 
 ### Windows Installer (Recommended)
 Download the latest pre-compiled setup executable from the **[Releases](https://github.com/wacim-abdellli/entropy/releases)** page:
 
-- **Installer**: `Entropy-Setup-0.2.1.exe`
-- Per-user installation (no admin elevation required to install).
+- **Installer**: `Entropy-Setup-0.2.5.exe`
+- Per-user installation (no administrative elevation required to install).
 - Creates optional Desktop and Start Menu shortcuts with clean uninstaller registration.
 
 ---
 
-## 🛠️ Developer Setup & Commands
+## Developer Setup & Commands
 
 ### Prerequisites
 - **Windows 10 or 11 (64-bit)**
@@ -158,7 +181,7 @@ git clone https://github.com/wacim-abdellli/entropy.git
 cd entropy
 ```
 
-### 2. Frontend Development (React 19 + Vite)
+### 2. Frontend Development (React 19 + Vite + Tailwind CSS 4)
 ```bash
 cd desktop
 npm install
@@ -187,7 +210,7 @@ python scan.py scan C:\dev C:\repos
 # Launch native Desktop GUI
 python scan.py desktop
 
-# Run full backend unit test suite (131 tests)
+# Run full backend unit test suite (147 tests)
 python -m unittest discover tests
 ```
 
@@ -196,7 +219,7 @@ python -m unittest discover tests
 # 1. Build frontend assets
 cd desktop && npm run build && cd ..
 
-# 2. Package single-file executable with PyInstaller
+# 2. Package standalone executable with PyInstaller
 pyinstaller --noconfirm Entropy.spec
 
 # 3. Compile Inno Setup installer
@@ -205,73 +228,96 @@ pyinstaller --noconfirm Entropy.spec
 
 ---
 
-## 🏛️ Repository Structure
+## Repository Structure
 
 ```text
 entropy/
 ├── scan.py                   # Python CLI entrypoint & scanner orchestrator
 ├── Entropy.spec              # PyInstaller production build specification
 ├── installer.iss             # Inno Setup 6 modern installer script
-├── AGENTS.md                 # Master context guide for AI coding assistants
+├── AGENTS.md                 # Context guide for AI coding assistants
 ├── core/                     # Core business logic & forensic engines
 │   ├── advisor.py            # Workspace health diagnostics & smart verdicts
 │   ├── audit_log.py          # Persistent append-only audit trail (~/.entropy/audit.log)
-│   ├── config.py             # User settings & persistent scan roots (~/.entropy/config.json)
-│   ├── disk_cleaner.py       # Git-protected build artifact cleaner
 │   ├── cache_cleaner.py      # Developer package cache purger (npm, pip, cargo, etc.)
-│   ├── system_cleaner.py     # Windows junk, temp files & browser cache reclaimer
-│   ├── smart_mover.py        # Smart File Mover ("Rescue C:") via NTFS Directory Junctions
-│   ├── network_monitor.py    # Process-correlated TCP/UDP socket forensics & port releaser
-│   ├── system_info.py        # Hardware forensics, dual GPU, partition topology & live I/O
-│   ├── duplicate_finder.py   # 3-pass cryptographic duplicate file hunter
-│   ├── large_files.py        # Workspace large file scanner with Recycle Bin safety
-│   ├── installed_apps.py     # Desktop software & developer runtime inventory
-│   ├── startup_manager.py    # Task Manager-synchronized Windows startup manager
-│   ├── file_locker.py        # Win32 Restart Manager file locking diagnostics
-│   ├── git_control.py        # Safe Git stash, secret untracking & branch pruning
-│   ├── process_control.py    # Process termination & dev server releaser
+│   ├── cleanup_progress.py   # Global atomic cleanup progress tracker
+│   ├── config.py             # User settings & persistent scan roots (~/.entropy/config.json)
 │   ├── dev_drive.py          # Windows 11 Dev Drive (ReFS) detector & cache relocator
+│   ├── disk_cleaner.py       # Git-protected build artifact cleaner
+│   ├── docker_control.py     # Docker container, image, volume & cache cleanup
+│   ├── dormant_detector.py   # Inactive repository & workspace detector
+│   ├── duplicate_finder.py   # 3-pass cryptographic duplicate file hunter
+│   ├── entities.py           # Core domain entity definitions
+│   ├── file_locker.py        # Win32 Restart Manager file locking diagnostics
+│   ├── findings.py           # Diagnostic findings models & scoring
+│   ├── git_control.py        # Safe Git stash, secret untracking & branch pruning
+│   ├── graph.py              # Relationship graph & cross-entity topology
+│   ├── installed_apps.py     # Desktop software & developer runtime inventory
+│   ├── large_files.py        # Workspace large file scanner with Recycle Bin safety
+│   ├── launcher.py           # External process launcher & terminal opener
+│   ├── memory_booster.py     # Windows RAM standby list & working set management
+│   ├── network_monitor.py    # Process-correlated TCP/UDP socket forensics & port releaser
+│   ├── partition_wizard.py   # Windows partition shrink calculator & wizard
 │   ├── path_auditor.py       # Windows PATH environment variable auditor & pruner
-│   ├── vhdx_compact.py       # WSL 2 & Docker virtual disk compactor
-│   └── tuner.py              # Windows developer mode, long paths & Defender exclusions
+│   ├── process_control.py    # Process termination & dev server releaser
+│   ├── smart_mover.py        # Rescue C: Directory Relocator via NTFS Junctions
+│   ├── ssd_lens.py           # SSD Storage Lens & domain-categorized disk cartography
+│   ├── startup_manager.py    # Task Manager-synchronized Windows startup manager
+│   ├── system_cleaner.py     # Windows junk, temp files & browser cache reclaimer
+│   ├── system_info.py        # Hardware forensics, dual GPU, partition topology & live I/O
+│   ├── tuner.py              # Windows developer mode, long paths & Defender exclusions
+│   └── vhdx_compact.py       # WSL 2 & Docker virtual disk compactor
 ├── collectors/               # System state & telemetry collectors
+│   ├── artifacts.py          # Disposable build artifact collector
+│   ├── caches.py             # Global package manager cache discovery
+│   ├── docker.py             # Docker daemon status, images & container metrics
 │   ├── git.py                # Git status, branches, unpushed commits & secrets
 │   ├── processes.py          # Active dev processes, listening ports & PID correlation
 │   ├── projects.py           # Project type detector & dependency lockfile freshness
-│   ├── artifacts.py          # Disposable build artifact collector
-│   ├── caches.py             # Global package manager cache discovery
-│   ├── runtimes.py           # Installed developer runtimes & version probes
-│   └── docker.py             # Docker daemon status, images & container metrics
+│   └── runtimes.py           # Installed developer runtimes & version probes
 ├── desktop/                  # React 19 + TypeScript + Vite + Tailwind CSS 4 GUI
 │   ├── app.py                # Native Windows WebView2 launcher & IPC bridge
 │   └── src/
 │       ├── App.tsx           # Desktop container & sidebar routing
 │       ├── index.css         # Design system tokens & Tailwind CSS 4 setup
-│       ├── components/       # Action-oriented cockpit components
-│       │   ├── OverviewView.tsx       # Actionable dashboard with workspace health
-│       │   ├── CleanupView.tsx        # Multi-tab reclaimer (Artifacts, Caches, System, Docker)
-│       │   ├── SystemView.tsx         # Tabbed system forensics & management hub
-│       │   ├── MachineOverviewTab.tsx # Hardware specs, dual GPU & live I/O gauges
-│       │   ├── NetworkMonitorTab.tsx  # Process-correlated sockets & port releaser
-│       │   ├── RescueDriveTab.tsx     # Smart File Mover directory junction manager
-│       │   ├── DuplicateFinderTab.tsx # 3-pass hash duplicate hunter
-│       │   ├── LargeFilesHunterTab.tsx# Categorized large file finder
-│       │   ├── StartupManagerTab.tsx  # Windows startup apps toggle & removal
-│       │   ├── InstalledAppsTab.tsx   # Installed software & runtime inventory
-│       │   ├── WorkspaceView.tsx      # Deep workspace inspector & Git manager
-│       │   └── CommandPalette.tsx     # Global launcher overlay (Ctrl + K)
+│       ├── components/       # Cockpit components & forensic views
+│       │   ├── CleanupSafetyModal.tsx      # Pre-flight safety confirmation modal
+│       │   ├── CleanupView.tsx             # Multi-tab reclaimer (Artifacts, Caches, System, Docker)
+│       │   ├── CommandPalette.tsx          # Global launcher overlay (Ctrl + K)
+│       │   ├── DevDriveCard.tsx            # Windows 11 Dev Drive status & actions
+│       │   ├── DuplicateFinderTab.tsx      # 3-pass hash duplicate hunter with batch Select All
+│       │   ├── EntropyLogo.tsx             # Application branding component
+│       │   ├── FileLockModal.tsx           # Win32 Restart Manager file unlocker modal
+│       │   ├── InstalledAppsTab.tsx        # Installed software & runtime inventory
+│       │   ├── LargeFilesHunterTab.tsx     # Categorized large file finder
+│       │   ├── MachineOverviewTab.tsx      # Hardware specs, dual GPU & live I/O gauges
+│       │   ├── NetworkMonitorTab.tsx       # Process-correlated sockets & port releaser
+│       │   ├── OverviewView.tsx            # Actionable dashboard with workspace health
+│       │   ├── PathAuditorCard.tsx         # Windows PATH environment variable auditor
+│       │   ├── RescueDriveTab.tsx          # Rescue C: Directory Relocator with 100% telemetry
+│       │   ├── SecretsRadarModal.tsx       # Leaked credentials & secret detector
+│       │   ├── SettingsView.tsx            # Scan roots, exclusions & preferences
+│       │   ├── ShrinkGuideModal.tsx        # Safe partition shrinking guidance modal
+│       │   ├── Sidebar.tsx                 # Navigation bar & active workspace counter
+│       │   ├── SmartRecommendationsTab.tsx # Prioritized workstation health suggestions
+│       │   ├── SsdStorageLensTab.tsx       # SSD Storage Lens & domain-categorized treemap
+│       │   ├── StartupManagerTab.tsx       # Windows startup apps toggle & removal
+│       │   ├── StorageTreemap.tsx          # Interactive high-density treemap visualization
+│       │   ├── SystemView.tsx              # Tabbed system forensics & management hub
+│       │   ├── WorkspaceAdvisorCard.tsx    # Workspace health card with safety modals
+│       │   └── WorkspaceView.tsx           # Deep workspace inspector & Git manager
 │       ├── types/entropy.ts  # End-to-end TypeScript interfaces
 │       └── services/api.ts   # Strongly-typed IPC client
-└── tests/                    # 131 unit tests covering all core modules
+└── tests/                    # 147 unit tests covering all core modules
 ```
 
 ---
 
-## 🤖 AI Assistant Integration (`AGENTS.md`)
+## AI Assistant Integration (`AGENTS.md`)
 
 Entropy is designed from the ground up for seamless pair programming with modern AI coding assistants (Cursor, Antigravity, Claude Code, GitHub Copilot, Aider).
 - **Master Guide**: [`AGENTS.md`](AGENTS.md) contains token-optimized architecture maps and non-negotiable coding conventions.
-- **Deep Context**: Detailed subsystem documentation is maintained in [`.agents/`](.agents/):
+- **Subsystem Architecture**: Detailed subsystem documentation is maintained in [`.agents/`](.agents/):
   - [`ARCHITECTURE.md`](.agents/ARCHITECTURE.md) — IPC boundaries, data flows, and concurrency models.
   - [`FRONTEND.md`](.agents/FRONTEND.md) — Design system tokens, component tree, and UX principles.
   - [`BACKEND.md`](.agents/BACKEND.md) — Core forensic engines and safety contracts.
@@ -279,7 +325,7 @@ Entropy is designed from the ground up for seamless pair programming with modern
 
 ---
 
-## 📄 License
+## License
 
 Entropy is open-source software licensed under the **[MIT License](LICENSE)**.
 Feel free to use, modify, and distribute it freely.
