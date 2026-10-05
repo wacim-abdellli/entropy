@@ -1,11 +1,12 @@
 <p align="center">
-  <img src="desktop/src/assets/logo.png" alt="Entropy Logo" width="110" />
+  <img src="desktop/src/assets/logo.png" alt="Entropy Logo" width="100" />
 </p>
 
 <h1 align="center">Entropy</h1>
 
 <p align="center">
-  <strong>The Developer Workspace Management Engine &amp; Windows Optimization Suite</strong>
+  <strong>The Developer Workspace Management Engine &amp; Windows Optimization Suite</strong><br>
+  <em>Reclaim disk space, untangle background processes, rescue C: drives, and optimize Windows workstations for software engineers.</em>
 </p>
 
 <p align="center">
@@ -19,18 +20,28 @@
   <img src="https://img.shields.io/badge/Telemetry-Zero%20(100%25%20Local)-blueviolet.svg?style=flat-square" alt="Telemetry">
 </p>
 
+<p align="center">
+  <a href="#-overview">Overview</a> •
+  <a href="#-why-entropy-over-generic-cleaners">Why Entropy</a> •
+  <a href="#-core-capabilities">Core Features</a> •
+  <a href="#-safety--zero-trust-architecture">Safety Architecture</a> •
+  <a href="#-download--installation">Download</a> •
+  <a href="#-developer-quickstart">Quickstart</a> •
+  <a href="#-repository-structure">Architecture</a>
+</p>
+
 ---
 
-## Overview
+## ⚡ Overview
 
-**Entropy** is an all-in-one developer workspace management engine and Windows workstation optimization suite designed specifically for software engineers. It fuses a forensic Python backend with an action-oriented React 19 desktop interface to resolve the disk bloat, system latency, and workspace sprawl of modern development stacks:
+**Entropy** is an all-in-one developer workspace management engine and Windows workstation optimization suite designed specifically for software engineers. It fuses a deep forensic Python backend with a high-performance React 19 desktop cockpit to eliminate the disk bloat, system latency, and workspace sprawl inherent to modern development environments:
 
-- **Reclaim dozens of gigabytes** of disposable build artifacts (`node_modules`, `target`, `.venv`, `.next`, `bin/obj`).
-- **Rescue C: drive storage** by moving heavy tool and SDK directories (`.gradle`, `.m2`, `AppData`, Android SDK) to secondary drives via transparent NTFS Directory Junctions without breaking paths or build tools.
-- **Inspect disk usage cartography** through an interactive SSD Storage Lens treemap categorized by development ecosystem.
+- **Reclaim dozens of gigabytes** of disposable build artifacts (`node_modules`, `target/`, `.venv`, `.next`, `bin/obj`).
+- **Rescue C: drive storage** by transparently relocating heavy tool and SDK directories (`.gradle`, `.m2`, Android SDK, `AppData\Local`) to secondary drives (`D:\`, `E:\`) via native NTFS Directory Junctions without breaking build paths or tooling.
+- **Inspect disk usage cartography** through an interactive SSD Storage Lens treemap categorized by development ecosystem (Node.js, Rust/Cargo, Python, Android/Java, Docker/WSL, System).
 - **Safely shrink and repartition disks** using the built-in Windows Shrink & Partition Wizard.
-- **Find and batch-clean duplicate files** using a 3-pass cryptographic hash pipeline with 1-click "Select All" controls and Recycle Bin protection.
-- **Guard uncommitted and unpushed work** before you switch branches, clear workspaces, or encounter hardware issues.
+- **Find and batch-clean duplicate files** using a 3-pass cryptographic hash pipeline with 1-click batch selection and Recycle Bin protection.
+- **Guard uncommitted and unpushed work** before you switch branches, clear workspaces, or experience machine failures.
 - **Inspect active developer network sockets** and free jammed development ports (`3000`, `5173`, `8080`, `5432`) in 1 click.
 - **Compact WSL2 & Docker virtual disks (`.vhdx`)** to recover storage dynamically locked by Linux virtual disks.
 - **Tune Windows for developers** with Win32 Long Path support, Developer Mode, Defender exclusions, and PATH conflict resolution.
@@ -50,9 +61,9 @@
 
 ---
 
-## Comparison: Why Traditional Cleaners Fail Developers
+## 🎯 Why Entropy Over Generic Cleaners
 
-Generic PC cleaners (CCleaner, BleachBit, CleanMyPC) treat local code directories as opaque black boxes. They have no concept of Git status, package manager graphs, or development servers:
+Generic PC cleaners (CCleaner, BleachBit, CleanMyPC) treat local code directories as opaque black boxes. They have no concept of Git status, package manager graphs, or background development servers:
 
 | Capability | Generic Cleaners | Git CLI Alone | Windows Task Manager | **Entropy** |
 | :--- | :---: | :---: | :---: | :---: |
@@ -69,11 +80,11 @@ Generic PC cleaners (CCleaner, BleachBit, CleanMyPC) treat local code directorie
 
 ---
 
-## Core Features & Capabilities
+## 🚀 Core Capabilities
 
-### 1. Rescue C: Drive (Smart Directory Relocator)
+### 1. 🛡️ Rescue C: Drive (Smart Directory Relocator)
 Primary SSDs (`C:\`) frequently run out of space due to heavy build runtimes, global caches, and SDKs residing in user profiles:
-- **Transparent NTFS Junctions (`mklink /J`)**: Relocates directories (`.gradle`, `.m2`, Android SDK, `AppData\Local`, `.nuget`, `.cache`) to secondary partitions (`D:\`, `E:\`) while leaving an OS-level directory junction on `C:`.
+- **Transparent NTFS Directory Junctions (`mklink /J`)**: Relocates directories (`.gradle`, `.m2`, Android SDK, `AppData\Local`, `.nuget`, `.cache`) to secondary partitions (`D:\`, `E:\`) while leaving an OS-level directory junction on `C:`.
 - **Zero Tooling Breakage**: Build tools, IDEs, and compilers continue reading paths on `C:\` uninterrupted, with disk storage physically hosted on the destination drive.
 - **Native Win32 Reparse Point Verification**: Employs `DeviceIoControl` with `FSCTL_GET_REPARSE_POINT` to accurately verify junction status, bypassing standard shell and symlink detection edge cases.
 - **Real-Time 0–100% Progress Telemetry**: Displays transfer velocity (MB/s), live file ticker, elapsed duration, and estimated completion time during relocation.
@@ -81,19 +92,19 @@ Primary SSDs (`C:\`) frequently run out of space due to heavy build runtimes, gl
 - **1-Click Rollback Manager**: Keeps an active registry of all moved paths and allows instant reversion of junctions back to `C:` with zero data loss.
 - **Drive Capacity Alerts**: Proactively displays warning thresholds when `C:` free space drops below critical limits.
 
-### 2. SSD Storage Lens & Drilldown Cartography
+### 2. 🗺️ SSD Storage Lens & Drilldown Cartography
 Inspect disk usage through a visual cartography model tuned for developer machines:
 - **Domain-Categorized Storage Treemap**: Aggregates and displays disk occupancy categorized by runtime (Node.js, Rust/Cargo, Python, Android SDK, Gradle, Docker, Windows Caches).
 - **Interactive Drilldown**: Direct inspection of the heaviest storage nodes across all scanned developer roots.
 - **Smooth Loading State**: Asynchronous background indexing with pulsing loading skeletons for seamless navigation.
 - **Dev Drive (ReFS) Integration**: Identifies formatted Dev Drives and recommends optimal cache placement for up to 30% faster compilation and package management operations.
 
-### 3. Windows Shrink & Partition Wizard
+### 3. 🧙 Windows Shrink & Partition Wizard
 Manage Windows partition sizing without risky third-party partition software:
 - **Safe Capacity Calculations**: Queries Windows Storage Management CIM/WMI to compute maximum shrinkable boundaries without disturbing unmovable operating system files.
 - **Guided Setup Workflow**: Step-by-step instructions for shrinking `C:` partitions and carving out dedicated secondary drives (`D:\`, `E:\`) or high-performance ReFS Dev Drives.
 
-### 4. 3-Pass Cryptographic Duplicate Hunter
+### 4. 🔍 3-Pass Cryptographic Duplicate Hunter
 Find and clean identical duplicate files with zero false-positive risk:
 - **Tier 1 (Size Clustering)**: Fast file-size grouping to isolate potential candidates.
 - **Tier 2 (Head/Tail Fast Hash)**: Computes partial MD5 of file boundaries to eliminate non-matching candidates in milliseconds.
@@ -101,7 +112,7 @@ Find and clean identical duplicate files with zero false-positive risk:
 - **Batch Selection Controls**: Integrated "Select All", "Deselect All", and smart selection rules ("Keep Newest", "Keep Oldest") for rapid multi-file triage.
 - **Recycle Bin Integration**: Deletions default to the Windows Recycle Bin for instantaneous recovery.
 
-### 5. Multi-Engine Disk Reclaimer
+### 5. 🧹 Multi-Engine Disk Reclaimer
 Reclaim gigabytes of space across developer environments and operating system caches:
 - **Disposable Build Artifacts**: `node_modules`, `target`, `dist`, `.next`, `build`, `bin`, `obj`, `__pycache__`, `.venv`, `.pytest_cache`, `.turbo`.
 - **Global Package Caches**: `npm`, `pnpm`, `yarn`, `pip`, `cargo`, `nuget`, `go-build`, `maven`, `gradle`, `cocoapods`.
@@ -109,32 +120,32 @@ Reclaim gigabytes of space across developer environments and operating system ca
 - **Windows System Junk**: User and system temp directories, crash dumps, Windows error reporting logs, browser caches, and Windows Recycle Bin.
 - **Docker Daemon Pruning**: Prunes stopped containers, dangling images, unused volumes, and build caches.
 
-### 6. Process-Correlated Network & Port Forensics
+### 6. 🔌 Process-Correlated Network & Port Forensics
 Eliminate port collision issues when development servers fail to bind:
 - **Process Correlation**: Lists active listening TCP/UDP sockets mapped to process names (`node.exe`, `python.exe`, `postgres.exe`), PIDs, and local addresses.
 - **Developer Port Highlights**: Automatically flags standard development ports (`3000`, `5173`, `8080`, `5432`, `27017`, `6379`, `8000`).
 - **1-Click Port Releaser**: Terminate unresponsive or orphaned development servers holding ports with confirmation dialogues.
 
-### 7. Workstation Hardware Forensics & Live Telemetry
+### 7. ⚡ Workstation Hardware Forensics & Live Telemetry
 Deep, real-time forensic inspection of Windows hardware:
 - **Dual-GPU Telemetry**: Detects dedicated and integrated GPUs (NVIDIA GeForce RTX, AMD Radeon, Intel Iris/UHD) with dedicated video memory (VRAM) sizing and driver version tracking.
 - **Physical Drive & Media Forensics**: Identifies NVMe SSDs, SATA SSDs, HDDs, device bus types, and disk serials.
 - **Partition Topology**: Maps Windows partitions, EFI system partitions, recovery partitions, and dual-boot installations.
 - **Live Throughput Gauges**: Real-time non-blocking Disk I/O (MB/s Read/Write) and Network I/O (KB/s Sent/Received).
 
-### 8. Workspace Health & Unpushed Work Guardian
+### 8. 🩺 Workspace Health & Unpushed Work Guardian
 Maintain hygiene across dozens of local code repositories:
 - **Unpushed Commits Warning**: Compares local branches against upstream tracking branches (`@{u}..HEAD`) to flag unpushed commits (`commits_ahead`).
 - **Dependency Freshness Monitor**: Compares modification timestamps of package lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `Cargo.lock`, `poetry.lock`) against installed modules to detect out-of-sync dependencies.
 - **Secrets Radar**: Automatically inspects untracked or committed files for leaked API keys, tokens, or credentials (`.env`, `id_rsa`, `.pem`).
 - **File Lock Diagnostics**: Integrated Win32 Restart Manager identifies the exact process locking a file when builds fail with `EBUSY` or `Access Denied`.
 
-### 9. Startup App Manager (Task Manager Synchronized)
+### 9. 🚀 Startup App Manager (Task Manager Synchronized)
 Audit and manage applications configured to launch at Windows boot:
 - Synchronized with Windows Task Manager across both Current User (`HKCU`) and Local Machine (`HKLM`) registry hives.
 - Safely toggle or remove resource-heavy background updaters and startup apps without manual registry edits.
 
-### 10. Windows Developer Tuning & Path Auditor
+### 10. ⚙️ Windows Developer Tuning & Path Auditor
 Optimize Windows 10 and 11 configurations for software development:
 - **Win32 Long Paths (`LongPathsEnabled`)**: Removes the 260-character MAX_PATH limitation that breaks deep package dependency trees.
 - **Windows Developer Mode**: Enables native symlink creation without requiring administrative privilege elevation.
@@ -143,7 +154,7 @@ Optimize Windows 10 and 11 configurations for software development:
 
 ---
 
-## Safety & Trust Architecture
+## 🔒 Safety & Zero-Trust Architecture
 
 Entropy was engineered with strict safety guardrails for developer workstations:
 
@@ -156,7 +167,7 @@ Entropy was engineered with strict safety guardrails for developer workstations:
 
 ---
 
-## Installation & Download
+## 📦 Download & Installation
 
 ### Windows Installer (Recommended)
 Download the latest pre-compiled setup executable from the **[Releases](https://github.com/wacim-abdellli/entropy/releases)** page:
@@ -167,7 +178,7 @@ Download the latest pre-compiled setup executable from the **[Releases](https://
 
 ---
 
-## Developer Setup & Commands
+## 💻 Developer Quickstart
 
 ### Prerequisites
 - **Windows 10 or 11 (64-bit)**
@@ -228,7 +239,7 @@ pyinstaller --noconfirm Entropy.spec
 
 ---
 
-## Repository Structure
+## 📁 Repository Structure
 
 ```text
 entropy/
@@ -313,7 +324,7 @@ entropy/
 
 ---
 
-## AI Assistant Integration (`AGENTS.md`)
+## 🤖 AI Assistant Integration (`AGENTS.md`)
 
 Entropy is designed from the ground up for seamless pair programming with modern AI coding assistants (Cursor, Antigravity, Claude Code, GitHub Copilot, Aider).
 - **Master Guide**: [`AGENTS.md`](AGENTS.md) contains token-optimized architecture maps and non-negotiable coding conventions.
@@ -325,7 +336,7 @@ Entropy is designed from the ground up for seamless pair programming with modern
 
 ---
 
-## License
+## 📄 License
 
 Entropy is open-source software licensed under the **[MIT License](LICENSE)**.
 Feel free to use, modify, and distribute it freely.
