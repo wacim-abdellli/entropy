@@ -324,15 +324,18 @@ entropy/
 
 ---
 
-## 🤖 AI Assistant Integration (`AGENTS.md`)
+## 🤖 AI Assistant Integration (`agent/` & `AGENTS.md`)
 
 Entropy is designed from the ground up for seamless pair programming with modern AI coding assistants (Cursor, Antigravity, Claude Code, GitHub Copilot, Aider).
 - **Master Guide**: [`AGENTS.md`](AGENTS.md) contains token-optimized architecture maps and non-negotiable coding conventions.
-- **Subsystem Architecture**: Detailed subsystem documentation is maintained in [`.agents/`](.agents/):
-  - [`ARCHITECTURE.md`](.agents/ARCHITECTURE.md) — IPC boundaries, data flows, and concurrency models.
-  - [`FRONTEND.md`](.agents/FRONTEND.md) — Design system tokens, component tree, and UX principles.
-  - [`BACKEND.md`](.agents/BACKEND.md) — Core forensic engines and safety contracts.
-  - [`CONVENTIONS.md`](.agents/CONVENTIONS.md) — Action-first UI rules and coding standards.
+- **Subsystem Architecture**: Modular, high-density documentation is maintained in [`agent/`](agent/) to conserve context tokens:
+  - [`agent/README.md`](agent/README.md) — Fast navigation router & 10-second cheat sheet.
+  - [`agent/ARCHITECTURE.md`](agent/ARCHITECTURE.md) — IPC boundaries, data flows, and concurrency models.
+  - [`agent/BACKEND.md`](agent/BACKEND.md) — Core forensic engines, collectors, and safety contracts.
+  - [`agent/FRONTEND.md`](agent/FRONTEND.md) — React 19 layout, tabs, modals, and design tokens.
+  - [`agent/WINDOWS_INTERNALS.md`](agent/WINDOWS_INTERNALS.md) — NTFS Directory Junctions, CIM/WMI, and Restart Manager.
+  - [`agent/COMMANDS.md`](agent/COMMANDS.md) — Zero-token dev, test, build, lint, and packaging reference.
+  - [`agent/CONVENTIONS.md`](agent/CONVENTIONS.md) — Action-first UI rules and coding standards.
 
 ---
 

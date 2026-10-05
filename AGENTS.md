@@ -97,15 +97,17 @@ entropy/
 
 ---
 
-## 📚 Agent Context Directory (`.agents/`)
+## 📚 Agent Context Directory (`agent/` and `.agents/`)
 
-For detailed subsystem documentation, consult these token-optimized context files:
+For detailed subsystem documentation, consult these token-optimized context files (available in both `agent/` and `.agents/`):
 
-1. [ARCHITECTURE.md](file:///.agents/ARCHITECTURE.md) — End-to-end system architecture, data flows, and IPC details.
-2. [FRONTEND.md](file:///.agents/FRONTEND.md) — React 19 frontend layout, navigation, design tokens, and components.
-3. [BACKEND.md](file:///.agents/BACKEND.md) — Python engine (`scan.py`, `core/`, `collectors/`) and inspection logic.
-4. [COMMANDS.md](file:///.agents/COMMANDS.md) — Exact commands for dev, test, build, lint, and packaging.
-5. [CONVENTIONS.md](file:///.agents/CONVENTIONS.md) — Coding standards, design principles, and UI/UX anti-patterns to avoid.
+1. [agent/README.md](file:///agent/README.md) — Fast navigation router and 10-second summary.
+2. [agent/ARCHITECTURE.md](file:///agent/ARCHITECTURE.md) — End-to-end system architecture, data flows, and IPC details.
+3. [agent/BACKEND.md](file:///agent/BACKEND.md) — All 27+ Python engines (`core/`, `collectors/`) and inspection logic.
+4. [agent/FRONTEND.md](file:///agent/FRONTEND.md) — React 19 frontend layout, navigation, tabs, modals, and design tokens.
+5. [agent/WINDOWS_INTERNALS.md](file:///agent/WINDOWS_INTERNALS.md) — Win32 APIs, NTFS Directory Junctions, WMI/CIM, and Restart Manager.
+6. [agent/COMMANDS.md](file:///agent/COMMANDS.md) — Exact commands for dev, test, build, lint, and packaging.
+7. [agent/CONVENTIONS.md](file:///agent/CONVENTIONS.md) — Coding standards, design principles, and UI/UX anti-patterns to avoid.
 
 ---
 
