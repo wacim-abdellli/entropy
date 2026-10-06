@@ -47,6 +47,13 @@ ALLOWED_DISPOSABLE_NAMES = {
 }
 
 
+def to_extended_path(p: str) -> str:
+    """Prepend Win32 extended-length path prefix (\\\\?\\) on Windows to bypass MAX_PATH."""
+    if os.name == "nt" and p and not p.startswith("\\\\?\\") and not p.startswith("\\\\"):
+        return f"\\\\?\\{os.path.abspath(p)}"
+    return p
+
+
 def _remove_readonly(func, path, excinfo):
     """Error handler for shutil.rmtree to remove read-only file attributes on Windows."""
     try:
@@ -131,19 +138,23 @@ def _has_tracked_git_files(abs_path: str) -> bool:
             return False
 
         rel_path = os.path.relpath(abs_path, repo_root)
-        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
         res = subprocess.run(
             ["git", "ls-files", rel_path],
             cwd=repo_root,
             capture_output=True,
             text=True,
-            timeout=2.0,
+            timeout=5.0,
             creationflags=creationflags,
         )
-        if res.returncode == 0 and res.stdout.strip():
+        if res.returncode == 0:
+            return bool(res.stdout.strip())
+        else:
+            logger.warning("git ls-files returned code %d on %s; failing closed for safety.", res.returncode, abs_path)
             return True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error("Git tracking check failed on %s: %s; failing closed to prevent accidental data loss.", abs_path, e)
+        return True
     return False
 
 
@@ -195,7 +206,7 @@ def clean_artifact_directory(path: str) -> Dict[str, Any]:
             logger.debug("Failed to reset permissions on %s: %s", error_path, e)
 
     try:
-        shutil.rmtree(abs_path, onerror=on_rm_error)
+        shutil.rmtree(to_extended_path(abs_path), onerror=on_rm_error)
     except Exception as e:
         rm_errors.append(str(e))
 

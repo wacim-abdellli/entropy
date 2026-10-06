@@ -54,6 +54,20 @@ class TestCleanupProgressTracker(unittest.TestCase):
         self.assertEqual(tracker.percent, 0)
         self.assertEqual(tracker.bytes_freed, 0)
 
+    def test_is_active_timeout_failsafe(self):
+        """CON-01: Verify is_active returns True when running, but False after 15 min failsafe."""
+        import time
+        tracker = CleanupProgressTracker()
+        self.assertFalse(tracker.is_active())
+
+        tracker.start("Active Phase")
+        self.assertTrue(tracker.is_active())
+
+        # Simulate aged start_time > 900 seconds
+        tracker.start_time = time.time() - 950
+        self.assertFalse(tracker.is_active())
+
 
 if __name__ == "__main__":
     unittest.main()
+

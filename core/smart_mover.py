@@ -60,6 +60,13 @@ def is_junction_or_link(path: str) -> bool:
         return False
 
 
+def _to_extended_path(p: str) -> str:
+    """Prepend Win32 extended-length path prefix (\\\\?\\) on Windows to bypass MAX_PATH."""
+    if os.name == "nt" and p and not p.startswith("\\\\?\\") and not p.startswith("\\\\"):
+        return f"\\\\?\\{os.path.abspath(p)}"
+    return p
+
+
 def _robust_rmtree(path: str) -> None:
     """Safely remove a directory tree, resetting read-only permissions on Windows."""
     def _remove_readonly(func, p, excinfo):
@@ -69,10 +76,11 @@ def _robust_rmtree(path: str) -> None:
         except Exception as e:
             logger.debug("Failed to reset permissions on %s: %s", p, e)
 
+    target = _to_extended_path(path)
     try:
-        shutil.rmtree(path, onerror=_remove_readonly)
+        shutil.rmtree(target, onerror=_remove_readonly)
     except TypeError:
-        shutil.rmtree(path, onexc=lambda fn, p, exc: _remove_readonly(fn, p, None))
+        shutil.rmtree(target, onexc=lambda fn, p, exc: _remove_readonly(fn, p, None))
 
 
 def _copy_tree_with_progress(src_abs: str, dest_path: str, total_bytes: int) -> int:
@@ -367,6 +375,12 @@ def relocate_directory_junction(
     if is_junction_or_link(src_abs):
         return {"success": False, "error": f"Path is already a junction or symlink: {src_abs}"}
 
+    if progress_tracker.is_active():
+        return {
+            "success": False,
+            "error": "Another operation is currently in progress. Please wait for it to complete before starting a new relocation.",
+        }
+
     # Safety boundary: Never touch Windows or System32
     src_low = src_abs.lower()
     if any(p in src_low for p in ['c:\\windows', 'c:\\system32', 'c:\\program files\\windows']):
@@ -481,6 +495,15 @@ def relocate_directory_junction(
     try:
         _ = os.listdir(src_abs)
     except Exception as e:
+        try:
+            os.rmdir(src_abs)
+        except OSError:
+            pass
+        if os.path.exists(backup_src):
+            try:
+                os.rename(backup_src, src_abs)
+            except Exception:
+                pass
         progress_tracker.finish(error=f"Junction link read check failed: {e}")
         return {"success": False, "error": f"Junction link read check failed: {e}"}
 
@@ -537,7 +560,11 @@ def relocate_directory_junction(
 
 def restore_directory_junction(junction_id: str) -> Dict[str, Any]:
     """
-    Revert a directory junction: moves files back to C: and deletes junction pointer.
+    Safely revert a directory junction:
+    1. Pre-flight check: verifies target C: drive has sufficient capacity.
+    2. Two-phase staging: copies files to a staging directory first without disturbing the active junction.
+    3. Atomic commit: removes junction link and swaps restored directory into place.
+    4. Purges destination files on secondary drive.
     """
     manifest = _load_junctions_manifest()
     matching = next((m for m in manifest if m["id"] == junction_id), None)
@@ -550,23 +577,59 @@ def restore_directory_junction(junction_id: str) -> Dict[str, Any]:
     if not os.path.exists(dest_path):
         return {"success": False, "error": f"Relocated files no longer exist at: {dest_path}"}
 
-    progress_tracker.start(f"Restoring '{matching['name']}' back to C: drive")
-    progress_tracker.set_phase("Removing junction link...", 10)
+    if progress_tracker.is_active():
+        return {
+            "success": False,
+            "error": "Another operation is currently in progress. Please wait for it to complete before restoring a junction.",
+        }
 
-    # Remove junction pointer (in Windows rmdir on junction removes ONLY the link)
+    progress_tracker.start(f"Restoring '{matching['name']}' back to original drive")
+
+    # Step 1: Pre-flight capacity check on original drive
+    try:
+        dest_bytes, file_count = _calc_directory_size(dest_path)
+        drive_root = os.path.splitdrive(orig_path)[0] + '\\'
+        usage = psutil.disk_usage(drive_root)
+        if usage.free < int(dest_bytes * 1.10):
+            err_msg = (
+                f"Insufficient disk space on {drive_root} to restore '{matching['name']}'. "
+                f"Requires {_format_bytes(int(dest_bytes * 1.10))}, but only {_format_bytes(usage.free)} is available."
+            )
+            progress_tracker.finish(error=err_msg)
+            return {"success": False, "error": err_msg}
+    except Exception as e:
+        logger.warning("Could not verify free capacity: %s", e)
+        dest_bytes, file_count = _calc_directory_size(dest_path)
+
+    # Step 2: Two-phase copy to staging area on original drive (preserves active junction if copy fails)
+    staging_path = orig_path + ".__entropy_restoring__"
+    if os.path.exists(staging_path):
+        _robust_rmtree(staging_path)
+
+    progress_tracker.set_phase("Copying files back to original drive...", 15)
+    try:
+        _copy_tree_with_progress(dest_path, staging_path, dest_bytes)
+    except Exception as e:
+        if os.path.exists(staging_path):
+            _robust_rmtree(staging_path)
+        progress_tracker.finish(error=f"Failed to copy files back to original drive: {e}")
+        return {"success": False, "error": f"Failed to copy files back to original drive: {e}"}
+
+    # Step 3: Atomic link swap
+    progress_tracker.set_phase("Removing junction pointer and swapping files...", 88)
     if is_junction_or_link(orig_path):
         try:
             os.rmdir(orig_path)
         except OSError as e:
+            if os.path.exists(staging_path):
+                _robust_rmtree(staging_path)
             progress_tracker.finish(error=f"Cannot remove junction link: {e}")
             return {"success": False, "error": f"Cannot remove junction link: {e}"}
 
-    # Move files back to original location
-    progress_tracker.set_phase("Restoring files to original location on C:...", 40)
     try:
-        shutil.move(dest_path, orig_path)
+        os.rename(staging_path, orig_path)
     except Exception as e:
-        # Re-link junction to prevent data loss
+        # Re-establish junction link if rename failed
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
         startupinfo = None
         if os.name == "nt":
@@ -579,20 +642,28 @@ def restore_directory_junction(junction_id: str) -> Dict[str, Any]:
             creationflags=creationflags,
             startupinfo=startupinfo,
         )
-        progress_tracker.finish(error=f"Failed to move files back: {e}")
-        return {"success": False, "error": f"Failed to move files back: {e}"}
+        progress_tracker.finish(error=f"Failed to activate restored directory: {e}")
+        return {"success": False, "error": f"Failed to activate restored directory: {e}"}
 
-    # Update manifest
+    # Step 4: Purge relocated files on secondary drive
+    progress_tracker.set_phase("Purging secondary storage copy...", 95)
+    try:
+        _robust_rmtree(dest_path)
+    except Exception as e:
+        logger.warning("Could not delete secondary storage directory %s: %s", dest_path, e)
+
+    # Step 5: Update manifest and finish
     manifest = [m for m in manifest if m["id"] != junction_id]
     _save_junctions_manifest(manifest)
 
     progress_tracker.finish(
         summary={
             "destination": orig_path,
+            "total_freed_bytes": dest_bytes,
         }
     )
 
     return {
         "success": True,
-        "message": f"Restored '{matching['name']}' back to {orig_path}.",
+        "message": f"Successfully restored '{matching['name']}' back to {orig_path}.",
     }

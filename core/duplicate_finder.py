@@ -301,9 +301,13 @@ def delete_duplicate_file(file_path: str, use_recycle_bin: bool = True) -> Dict[
                 "in_recycle_bin": True,
             }
         except Exception as e:
-            logger.warning("Recycle Bin deletion failed: %s. Falling back to permanent delete.", e)
+            logger.error("Recycle Bin deletion failed on %s: %s", abs_path, e)
+            return {
+                "success": False,
+                "error": f"Failed to move file to Windows Recycle Bin: {e}. Permanent deletion was prevented for safety.",
+            }
 
-    # Fallback permanent remove
+    # Permanent remove only if explicitly requested (use_recycle_bin=False or non-Windows)
     try:
         os.remove(abs_path)
         log_deletion(

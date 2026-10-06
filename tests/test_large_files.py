@@ -43,6 +43,17 @@ class TestLargeFiles(unittest.TestCase):
         self.assertTrue(res["success"])
         self.assertFalse(os.path.exists(self.large_file))
 
+    def test_delete_large_file_recycle_bin_failure_fails_safe(self):
+        """DAT-02: Recycle Bin failure must NOT silently fall back to permanent deletion."""
+        from unittest.mock import patch
+        with patch("core.large_files._send_to_recycle_bin", return_value=False):
+            res = delete_large_file(self.small_file, use_recycle_bin=True)
+            self.assertFalse(res["success"])
+            self.assertIn("Permanent deletion was prevented", res["error"])
+            # File MUST still exist safely on disk
+            self.assertTrue(os.path.exists(self.small_file))
+
 
 if __name__ == "__main__":
     unittest.main()
+

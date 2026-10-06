@@ -161,10 +161,11 @@ def delete_large_file(file_path: str, use_recycle_bin: bool = True) -> Dict[str,
 
         if use_recycle_bin:
             success = _send_to_recycle_bin(abs_path)
-            # Fallback if shell32 call fails
-            if not success and os.path.exists(abs_path):
-                os.remove(abs_path)
-                success = not os.path.exists(abs_path)
+            if not success:
+                return {
+                    "success": False,
+                    "error": "Failed to move file to Windows Recycle Bin. Permanent deletion was prevented for your safety.",
+                }
         else:
             os.remove(abs_path)
             success = not os.path.exists(abs_path)

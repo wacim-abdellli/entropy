@@ -74,6 +74,22 @@ class TestDuplicateFinder(unittest.TestCase):
         self.assertFalse(res["success"])
         self.assertIn("does not exist", res["error"])
 
+    def test_delete_duplicate_file_recycle_bin_failure_fails_safe(self):
+        """DAT-02: Duplicate file cleaner must NOT silently fall back to permanent deletion."""
+        from unittest.mock import patch
+        file_path = os.path.join(self.test_dir, "keep_safe.txt")
+        with open(file_path, "w") as f:
+            f.write("content to protect")
+
+        if os.name == "nt":
+            with patch("ctypes.windll.shell32.SHFileOperationW", return_value=1):
+                res = delete_duplicate_file(file_path, use_recycle_bin=True)
+                self.assertFalse(res["success"])
+                self.assertIn("Permanent deletion was prevented for safety", res["error"])
+                # Target file MUST still exist on disk
+                self.assertTrue(os.path.exists(file_path))
+
 
 if __name__ == "__main__":
     unittest.main()
+

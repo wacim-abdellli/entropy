@@ -111,6 +111,49 @@ class TestDiskCleaner(unittest.TestCase):
         self.assertEqual(artifacts[0]["category"], "node")
         self.assertGreater(artifacts[0]["size_bytes"], 0)
 
+    def test_git_guard_fails_closed(self):
+        """DAT-01: Verify that git check errors or non-zero exit codes fail closed for safety."""
+        from unittest.mock import patch, MagicMock
+        import subprocess
+        from core.disk_cleaner import _has_tracked_git_files
+
+        # Create simulated git repository
+        git_dir = os.path.join(self.test_dir, ".git")
+        os.makedirs(git_dir, exist_ok=True)
+        node_dir = os.path.join(self.test_dir, "node_modules")
+        os.makedirs(node_dir, exist_ok=True)
+
+        # 1. Non-zero exit code (e.g. fatal git error) -> MUST return True (fail-closed)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=128, stdout="")
+            self.assertTrue(_has_tracked_git_files(node_dir))
+            is_safe, error = is_safe_to_clean(node_dir)
+            self.assertFalse(is_safe)
+            self.assertIn("tracked by Git", error)
+
+        # 2. TimeoutExpired -> MUST return True (fail-closed)
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="git", timeout=5.0)):
+            self.assertTrue(_has_tracked_git_files(node_dir))
+            is_safe, error = is_safe_to_clean(node_dir)
+            self.assertFalse(is_safe)
+
+        # 3. FileNotFoundError (git missing) -> MUST return True (fail-closed)
+        with patch("subprocess.run", side_effect=FileNotFoundError("git not found")):
+            self.assertTrue(_has_tracked_git_files(node_dir))
+            is_safe, error = is_safe_to_clean(node_dir)
+            self.assertFalse(is_safe)
+
+    def test_to_extended_path(self):
+        """WIN-01: Verify Win32 extended-length path prefix formatting."""
+        from core.disk_cleaner import to_extended_path
+        sample_path = r"C:\long\nested\developer\workspace\target"
+        res = to_extended_path(sample_path)
+        if os.name == "nt":
+            self.assertTrue(res.startswith(r"\\?\C:"))
+        else:
+            self.assertEqual(res, sample_path)
+
 
 if __name__ == "__main__":
     unittest.main()
+

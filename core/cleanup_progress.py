@@ -36,8 +36,23 @@ class CleanupProgressTracker:
             self.start_time: float = 0
             self.summary: Optional[Dict[str, Any]] = None
 
-    def start(self, phase_name: str) -> None:
+    def is_active(self) -> bool:
+        """Check if an operation is currently active (with 15-minute failsafe against abandoned threads)."""
         with self._lock:
+            if self.is_running and (time.time() - self.start_time < 900):
+                return True
+            return False
+
+    def start(self, phase_name: str, force: bool = False) -> bool:
+        """Start a new progress tracking session. Returns False if another task is active and force is False."""
+        with self._lock:
+            if self.is_running and (time.time() - self.start_time < 900) and not force:
+                logger.warning(
+                    "Cannot start task '%s': active task '%s' is already in progress.",
+                    phase_name,
+                    self.current_phase,
+                )
+                return False
             self.is_running = True
             self.current_phase = phase_name
             self.current_file = ""
@@ -50,6 +65,7 @@ class CleanupProgressTracker:
             self.error = None
             self.start_time = time.time()
             self.summary = None
+            return True
 
     def update(
         self,

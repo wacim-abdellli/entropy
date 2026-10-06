@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   HardDrive,
@@ -98,6 +98,20 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
   const [targetRestoreJunction, setTargetRestoreJunction] = useState<ActiveJunctionItem | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
 
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isMountedRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, []);
+
   const loadData = useCallback(async (isSilent = false) => {
     if (!isSilent) {
       if (!cachedRescueData) {
@@ -173,11 +187,17 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
     const targetParent = `${selectedDrive.replace(/[\\/]+$/, '')}\\${customTargetFolder.trim() || 'EntropyDev'}`;
     const expectedDest = `${targetParent}\\${targetCandidate.id}`;
 
-    // Poll live progress from backend
-    const pollInterval = setInterval(async () => {
+    // Clear any previous poll timer
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+
+    // Poll live progress from backend safely
+    pollRef.current = setInterval(async () => {
       try {
         const snap = await EntropyApiClient.getCleanupProgress();
-        if (snap) {
+        if (snap && isMountedRef.current) {
           setRelocationProgress(snap);
         }
       } catch {
@@ -192,12 +212,17 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
         targetCandidate.id
       );
 
-      clearInterval(pollInterval);
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+
+      if (!isMountedRef.current) return;
 
       if (res.success) {
         try {
           const finalSnap = await EntropyApiClient.getCleanupProgress();
-          if (finalSnap) setRelocationProgress(finalSnap);
+          if (finalSnap && isMountedRef.current) setRelocationProgress(finalSnap);
         } catch {}
 
         setRelocationFinished({
@@ -213,13 +238,17 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
         // Clear session cache and silently reload data
         cachedRescueData = null;
         await loadData(true);
-        if (onActionComplete) await onActionComplete();
+        if (onActionComplete && isMountedRef.current) await onActionComplete();
       } else {
         setRelocateError(res.error || 'Failed to relocate directory.');
         setIsRelocating(false);
       }
     } catch (err: unknown) {
-      clearInterval(pollInterval);
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      if (!isMountedRef.current) return;
       setRelocateError(err instanceof Error ? err.message : String(err));
       setIsRelocating(false);
     }
@@ -234,18 +263,23 @@ export const RescueDriveTab: React.FC<RescueDriveTabProps> = ({ onActionComplete
 
     try {
       const res = await EntropyApiClient.restoreDirectoryJunction(targetRestoreJunction.id);
+      if (!isMountedRef.current) return;
+
       if (res.success) {
-        setRelocateSuccess(`Restored '${targetRestoreJunction.name}' back to C: drive.`);
+        setRelocateSuccess(`Restored '${targetRestoreJunction.name}' back to original location.`);
         setTargetRestoreJunction(null);
         await loadData(true);
-        if (onActionComplete) await onActionComplete();
+        if (onActionComplete && isMountedRef.current) await onActionComplete();
       } else {
         setRelocateError(res.error || 'Failed to restore directory.');
       }
     } catch (err: unknown) {
+      if (!isMountedRef.current) return;
       setRelocateError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsRestoring(false);
+      if (isMountedRef.current) {
+        setIsRestoring(false);
+      }
     }
   };
 

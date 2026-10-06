@@ -73,6 +73,65 @@ class TestSmartMover(unittest.TestCase):
         self.assertGreater(len(dests), 0)
         self.assertTrue(any(d["is_system"] for d in dests))
 
+    def test_concurrent_operation_prevention(self):
+        """CON-01: Operations must be rejected if another operation is actively running."""
+        from core.smart_mover import relocate_directory_junction, restore_directory_junction
+
+        source = os.path.join(self.test_dir, "my_cache")
+        os.makedirs(source, exist_ok=True)
+        target = os.path.join(self.test_dir, "target_drive")
+
+        with patch("core.smart_mover.progress_tracker.is_active", return_value=True):
+            res1 = relocate_directory_junction(source, target)
+            self.assertFalse(res1["success"])
+            self.assertIn("Another operation is currently in progress", res1["error"])
+
+            manifest_entry = {"id": "junc_test", "original_path": source, "destination_path": target, "name": "my_cache"}
+            with patch("core.smart_mover._load_junctions_manifest", return_value=[manifest_entry]), \
+                 patch("os.path.exists", return_value=True):
+                res2 = restore_directory_junction("junc_test")
+                self.assertFalse(res2["success"])
+                self.assertIn("Another operation is currently in progress", res2["error"])
+
+    def test_restore_fails_when_insufficient_space(self):
+        """RES-01: restore_directory_junction must abort safely if target drive lacks space."""
+        from collections import namedtuple
+        from core.smart_mover import restore_directory_junction
+
+        dest_folder = os.path.join(self.test_dir, "dest_data")
+        os.makedirs(dest_folder, exist_ok=True)
+        with open(os.path.join(dest_folder, "data.bin"), "wb") as f:
+            f.write(b"0" * 1024 * 1024)  # 1 MB
+
+        manifest_entry = {
+            "id": "junc_space_test",
+            "name": "space_test",
+            "original_path": r"C:\test\orig",
+            "destination_path": dest_folder,
+        }
+
+        DiskUsage = namedtuple("DiskUsage", ["total", "used", "free"])
+        # Mock free space to be 500 KB (less than 1.1 MB required)
+        mock_usage = DiskUsage(total=10000000, used=9500000, free=500000)
+
+        with patch("core.smart_mover._load_junctions_manifest", return_value=[manifest_entry]), \
+             patch("core.smart_mover.progress_tracker.is_active", return_value=False), \
+             patch("psutil.disk_usage", return_value=mock_usage):
+            res = restore_directory_junction("junc_space_test")
+            self.assertFalse(res["success"])
+            self.assertIn("Insufficient disk space", res["error"])
+
+    def test_to_extended_path(self):
+        """WIN-01: Verify Win32 extended path prefixing in smart_mover."""
+        from core.smart_mover import _to_extended_path
+        sample = r"C:\Users\test\data"
+        res = _to_extended_path(sample)
+        if os.name == "nt":
+            self.assertTrue(res.startswith(r"\\?\C:"))
+        else:
+            self.assertEqual(res, sample)
+
 
 if __name__ == "__main__":
     unittest.main()
+

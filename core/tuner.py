@@ -180,12 +180,24 @@ def add_defender_exclusion(folder_path: str) -> Dict[str, Any]:
 
 def add_defender_exclusions_batch(folder_paths: List[str]) -> Dict[str, Any]:
     """Add multiple directory paths to Windows Defender antivirus exclusions in a single elevated prompt."""
-    valid_paths = [os.path.abspath(p) for p in folder_paths if p and os.path.isdir(os.path.abspath(p))]
+    valid_paths: List[str] = []
+    for p in folder_paths:
+        if not p or not isinstance(p, str):
+            continue
+        # Reject control characters and dangerous metacharacters
+        if any(c in p for c in ("\n", "\r", "\0", "`", '"')):
+            logger.warning("Rejected suspicious path for Defender exclusion: %s", p)
+            continue
+        abs_p = os.path.abspath(p)
+        if os.path.isdir(abs_p):
+            valid_paths.append(abs_p)
+
     if not valid_paths:
         return {"success": False, "error": "No valid directories provided to exclude."}
 
-    # Format PowerShell array literal: @('C:\path1', 'C:\path2')
-    escaped_paths = ", ".join(f"'{p}'" for p in valid_paths)
+    # Format PowerShell array literal with safe single-quote doubling: @('C:\path1', 'C:\path2')
+    formatted_literals = [f"'{p.replace(chr(39), chr(39) * 2)}'" for p in valid_paths]
+    escaped_paths = ", ".join(formatted_literals)
     cmd = (
         f'Start-Process powershell.exe -ArgumentList "-NoProfile -Command '
         f'Add-MpPreference -ExclusionPath @({escaped_paths})" -Verb RunAs -Wait -WindowStyle Hidden'
