@@ -3,7 +3,7 @@
 
 #define MyAppName "Entropy"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.2.5"
+  #define MyAppVersion "0.2.6"
 #endif
 #define MyAppPublisher "Entropy"
 #define MyAppURL "https://github.com/wacim-abdellli/entropy"

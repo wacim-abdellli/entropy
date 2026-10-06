@@ -60,5 +60,5 @@ pyinstaller --noconfirm Entropy.spec
 
 # 3. Compile Inno Setup 6 installer
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
-# Output binary: dist/Entropy-Setup-0.2.5.exe
+# Output binary: dist/Entropy-Setup-0.2.6.exe
 ```

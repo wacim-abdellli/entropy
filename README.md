@@ -10,13 +10,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/wacim-abdellli/entropy/releases"><img src="https://img.shields.io/badge/Release-v0.2.5-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/wacim-abdellli/entropy/releases"><img src="https://img.shields.io/badge/Release-v0.2.6-blue.svg?style=flat-square" alt="Version"></a>
   <a href="https://github.com/wacim-abdellli/entropy/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-emerald.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64)-6366f1.svg?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/Frontend-React%2019%20%2B%20TypeScript-61dafb.svg?style=flat-square" alt="Frontend">
   <img src="https://img.shields.io/badge/Styling-Tailwind%20CSS%204-38bdf8.svg?style=flat-square" alt="Tailwind">
   <img src="https://img.shields.io/badge/Backend-Python%203.10%2B-ffde57.svg?style=flat-square" alt="Backend">
-  <img src="https://img.shields.io/badge/Tests-147%20Passed%20(100%25)-success.svg?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-158%20Passed%20(100%25)-success.svg?style=flat-square" alt="Tests">
   <img src="https://img.shields.io/badge/Telemetry-Zero%20(100%25%20Local)-blueviolet.svg?style=flat-square" alt="Telemetry">
 </p>
 
@@ -172,7 +172,7 @@ Entropy was engineered with strict safety guardrails for developer workstations:
 ### Windows Installer (Recommended)
 Download the latest pre-compiled setup executable from the **[Releases](https://github.com/wacim-abdellli/entropy/releases)** page:
 
-- **Installer**: `Entropy-Setup-0.2.5.exe`
+- **Installer**: `Entropy-Setup-0.2.6.exe`
 - Per-user installation (no administrative elevation required to install).
 - Creates optional Desktop and Start Menu shortcuts with clean uninstaller registration.
 
