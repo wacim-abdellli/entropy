@@ -121,6 +121,14 @@ jobs:
           Write-Host "Generated SHA256SUMS.txt:"
           Get-Content SHA256SUMS.txt
 
+      - name: Generate winget Package Manifests
+        shell: pwsh
+        run: |
+          python scripts/generate_winget_manifest.py
+          if (Test-Path "dist\winget") {
+            Compress-Archive -Path "dist\winget\*" -DestinationPath "dist\winget-manifests.zip" -Force
+          }
+
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:

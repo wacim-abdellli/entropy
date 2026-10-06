@@ -29,6 +29,7 @@ import {
   X,
   FileWarning,
   FolderSync,
+  RotateCcw,
 } from 'lucide-react';
 import {
   EnvironmentOverview,
@@ -175,6 +176,13 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
   const [tuningReport, setTuningReport] = useState<PerformanceTuningReport | null>(null);
   const [tuningLoading, setTuningLoading] = useState(false);
   const [tuningActionBusy, setTuningActionBusy] = useState<string | null>(null);
+  const [elevationCancelledNotice, setElevationCancelledNotice] = useState<{
+    action: 'long_paths' | 'dev_mode' | 'defender_batch';
+    title: string;
+    message: string;
+    resolution: string;
+    payloadPaths?: string[];
+  } | null>(null);
 
   // File Lock Unblocker state
   const [fileLockModalOpen, setFileLockModalOpen] = useState(false);
@@ -319,8 +327,16 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
     try {
       const res = await EntropyApiClient.applyLongPaths();
       if (res.success) {
+        setElevationCancelledNotice(null);
         setToastMessage(res.message || 'Long Paths enabled.');
         await fetchTuningReport();
+      } else if (res.cancelled) {
+        setElevationCancelledNotice({
+          action: 'long_paths',
+          title: 'Win32 Long Paths (MAX_PATH)',
+          message: res.message || 'Administrator permission was declined.',
+          resolution: res.resolution || 'Windows requires administrative permissions to enable Win32 Long Paths in the system registry.',
+        });
       } else {
         setToastMessage(res.error || 'Failed to enable Long Paths.');
       }
@@ -337,8 +353,16 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
     try {
       const res = await EntropyApiClient.applyDeveloperMode();
       if (res.success) {
+        setElevationCancelledNotice(null);
         setToastMessage(res.message || 'Developer Mode enabled.');
         await fetchTuningReport();
+      } else if (res.cancelled) {
+        setElevationCancelledNotice({
+          action: 'dev_mode',
+          title: 'Windows Developer Mode',
+          message: res.message || 'Administrator permission was declined.',
+          resolution: res.resolution || 'Windows requires administrative permissions to enable Developer Mode.',
+        });
       } else {
         setToastMessage(res.error || 'Failed to enable Developer Mode.');
       }
@@ -355,8 +379,17 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
     try {
       const res = await EntropyApiClient.addDefenderExclusionsBatch(paths);
       if (res.success) {
+        setElevationCancelledNotice(null);
         setToastMessage(res.message || `Excluded ${paths.length} workspace(s) from Windows Defender.`);
         await fetchTuningReport();
+      } else if (res.cancelled) {
+        setElevationCancelledNotice({
+          action: 'defender_batch',
+          title: 'Windows Defender Exclusions',
+          message: res.message || 'Administrator permission was declined.',
+          resolution: res.resolution || 'Windows Defender requires administrator permissions to configure folder exclusions.',
+          payloadPaths: paths,
+        });
       } else {
         setToastMessage(res.error || `Failed to add Defender exclusions.`);
       }
@@ -1945,6 +1978,70 @@ export const CleanupView: React.FC<CleanupViewProps> = ({ overview, onRefresh, c
                 <span>Re-check Configuration</span>
               </button>
             </div>
+
+            {/* Administrator Elevation Cancellation Banner */}
+            {elevationCancelledNotice && (
+              <div
+                role="alert"
+                className="p-4 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]/80 backdrop-blur-sm flex items-start justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-200 shadow-md"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-lg bg-[var(--color-warning)]/15 border border-[var(--color-warning)]/30 text-[var(--color-warning)] shrink-0">
+                    <ShieldAlert size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-[var(--color-warning)] uppercase tracking-wider">
+                        Administrator Permission Required
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] border border-[var(--color-border)]">
+                        Prompt Declined
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-[var(--color-text-primary)] mt-1.5">
+                      {elevationCancelledNotice.title} was not applied
+                    </p>
+                    <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                      {elevationCancelledNotice.resolution} To apply this optimization, click <strong>Retry Elevation</strong> below and select <strong>Yes</strong> on the Windows User Account Control (UAC) prompt.
+                    </p>
+                    <div className="mt-3.5 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (elevationCancelledNotice.action === 'long_paths') {
+                            handleApplyLongPaths();
+                          } else if (elevationCancelledNotice.action === 'dev_mode') {
+                            handleApplyDeveloperMode();
+                          } else if (elevationCancelledNotice.action === 'defender_batch') {
+                            handleAddDefenderExclusionsBatch(elevationCancelledNotice.payloadPaths || []);
+                          }
+                        }}
+                        disabled={Boolean(tuningActionBusy)}
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-warning)] hover:opacity-90 text-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                      >
+                        {tuningActionBusy ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+                        <span>Retry Elevation</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setElevationCancelledNotice(null)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setElevationCancelledNotice(null)}
+                  className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] p-1 rounded-md cursor-pointer transition-colors"
+                  aria-label="Dismiss banner"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            )}
 
             {/* Quick Status Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

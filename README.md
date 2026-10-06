@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/Frontend-React%2019%20%2B%20TypeScript-61dafb.svg?style=flat-square" alt="Frontend">
   <img src="https://img.shields.io/badge/Styling-Tailwind%20CSS%204-38bdf8.svg?style=flat-square" alt="Tailwind">
   <img src="https://img.shields.io/badge/Backend-Python%203.10%2B-ffde57.svg?style=flat-square" alt="Backend">
-  <img src="https://img.shields.io/badge/Tests-158%20Passed%20(100%25)-success.svg?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-164%20Passed%20(100%25)-success.svg?style=flat-square" alt="Tests">
   <img src="https://img.shields.io/badge/Telemetry-Zero%20(100%25%20Local)-blueviolet.svg?style=flat-square" alt="Telemetry">
 </p>
 

@@ -78,6 +78,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "scan_roots": None,  # Will be populated with get_default_scan_roots() on first run
     "last_workspace": None,  # Persistent last opened workspace path
     "max_depth": 3,
+    "scan_timeout_seconds": 30,  # Guard for high-volume storage / slow drives
     "preferences": {
         "theme": "dark",
         "auto_refresh_seconds": 0,
@@ -212,4 +213,25 @@ def save_last_workspace(workspace_path: Optional[str]) -> Optional[str]:
         save_config({"last_workspace": abs_p})
         return abs_p
     return None
+
+
+def get_max_scan_depth() -> int:
+    """Get user-configured maximum directory scan depth (default: 3)."""
+    cfg = load_config()
+    depth = cfg.get("max_depth", 3)
+    try:
+        return max(1, int(depth))
+    except (ValueError, TypeError):
+        return 3
+
+
+def get_scan_timeout_seconds() -> float:
+    """Get user-configured scan timeout limit in seconds (default: 30.0)."""
+    cfg = load_config()
+    timeout = cfg.get("scan_timeout_seconds", 30)
+    try:
+        return max(5.0, float(timeout))
+    except (ValueError, TypeError):
+        return 30.0
+
 

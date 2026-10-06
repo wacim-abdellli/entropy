@@ -25,6 +25,7 @@ import {
   GlobalSecretsRadarReport,
   ShieldSecretsResult,
   DefenderBatchResult,
+  TuningActionResult,
   UserProfileInfo,
   SystemSpecsReport,
   LiveSystemMetrics,
@@ -890,12 +891,12 @@ export class EntropyApiClient {
   /**
    * Enable Win32 Long Paths (MAX_PATH removal) via elevated registry update.
    */
-  static async applyLongPaths(): Promise<{ success: boolean; message?: string; error?: string }> {
+  static async applyLongPaths(): Promise<TuningActionResult> {
     if (isPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.apply_long_paths) {
           const res = await bridgeWindow()!.pywebview!.api!.apply_long_paths!();
-          return parseBridgeResponse<{ success: boolean; message?: string; error?: string }>(res);
+          return parseBridgeResponse<TuningActionResult>(res);
         }
       } catch (err: unknown) {
         return { success: false, error: errorMessage(err) };
@@ -907,12 +908,12 @@ export class EntropyApiClient {
   /**
    * Enable Windows Developer Mode via elevated registry update.
    */
-  static async applyDeveloperMode(): Promise<{ success: boolean; message?: string; error?: string }> {
+  static async applyDeveloperMode(): Promise<TuningActionResult> {
     if (isPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.apply_developer_mode) {
           const res = await bridgeWindow()!.pywebview!.api!.apply_developer_mode!();
-          return parseBridgeResponse<{ success: boolean; message?: string; error?: string }>(res);
+          return parseBridgeResponse<TuningActionResult>(res);
         }
       } catch (err: unknown) {
         return { success: false, error: errorMessage(err) };
@@ -924,12 +925,12 @@ export class EntropyApiClient {
   /**
    * Add a workspace directory to Windows Defender exclusions.
    */
-  static async addDefenderExclusion(folderPath: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  static async addDefenderExclusion(folderPath: string): Promise<TuningActionResult> {
     if (isPyWebView()) {
       try {
         if (bridgeWindow()?.pywebview?.api?.add_defender_exclusion) {
           const res = await bridgeWindow()!.pywebview!.api!.add_defender_exclusion!(folderPath);
-          return parseBridgeResponse<{ success: boolean; message?: string; error?: string }>(res);
+          return parseBridgeResponse<TuningActionResult>(res);
         }
       } catch (err: unknown) {
         return { success: false, error: errorMessage(err) };

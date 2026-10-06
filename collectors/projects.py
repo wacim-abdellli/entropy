@@ -52,18 +52,28 @@ RUNTIME_HINT_FILES = {
 
 
 def _get_dir_size(path: str, timeout_seconds: float = 0.75) -> int:
-    """Calculate directory size in bytes iteratively without following symlinks, capped by timeout."""
+    """Calculate directory size in bytes iteratively without following symlinks or junctions, capped by timeout."""
     total_size = 0
     start_time = time.time()
     stack = [path]
+    visited_dirs: Set[str] = set()
+
     while stack:
         if (time.time() - start_time) > timeout_seconds:
             break
         cur = stack.pop()
+        real_cur = os.path.realpath(cur)
+        if real_cur in visited_dirs:
+            continue
+        visited_dirs.add(real_cur)
+
         try:
             with os.scandir(cur) as it:
                 for entry in it:
                     try:
+                        # Guard against recursive symlinks and NTFS Directory Junctions
+                        if entry.is_symlink() or (os.name == "nt" and os.path.islink(entry.path)):
+                            continue
                         if entry.is_file(follow_symlinks=False):
                             total_size += entry.stat(follow_symlinks=False).st_size
                         elif entry.is_dir(follow_symlinks=False):
@@ -134,23 +144,46 @@ def _detect_project_type_and_sentinels(
 def collect_projects_and_dependencies(
     scan_root: str,
     max_depth: int = 5,
+    timeout_seconds: Optional[float] = None,
 ) -> Tuple[List[Project], List[DependencyEnvironment]]:
     """
     Scans scan_root up to max_depth for projects and their dependency environments.
+    Protects against circular symlinks, NTFS Junction loops, and slow/massive drive timeouts.
     Returns (projects, dependency_environments).
     """
     projects: List[Project] = []
     dep_envs: List[DependencyEnvironment] = []
     current_time = time.time()
+    start_time = time.time()
+
+    if timeout_seconds is None:
+        try:
+            from core.config import get_scan_timeout_seconds
+            timeout_seconds = get_scan_timeout_seconds()
+        except Exception:
+            timeout_seconds = 30.0
 
     # Queue of (path, current_depth)
     dirs_to_visit: deque[Tuple[str, int]] = deque([(os.path.abspath(scan_root), 0)])
+    visited_real_paths: Set[str] = set()
 
     while dirs_to_visit:
+        if (time.time() - start_time) > timeout_seconds:
+            logger.warning(
+                "Scan traversal on '%s' exceeded timeout of %.1fs (projects=%d). Returning partial results.",
+                scan_root, timeout_seconds, len(projects)
+            )
+            break
+
         current_dir, depth = dirs_to_visit.popleft()
 
         if depth > max_depth:
             continue
+
+        real_dir = os.path.realpath(current_dir)
+        if real_dir in visited_real_paths:
+            continue
+        visited_real_paths.add(real_dir)
 
         try:
             entries = list(os.scandir(current_dir))
@@ -255,11 +288,17 @@ def collect_projects_and_dependencies(
 
         # If not a project, queue subdirectories for traversal
         for entry in entries:
-            if entry.is_dir(follow_symlinks=False):
-                if entry.name in SKIP_DIRS:
+            try:
+                # Prevent following symlinks and NTFS Junctions into external drives or recursive loops
+                if entry.is_symlink() or (os.name == "nt" and os.path.islink(entry.path)):
                     continue
-                if entry.name.startswith(".") and entry.name != ".git":
-                    continue
-                dirs_to_visit.append((entry.path, depth + 1))
+                if entry.is_dir(follow_symlinks=False):
+                    if entry.name in SKIP_DIRS:
+                        continue
+                    if entry.name.startswith(".") and entry.name != ".git":
+                        continue
+                    dirs_to_visit.append((entry.path, depth + 1))
+            except OSError:
+                continue
 
     return projects, dep_envs

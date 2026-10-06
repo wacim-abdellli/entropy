@@ -640,12 +640,22 @@ export interface ShieldSecretsResult {
   message: string;
 }
 
+export interface TuningActionResult {
+  success: boolean;
+  cancelled?: boolean;
+  message?: string;
+  error?: string;
+  resolution?: string;
+}
+
 export interface DefenderBatchResult {
   success: boolean;
+  cancelled?: boolean;
   paths?: string[];
   count?: number;
   message?: string;
   error?: string;
+  resolution?: string;
 }
 
 export interface UserProfileInfo {

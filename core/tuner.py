@@ -125,6 +125,20 @@ def get_performance_tuning_report(workspace_paths: Optional[List[str]] = None) -
     }
 
 
+def _is_elevation_cancelled(stderr_or_error: str) -> bool:
+    """Detect if elevated process failed because user declined the UAC prompt (Win32 1223)."""
+    if not stderr_or_error:
+        return False
+    lowered = stderr_or_error.lower()
+    return (
+        "1223" in lowered
+        or "canceled by the user" in lowered
+        or "cancelled by the user" in lowered
+        or "operation was canceled" in lowered
+        or "operation was cancelled" in lowered
+    )
+
+
 def enable_long_paths() -> Dict[str, Any]:
     """Enable Win32 Long Paths via elevated registry update."""
     cmd = (
@@ -134,19 +148,46 @@ def enable_long_paths() -> Dict[str, Any]:
     )
     try:
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        subprocess.run(
+        res = subprocess.run(
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", cmd],
             capture_output=True,
+            text=True,
             timeout=30,
             creationflags=creationflags,
         )
-        success = is_long_paths_enabled()
+        if is_long_paths_enabled():
+            return {
+                "success": True,
+                "message": "Long Paths enabled successfully.",
+            }
+
+        combined_err = f"{res.stderr or ''} {res.stdout or ''}".strip()
+        if _is_elevation_cancelled(combined_err):
+            return {
+                "success": False,
+                "cancelled": True,
+                "error": "Administrator permission was declined.",
+                "message": "Administrator permission was declined.",
+                "resolution": "Windows requires administrative permissions to enable Win32 Long Paths in the system registry.",
+            }
+
         return {
-            "success": success,
-            "message": "Long Paths enabled successfully." if success else "Failed to enable Long Paths or prompt was cancelled.",
+            "success": False,
+            "cancelled": False,
+            "error": combined_err or "Failed to enable Long Paths.",
+            "message": "Failed to enable Long Paths.",
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        err_str = str(e)
+        if _is_elevation_cancelled(err_str):
+            return {
+                "success": False,
+                "cancelled": True,
+                "error": "Administrator permission was declined.",
+                "message": "Administrator permission was declined.",
+                "resolution": "Windows requires administrative permissions to enable Win32 Long Paths in the system registry.",
+            }
+        return {"success": False, "cancelled": False, "error": err_str}
 
 
 def enable_developer_mode() -> Dict[str, Any]:
@@ -158,19 +199,46 @@ def enable_developer_mode() -> Dict[str, Any]:
     )
     try:
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        subprocess.run(
+        res = subprocess.run(
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", cmd],
             capture_output=True,
+            text=True,
             timeout=30,
             creationflags=creationflags,
         )
-        success = is_dev_mode_enabled()
+        if is_dev_mode_enabled():
+            return {
+                "success": True,
+                "message": "Developer Mode enabled successfully.",
+            }
+
+        combined_err = f"{res.stderr or ''} {res.stdout or ''}".strip()
+        if _is_elevation_cancelled(combined_err):
+            return {
+                "success": False,
+                "cancelled": True,
+                "error": "Administrator permission was declined.",
+                "message": "Administrator permission was declined.",
+                "resolution": "Windows requires administrative permissions to enable Developer Mode.",
+            }
+
         return {
-            "success": success,
-            "message": "Developer Mode enabled successfully." if success else "Failed to enable Developer Mode or prompt was cancelled.",
+            "success": False,
+            "cancelled": False,
+            "error": combined_err or "Failed to enable Developer Mode.",
+            "message": "Failed to enable Developer Mode.",
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        err_str = str(e)
+        if _is_elevation_cancelled(err_str):
+            return {
+                "success": False,
+                "cancelled": True,
+                "error": "Administrator permission was declined.",
+                "message": "Administrator permission was declined.",
+                "resolution": "Windows requires administrative permissions to enable Developer Mode.",
+            }
+        return {"success": False, "cancelled": False, "error": err_str}
 
 
 def add_defender_exclusion(folder_path: str) -> Dict[str, Any]:
@@ -204,18 +272,59 @@ def add_defender_exclusions_batch(folder_paths: List[str]) -> Dict[str, Any]:
     )
     try:
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        subprocess.run(
+        res = subprocess.run(
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", cmd],
             capture_output=True,
+            text=True,
             timeout=45,
             creationflags=creationflags,
         )
+
+        combined_err = f"{res.stderr or ''} {res.stdout or ''}".strip()
+        if _is_elevation_cancelled(combined_err):
+            return {
+                "success": False,
+                "cancelled": True,
+                "error": "Administrator permission was declined.",
+                "message": "Administrator permission was declined.",
+                "resolution": "Windows Defender requires administrator permissions to configure folder exclusions.",
+            }
+
+        # If command exited cleanly with no errors, return success immediately
+        if res.returncode == 0 and not combined_err:
+            return {
+                "success": True,
+                "paths": valid_paths,
+                "count": len(valid_paths),
+                "message": f"Successfully excluded {len(valid_paths)} workspace(s) from Windows Defender real-time scanning.",
+            }
+
+        # Otherwise, verify if exclusions were registered
+        existing = {os.path.normcase(os.path.abspath(e)) for e in get_defender_exclusions()}
+        added = [p for p in valid_paths if os.path.normcase(p) in existing]
+        if added:
+            return {
+                "success": True,
+                "paths": added,
+                "count": len(added),
+                "message": f"Successfully excluded {len(added)} workspace(s) from Windows Defender real-time scanning.",
+            }
+
         return {
-            "success": True,
-            "paths": valid_paths,
-            "count": len(valid_paths),
-            "message": f"Successfully excluded {len(valid_paths)} workspace(s) from Windows Defender real-time scanning.",
+            "success": False,
+            "cancelled": False,
+            "error": combined_err or "Failed to add Defender exclusions.",
+            "message": "Failed to add Defender exclusions.",
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        err_str = str(e)
+        if _is_elevation_cancelled(err_str):
+            return {
+                "success": False,
+                "cancelled": True,
+                "error": "Administrator permission was declined.",
+                "message": "Administrator permission was declined.",
+                "resolution": "Windows Defender requires administrator permissions to configure folder exclusions.",
+            }
+        return {"success": False, "cancelled": False, "error": err_str}
 
