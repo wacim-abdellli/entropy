@@ -70,7 +70,8 @@ const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string
 
 /**
  * Standard Squarified Treemap layout algorithm (Bruls, Huizing, van Wijk).
- * Optimizes bounding rectangles to approach aspect ratio = 1 (least elongation).
+ * Optimizes bounding rectangles to approach aspect ratio = 1 (least elongation)
+ * with 100% boundary containment and soft power weighting for extreme dynamic ranges.
  */
 function computeSquarifiedTreemap(
   items: TreemapItem[],
@@ -79,57 +80,83 @@ function computeSquarifiedTreemap(
 ): TreemapNode[] {
   if (width <= 0 || height <= 0 || items.length === 0) return [];
 
-  // Filter non-zero items and sort descending
+  // Filter non-zero items and sort descending by raw size
   const sorted = [...items]
     .filter((it) => it.size_bytes > 0)
     .sort((a, b) => b.size_bytes - a.size_bytes);
 
   if (sorted.length === 0) return [];
 
-  const totalSize = sorted.reduce((sum, it) => sum + it.size_bytes, 0);
+  // Soft power scaling prevents extreme dynamic ranges (e.g. 5GB vs 10MB) from crushing
+  // smaller items into invisible sub-pixel lines while preserving dominant visual hierarchy.
+  const weights = sorted.map((it) => Math.pow(it.size_bytes, 0.65));
+  const totalWeight = weights.reduce((acc, w) => acc + w, 0);
   const totalArea = width * height;
 
-  // Normalized area per item
-  const elements = sorted.map((it) => ({
+  const elements = sorted.map((it, idx) => ({
     ...it,
-    area: (it.size_bytes / totalSize) * totalArea,
+    area: (weights[idx] / totalWeight) * totalArea,
   }));
 
   const results: TreemapNode[] = [];
+  const remaining: Rect = { x: 0, y: 0, w: width, h: height };
 
-  function worst(row: typeof elements, sideLength: number): number {
-    if (row.length === 0) return Infinity;
+  function worstRatio(row: typeof elements, sideLength: number): number {
+    if (row.length === 0 || sideLength <= 0) return Infinity;
     const rowArea = row.reduce((s, r) => s + r.area, 0);
-    const side2 = sideLength * sideLength;
+    const thickness = rowArea / sideLength;
+    if (thickness <= 0) return Infinity;
+
     let maxRatio = 0;
     for (const r of row) {
-      const rArea = r.area;
-      const ratio = Math.max((side2 * rArea) / (rowArea * rowArea), (rowArea * rowArea) / (side2 * rArea));
+      const rLength = r.area / thickness;
+      if (rLength <= 0) continue;
+      const ratio = Math.max(thickness / rLength, rLength / thickness);
       if (ratio > maxRatio) maxRatio = ratio;
     }
     return maxRatio;
   }
 
-  function layoutRow(row: typeof elements, rect: Rect, isHorizontal: boolean) {
+  function layoutRow(row: typeof elements, isLastRow: boolean) {
+    if (row.length === 0) return;
+    const isVertical = remaining.w >= remaining.h;
+    const sideLength = isVertical ? remaining.h : remaining.w;
     const rowArea = row.reduce((s, r) => s + r.area, 0);
-    const sideLength = isHorizontal ? rect.w : rect.h;
-    const otherDimension = rowArea / sideLength;
+
+    let thickness: number;
+    if (isLastRow) {
+      thickness = isVertical ? remaining.w : remaining.h;
+    } else {
+      thickness = sideLength > 0 ? rowArea / sideLength : 0;
+      thickness = isVertical
+        ? Math.min(remaining.w, thickness)
+        : Math.min(remaining.h, thickness);
+    }
 
     let offset = 0;
-    for (const item of row) {
-      const itemSpan = item.area / otherDimension;
-      const nodeRect: Rect = isHorizontal
+    for (let j = 0; j < row.length; j++) {
+      const item = row[j];
+      const isLastInRow = j === row.length - 1;
+      let itemSpan: number;
+      if (isLastInRow) {
+        itemSpan = Math.max(1, sideLength - offset);
+      } else {
+        itemSpan = rowArea > 0 ? (item.area / rowArea) * sideLength : 0;
+        itemSpan = Math.max(1, Math.min(sideLength - offset, itemSpan));
+      }
+
+      const nodeRect: Rect = isVertical
         ? {
-            x: rect.x + offset,
-            y: rect.y,
-            w: Math.max(1, itemSpan),
-            h: Math.max(1, otherDimension),
+            x: remaining.x,
+            y: remaining.y + offset,
+            w: thickness,
+            h: itemSpan,
           }
         : {
-            x: rect.x,
-            y: rect.y + offset,
-            w: Math.max(1, otherDimension),
-            h: Math.max(1, itemSpan),
+            x: remaining.x + offset,
+            y: remaining.y,
+            w: itemSpan,
+            h: thickness,
           };
 
       results.push({
@@ -140,54 +167,40 @@ function computeSquarifiedTreemap(
       offset += itemSpan;
     }
 
-    if (isHorizontal) {
-      return {
-        x: rect.x,
-        y: rect.y + otherDimension,
-        w: rect.w,
-        h: Math.max(0, rect.h - otherDimension),
-      };
+    if (isVertical) {
+      remaining.x += thickness;
+      remaining.w = Math.max(0, remaining.w - thickness);
     } else {
-      return {
-        x: rect.x + otherDimension,
-        y: rect.y,
-        w: Math.max(0, rect.w - otherDimension),
-        h: Math.max(0, rect.h - otherDimension),
-      };
+      remaining.y += thickness;
+      remaining.h = Math.max(0, remaining.h - thickness);
     }
   }
 
-  function squarify(children: typeof elements, currentRect: Rect) {
-    if (children.length === 0 || currentRect.w <= 0 || currentRect.h <= 0) return;
+  let currentRow: typeof elements = [];
 
-    let remainingRect = { ...currentRect };
-    let currentRow: typeof elements = [];
+  for (let i = 0; i < elements.length; i++) {
+    const nextItem = elements[i];
+    const isVertical = remaining.w >= remaining.h;
+    const sideLength = isVertical ? remaining.h : remaining.w;
 
-    for (let i = 0; i < children.length; i++) {
-      const c = children[i];
-      const isHorizontal = remainingRect.w >= remainingRect.h;
-      const sideLength = isHorizontal ? remainingRect.w : remainingRect.h;
+    if (currentRow.length === 0) {
+      currentRow.push(nextItem);
+    } else {
+      const curWorst = worstRatio(currentRow, sideLength);
+      const nextWorst = worstRatio([...currentRow, nextItem], sideLength);
 
-      if (currentRow.length === 0) {
-        currentRow.push(c);
+      if (nextWorst <= curWorst) {
+        currentRow.push(nextItem);
       } else {
-        const rowWithC = [...currentRow, c];
-        if (worst(rowWithC, sideLength) <= worst(currentRow, sideLength)) {
-          currentRow.push(c);
-        } else {
-          remainingRect = layoutRow(currentRow, remainingRect, isHorizontal);
-          currentRow = [c];
-        }
+        layoutRow(currentRow, false);
+        currentRow = [nextItem];
       }
     }
-
-    if (currentRow.length > 0) {
-      const isHorizontal = remainingRect.w >= remainingRect.h;
-      layoutRow(currentRow, remainingRect, isHorizontal);
-    }
   }
 
-  squarify(elements, { x: 0, y: 0, w: width, h: height });
+  if (currentRow.length > 0) {
+    layoutRow(currentRow, true);
+  }
 
   return results;
 }
@@ -199,8 +212,19 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 900, height: 500 });
   const [hoveredNode, setHoveredNode] = useState<TreemapNode | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // Track mouse coordinates for floating tooltip with boundary clamping
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const bounds = containerRef.current.getBoundingClientRect();
+    setMousePos({
+      x: e.clientX - bounds.left,
+      y: e.clientY - bounds.top,
+    });
+  };
 
   // Observe container dimensions for dynamic responsive recalculation
   useEffect(() => {
@@ -209,7 +233,6 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
       for (const entry of entries) {
         const { width } = entry.contentRect;
         if (width > 0) {
-          // Maintain a 16:9 or comfortable 500px aspect height
           const computedHeight = Math.max(420, Math.min(650, Math.round(width * 0.52)));
           setDimensions({ width, height: computedHeight });
         }
@@ -348,6 +371,7 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
       {/* Main Treemap Canvas Container */}
       <div
         ref={containerRef}
+        onMouseMove={handleMouseMove}
         className="relative w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-0)] overflow-hidden shadow-inner select-none"
         style={{ height: `${dimensions.height}px` }}
       >
@@ -360,9 +384,19 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
           nodes.map((node) => {
             const styleConfig = CATEGORY_COLORS[node.category] || CATEGORY_COLORS.artifact;
             const pct = totalBytes > 0 ? ((node.size_bytes / totalBytes) * 100).toFixed(1) : '0';
-            const isTiny = node.rect.w < 60 || node.rect.h < 40;
-            const isMedium = node.rect.w >= 110 && node.rect.h >= 65;
-            const isLarge = node.rect.w >= 180 && node.rect.h >= 90;
+
+            // Strict pixel enclosure: 2px gap, 100% within container boundaries
+            const gap = 2;
+            const left = Math.round(node.rect.x) + gap;
+            const top = Math.round(node.rect.y) + gap;
+            const right = Math.min(dimensions.width - gap, Math.round(node.rect.x + node.rect.w) - gap);
+            const bottom = Math.min(dimensions.height - gap, Math.round(node.rect.y + node.rect.h) - gap);
+            const width = Math.max(4, right - left);
+            const height = Math.max(4, bottom - top);
+
+            const isLarge = width >= 140 && height >= 75;
+            const isMedium = width >= 80 && height >= 46;
+            const isSmall = width >= 50 && height >= 26;
 
             return (
               <div
@@ -372,96 +406,140 @@ export const StorageTreemap: React.FC<StorageTreemapProps> = ({
                 onClick={() => onSelectItem?.(node)}
                 style={{
                   position: 'absolute',
-                  left: `${node.rect.x}px`,
-                  top: `${node.rect.y}px`,
-                  width: `${node.rect.w}px`,
-                  height: `${node.rect.h}px`,
-                  padding: '2px',
+                  left: `${left}px`,
+                  top: `${top}px`,
+                  width: `${width}px`,
+                  height: `${height}px`,
                 }}
                 className="transition-all duration-150 cursor-pointer group"
               >
                 <div
-                  className={`w-full h-full rounded-lg border transition-all duration-200 flex flex-col justify-between p-2 overflow-hidden ${styleConfig.bg} ${styleConfig.border}`}
+                  className={`w-full h-full rounded-lg border transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-xs select-none ${styleConfig.bg} ${styleConfig.border} ${
+                    isLarge ? 'p-2.5' : isMedium ? 'p-2' : 'p-1'
+                  }`}
                   style={{
                     boxShadow: hoveredNode?.id === node.id ? `0 0 16px ${styleConfig.glow}` : undefined,
                   }}
                 >
-                  {/* Header / Title */}
-                  <div className="flex items-start justify-between gap-1 overflow-hidden">
-                    <div className="flex items-center gap-1.5 overflow-hidden">
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${styleConfig.dot}`} />
-                      {!isTiny && (
-                        <span
-                          className={`font-semibold text-xs truncate ${styleConfig.text}`}
-                          title={node.name}
-                        >
+                  {/* Full Layout for Large Tiles */}
+                  {isLarge && (
+                    <>
+                      <div className="flex items-start justify-between gap-1 overflow-hidden min-w-0">
+                        <div className="flex items-center gap-1.5 overflow-hidden min-w-0">
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${styleConfig.dot}`} />
+                          <span className={`font-semibold text-xs truncate ${styleConfig.text}`} title={node.name}>
+                            {node.name}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-[var(--color-text-tertiary)] shrink-0">
+                          {pct}%
+                        </span>
+                      </div>
+
+                      <div className="my-auto overflow-hidden">
+                        <p className="text-[11px] font-mono text-[var(--color-text-secondary)] truncate">
+                          {node.path}
+                        </p>
+                        {node.description && (
+                          <p className="text-[10px] text-[var(--color-text-tertiary)] truncate mt-0.5">
+                            {node.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-end justify-between gap-1 mt-auto">
+                        <span className="font-mono font-bold text-xs text-[var(--color-text-primary)]">
+                          {node.size_formatted}
+                        </span>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyPath(e, node.path, node.id)}
+                            title="Copy full path"
+                            aria-label="Copy full path"
+                            className="p-1 rounded bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-white cursor-pointer"
+                          >
+                            {copiedId === node.id ? <Check className="w-3 h-3 text-[var(--color-success)]" /> : <Copy className="w-3 h-3" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenExplorer(e, node.path)}
+                            title="Open in File Explorer"
+                            aria-label="Open in File Explorer"
+                            className="p-1 rounded bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-white cursor-pointer"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Medium Layout (Title top, Size bottom) */}
+                  {!isLarge && isMedium && (
+                    <>
+                      <div className="flex items-center justify-between gap-1 overflow-hidden min-w-0">
+                        <div className="flex items-center gap-1.5 overflow-hidden min-w-0">
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${styleConfig.dot}`} />
+                          <span className={`font-semibold text-xs truncate ${styleConfig.text}`} title={node.name}>
+                            {node.name}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-[var(--color-text-tertiary)] shrink-0">
+                          {pct}%
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-1 mt-auto font-mono text-[11px]">
+                        <span className="font-bold text-[var(--color-text-primary)]">
+                          {node.size_formatted}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Small Compact Layout (Single Row) */}
+                  {!isLarge && !isMedium && isSmall && (
+                    <div className="flex items-center justify-between gap-1 h-full min-w-0 px-0.5">
+                      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${styleConfig.dot}`} />
+                        <span className={`text-[10px] font-medium truncate ${styleConfig.text}`} title={node.name}>
                           {node.name}
                         </span>
-                      )}
-                    </div>
-
-                    {isMedium && (
-                      <span className="text-[10px] font-mono text-[var(--color-text-tertiary)] shrink-0">
-                        {pct}%
+                      </div>
+                      <span className="text-[9px] font-mono font-bold text-[var(--color-text-primary)] shrink-0">
+                        {node.size_formatted}
                       </span>
-                    )}
-                  </div>
-
-                  {/* Body / Path / Category description */}
-                  {isLarge && (
-                    <div className="my-auto overflow-hidden">
-                      <p className="text-[11px] font-mono text-[var(--color-text-secondary)] truncate">
-                        {node.path}
-                      </p>
-                      {node.description && (
-                        <p className="text-[10px] text-[var(--color-text-tertiary)] truncate mt-0.5">
-                          {node.description}
-                        </p>
-                      )}
                     </div>
                   )}
 
-                  {/* Footer / Size & Quick Action */}
-                  <div className="flex items-end justify-between gap-1 mt-auto">
-                    <span className="font-mono font-bold text-xs text-[var(--color-text-primary)]">
-                      {node.size_formatted}
-                    </span>
-
-                    {/* Action buttons on hover */}
-                    {isMedium && (
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                        <button
-                          onClick={(e) => handleCopyPath(e, node.path, node.id)}
-                          title="Copy full path"
-                          aria-label="Copy full path"
-                          className="p-1 rounded bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-white cursor-pointer"
-                        >
-                          {copiedId === node.id ? <Check className="w-3 h-3 text-[var(--color-success)]" /> : <Copy className="w-3 h-3" />}
-                        </button>
-                        <button
-                          onClick={(e) => handleOpenExplorer(e, node.path)}
-                          title="Open in File Explorer"
-                          aria-label="Open in File Explorer"
-                          className="p-1 rounded bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:text-white cursor-pointer"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  {/* Micro Layout (Percentage / Dot only) */}
+                  {!isLarge && !isMedium && !isSmall && (
+                    <div className="flex items-center justify-center h-full text-[9px] font-mono font-bold text-[var(--color-text-primary)]">
+                      {pct}%
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })
         )}
 
-        {/* Floating Tooltip Detail Overlay for hovered tile */}
+        {/* Floating Tooltip Detail Overlay for hovered tile with Smart Edge Collision Avoidance */}
         {hoveredNode && (
           <div
             className="pointer-events-none absolute z-30 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-3 shadow-2xl backdrop-blur-md max-w-sm transition-all"
             style={{
-              left: `${Math.min(hoveredNode.rect.x + 12, dimensions.width - 290)}px`,
-              top: `${Math.min(hoveredNode.rect.y + hoveredNode.rect.h + 8, dimensions.height - 130)}px`,
+              left: `${
+                mousePos.x + 18 + 300 > dimensions.width
+                  ? Math.max(8, mousePos.x - 310)
+                  : mousePos.x + 18
+              }px`,
+              top: `${
+                mousePos.y + 18 + 120 > dimensions.height
+                  ? Math.max(8, mousePos.y - 130)
+                  : mousePos.y + 18
+              }px`,
             }}
           >
             <div className="flex items-center justify-between gap-3 mb-1">

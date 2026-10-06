@@ -125,24 +125,92 @@ function computeSquarifiedTreemap(
 ): TreemapLayoutNode[] {
   if (width <= 0 || height <= 0 || items.length === 0) return [];
 
-  const total = items.reduce((acc, it) => acc + Math.max(1, it.size_bytes), 0);
-  const elements = items
+  // Filter non-zero items and sort descending by size
+  const sorted = [...items]
     .filter((it) => it.size_bytes > 0)
-    .sort((a, b) => b.size_bytes - a.size_bytes)
-    .map((it) => ({
-      item: it,
-      area: (Math.max(1, it.size_bytes) / total) * (width * height),
-    }));
+    .sort((a, b) => b.size_bytes - a.size_bytes);
 
-  if (elements.length === 0) return [];
+  if (sorted.length === 0) return [];
+
+  // Soft power scaling prevents extreme dynamic ranges (e.g. 25GB vs 70MB) from crushing
+  // smaller subdirectories into invisible or overflowing 1px lines while preserving dominant visual leadership.
+  const weights = sorted.map((it) => Math.pow(Math.max(1, it.size_bytes), 0.72));
+  const totalWeight = weights.reduce((acc, w) => acc + w, 0);
+  const totalArea = width * height;
+
+  const elements = sorted.map((it, idx) => ({
+    item: it,
+    area: (weights[idx] / totalWeight) * totalArea,
+  }));
 
   const results: TreemapLayoutNode[] = [];
   const remaining = { x: 0, y: 0, w: width, h: height };
+
+  function layoutRow(row: typeof elements, isLastRow: boolean) {
+    if (row.length === 0) return;
+    const isVertical = remaining.w >= remaining.h;
+    const length = isVertical ? remaining.h : remaining.w;
+    const rowArea = row.reduce((acc, el) => acc + el.area, 0);
+
+    let thickness: number;
+    if (isLastRow) {
+      thickness = isVertical ? remaining.w : remaining.h;
+    } else {
+      thickness = length > 0 ? rowArea / length : 0;
+      thickness = isVertical
+        ? Math.min(remaining.w, thickness)
+        : Math.min(remaining.h, thickness);
+    }
+
+    let offset = 0;
+    for (let j = 0; j < row.length; j++) {
+      const el = row[j];
+      const isLastInRow = j === row.length - 1;
+      let elLength: number;
+      if (isLastInRow) {
+        elLength = Math.max(1, length - offset);
+      } else {
+        elLength = rowArea > 0 ? (el.area / rowArea) * length : 0;
+        elLength = Math.max(1, Math.min(length - offset, elLength));
+      }
+
+      if (isVertical) {
+        results.push({
+          ...el.item,
+          rect: {
+            x: remaining.x,
+            y: remaining.y + offset,
+            w: thickness,
+            h: elLength,
+          },
+        });
+      } else {
+        results.push({
+          ...el.item,
+          rect: {
+            x: remaining.x + offset,
+            y: remaining.y,
+            w: elLength,
+            h: thickness,
+          },
+        });
+      }
+      offset += elLength;
+    }
+
+    if (isVertical) {
+      remaining.x += thickness;
+      remaining.w = Math.max(0, remaining.w - thickness);
+    } else {
+      remaining.y += thickness;
+      remaining.h = Math.max(0, remaining.h - thickness);
+    }
+  }
+
   let currentRow: typeof elements = [];
 
   for (let i = 0; i < elements.length; i++) {
     const nextItem = elements[i];
-    // Always lay out along the shorter dimension of remaining rectangle
     const isVertical = remaining.w >= remaining.h;
     const length = isVertical ? remaining.h : remaining.w;
 
@@ -155,84 +223,14 @@ function computeSquarifiedTreemap(
       if (nextWorst <= currentWorst) {
         currentRow.push(nextItem);
       } else {
-        // Layout current row along shorter dimension
-        const rowArea = currentRow.reduce((acc, el) => acc + el.area, 0);
-        const thickness = rowArea / length;
-        let offset = 0;
-
-        for (const el of currentRow) {
-          const elLength = thickness > 0 ? el.area / thickness : 0;
-          if (isVertical) {
-            // Stack vertically in a column of width 'thickness'
-            results.push({
-              ...el.item,
-              rect: {
-                x: remaining.x,
-                y: remaining.y + offset,
-                w: Math.max(1, thickness),
-                h: Math.max(1, elLength),
-              },
-            });
-          } else {
-            // Stack horizontally in a row of height 'thickness'
-            results.push({
-              ...el.item,
-              rect: {
-                x: remaining.x + offset,
-                y: remaining.y,
-                w: Math.max(1, elLength),
-                h: Math.max(1, thickness),
-              },
-            });
-          }
-          offset += elLength;
-        }
-
-        if (isVertical) {
-          remaining.x += thickness;
-          remaining.w = Math.max(0, remaining.w - thickness);
-        } else {
-          remaining.y += thickness;
-          remaining.h = Math.max(0, remaining.h - thickness);
-        }
-
+        layoutRow(currentRow, false);
         currentRow = [nextItem];
       }
     }
   }
 
   if (currentRow.length > 0) {
-    const isVertical = remaining.w >= remaining.h;
-    const length = isVertical ? remaining.h : remaining.w;
-    const rowArea = currentRow.reduce((acc, el) => acc + el.area, 0);
-    const thickness = length > 0 ? rowArea / length : 0;
-    let offset = 0;
-
-    for (const el of currentRow) {
-      const elLength = thickness > 0 ? el.area / thickness : 0;
-      if (isVertical) {
-        results.push({
-          ...el.item,
-          rect: {
-            x: remaining.x,
-            y: remaining.y + offset,
-            w: Math.max(1, thickness),
-            h: Math.max(1, elLength),
-          },
-        });
-      } else {
-        results.push({
-          ...el.item,
-          rect: {
-            x: remaining.x + offset,
-            y: remaining.y,
-            w: Math.max(1, elLength),
-            h: Math.max(1, thickness),
-          },
-        });
-      }
-      offset += elLength;
-    }
+    layoutRow(currentRow, true);
   }
 
   return results;
@@ -635,17 +633,20 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
               const isHovered = hoveredNode?.id === node.id;
               const canDrillDown = node.is_dir;
 
-              // Thresholds for text display
-              const showText = node.rect.w > 65 && node.rect.h > 40;
-              const showDetail = node.rect.w > 95 && node.rect.h > 60;
-              const showWatermark = node.rect.w > 120 && node.rect.h > 80;
-              const isTiny = !showText && node.rect.w > 28 && node.rect.h > 20;
+              // Strict boundary enclosure: 2px gap, 100% within container bounds
+              const gap = 2;
+              const left = Math.round(node.rect.x) + gap;
+              const top = Math.round(node.rect.y) + gap;
+              const right = Math.min(dimensions.width - gap, Math.round(node.rect.x + node.rect.w) - gap);
+              const bottom = Math.min(dimensions.height - gap, Math.round(node.rect.y + node.rect.h) - gap);
+              const width = Math.max(4, right - left);
+              const height = Math.max(4, bottom - top);
 
-              // Inset tiles slightly for rounded card separation & elevation
-              const insetLeft = Math.round(node.rect.x) + 1.5;
-              const insetTop = Math.round(node.rect.y) + 1.5;
-              const insetWidth = Math.max(2, Math.round(node.rect.w) - 3);
-              const insetHeight = Math.max(2, Math.round(node.rect.h) - 3);
+              // Adaptive layout thresholds
+              const isLarge = width >= 110 && height >= 65;
+              const isMedium = width >= 75 && height >= 45;
+              const isSmall = width >= 48 && height >= 26;
+              const showWatermark = width >= 130 && height >= 85;
 
               return (
                 <div
@@ -655,61 +656,106 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
                   }}
                   onMouseEnter={() => setHoveredNode(node)}
                   onMouseLeave={() => setHoveredNode(null)}
-                  className={`absolute rounded-lg transition-all duration-150 p-2 select-none flex flex-col justify-between overflow-hidden border shadow-xs ${style.bg} ${style.border} ${
+                  className={`absolute rounded-lg transition-all duration-150 select-none flex flex-col justify-between overflow-hidden border shadow-xs ${style.bg} ${style.border} ${
+                    isLarge ? 'p-2' : isMedium ? 'p-1.5' : 'p-1'
+                  } ${
                     canDrillDown ? 'cursor-pointer hover:brightness-110' : 'cursor-default'
                   } ${isHovered ? 'z-20 ring-2 ring-[var(--color-accent)] shadow-xl scale-[1.002]' : 'z-10'}`}
                   style={{
-                    left: insetLeft,
-                    top: insetTop,
-                    width: insetWidth,
-                    height: insetHeight,
+                    left: `${left}px`,
+                    top: `${top}px`,
+                    width: `${width}px`,
+                    height: `${height}px`,
                   }}
                 >
-                  {/* Subtle ambient watermark icon for large tiles to prevent empty void appearance */}
+                  {/* Subtle ambient watermark icon for large tiles */}
                   {showWatermark && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-[0.06] select-none text-[var(--color-text-primary)]">
                       {node.is_dir ? (
-                        <Folder size={Math.min(72, Math.floor(node.rect.h * 0.45))} />
+                        <Folder size={Math.min(72, Math.floor(height * 0.45))} />
                       ) : (
-                        <File size={Math.min(72, Math.floor(node.rect.h * 0.45))} />
+                        <File size={Math.min(72, Math.floor(height * 0.45))} />
                       )}
                     </div>
                   )}
 
-                  {showText && (
-                    <div className="min-w-0 z-10">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {node.is_dir ? (
-                          <Folder size={12} className={`${style.text} shrink-0`} />
-                        ) : (
-                          <File size={12} className={`${style.text} shrink-0`} />
-                        )}
-                        <span className="text-xs font-semibold text-[var(--color-text-primary)] truncate">
-                          {node.name}
-                        </span>
-                      </div>
-                      {showDetail && (
+                  {/* Large Layout: Icon + Name + Category detail + Size + % */}
+                  {isLarge && (
+                    <>
+                      <div className="min-w-0 z-10">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {node.is_dir ? (
+                            <Folder size={12} className={`${style.text} shrink-0`} />
+                          ) : (
+                            <File size={12} className={`${style.text} shrink-0`} />
+                          )}
+                          <span className="text-xs font-semibold text-[var(--color-text-primary)] truncate font-mono">
+                            {node.name}
+                          </span>
+                        </div>
                         <div className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5 truncate pl-4">
                           {node.category_label}
                         </div>
-                      )}
-                    </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] font-mono z-10 mt-auto">
+                        <span className="font-bold text-[var(--color-text-primary)]">
+                          {node.size_formatted}
+                        </span>
+                        <span className="text-[10px] text-[var(--color-text-tertiary)] font-medium">
+                          {node.percentage}%
+                        </span>
+                      </div>
+                    </>
                   )}
 
-                  {showText && (
-                    <div className="flex items-center justify-between text-[11px] font-mono z-10">
-                      <span className="font-bold text-[var(--color-text-primary)]">
-                        {node.size_formatted}
-                      </span>
-                      <span className="text-[10px] text-[var(--color-text-tertiary)] font-medium">
+                  {/* Medium Layout: Icon + Name on top, Size + % on bottom */}
+                  {!isLarge && isMedium && (
+                    <>
+                      <div className="flex items-center gap-1.5 min-w-0 z-10">
+                        {node.is_dir ? (
+                          <Folder size={11} className={`${style.text} shrink-0`} />
+                        ) : (
+                          <File size={11} className={`${style.text} shrink-0`} />
+                        )}
+                        <span className="text-xs font-semibold text-[var(--color-text-primary)] truncate font-mono">
+                          {node.name}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] font-mono z-10 mt-auto">
+                        <span className="font-bold text-[var(--color-text-primary)]">
+                          {node.size_formatted}
+                        </span>
+                        <span className="text-[9px] text-[var(--color-text-tertiary)]">
+                          {node.percentage}%
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Small Layout: Single row with Icon, Name, and % */}
+                  {!isLarge && !isMedium && isSmall && (
+                    <div className="flex items-center justify-between gap-1 h-full min-w-0 px-0.5 font-mono">
+                      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+                        {node.is_dir ? (
+                          <Folder size={10} className={`${style.text} shrink-0`} />
+                        ) : (
+                          <File size={10} className={`${style.text} shrink-0`} />
+                        )}
+                        <span className="text-[10px] font-semibold text-[var(--color-text-primary)] truncate" title={node.name}>
+                          {node.name}
+                        </span>
+                      </div>
+                      <span className="text-[9px] text-[var(--color-text-tertiary)] shrink-0 font-bold">
                         {node.percentage}%
                       </span>
                     </div>
                   )}
 
-                  {/* Minimal fallback label for tiny slivers */}
-                  {isTiny && (
-                    <div className="flex items-center justify-center h-full text-[9px] font-mono font-semibold text-[var(--color-text-tertiary)] truncate">
+                  {/* Micro Layout: Centered percentage */}
+                  {!isLarge && !isMedium && !isSmall && (
+                    <div className="flex items-center justify-center h-full text-[9px] font-mono font-bold text-[var(--color-text-tertiary)]">
                       {node.percentage}%
                     </div>
                   )}
@@ -768,9 +814,16 @@ export const SsdStorageLensTab: React.FC<SsdStorageLensTabProps> = () => {
               </div>
             )}
 
-            {/* ── Hover Inspection Card with Deep Drop-Shadow ── */}
+            {/* ── Hover Inspection Card with Smart Quad-Docking (avoids obscuring hovered tile) ── */}
             {hoveredNode && !pathScanning && (
-              <div className="absolute bottom-3 right-3 pointer-events-none z-30 max-w-sm rounded-xl bg-[var(--color-surface-1)]/95 border border-[var(--color-border)] p-3 shadow-2xl shadow-black/80 backdrop-blur-md flex items-start gap-2.5 text-xs animate-in fade-in duration-100">
+              <div
+                className={`absolute pointer-events-none z-30 max-w-sm rounded-xl bg-[var(--color-surface-1)]/95 border border-[var(--color-border)] p-3 shadow-2xl shadow-black/90 backdrop-blur-md flex items-start gap-2.5 text-xs animate-in fade-in duration-100 ${
+                  hoveredNode.rect.y + hoveredNode.rect.h / 2 > dimensions.height * 0.45 &&
+                  hoveredNode.rect.x + hoveredNode.rect.w / 2 > dimensions.width * 0.45
+                    ? 'top-3 right-3'
+                    : 'bottom-3 right-3'
+                }`}
+              >
                 <div className={`p-1.5 rounded-lg shrink-0 ${NODE_CATEGORY_STYLES[hoveredNode.category]?.bg || ''} ${NODE_CATEGORY_STYLES[hoveredNode.category]?.text || ''}`}>
                   {hoveredNode.is_dir ? <Folder size={14} /> : <File size={14} />}
                 </div>
