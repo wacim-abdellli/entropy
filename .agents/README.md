@@ -1,4 +1,4 @@
-# Entropy Agent Context Hub (`.agents/`)
+# Entropy Agent Context Hub (`agent/`)
 
 Welcome, AI Agent. This directory provides **high-density, token-optimized documentation** for Entropy. Read **only the file you need** for your specific task to conserve tokens and prevent context bloat.
 
@@ -13,6 +13,7 @@ Welcome, AI Agent. This directory provides **high-density, token-optimized docum
 | **React 19 GUI & Styling** | [`FRONTEND.md`](FRONTEND.md) | Component tree, tabs, modals, design tokens, IPC client |
 | **Windows APIs & Internals** | [`WINDOWS_INTERNALS.md`](WINDOWS_INTERNALS.md) | NTFS Junctions, CIM/WMI shrink, Restart Manager, Registry |
 | **Running, Testing & Building** | [`COMMANDS.md`](COMMANDS.md) | Exact commands for dev server, tests, lint, and packaging |
+| **Packaging & Distribution** | [`DISTRIBUTION.md`](DISTRIBUTION.md) | Inno Setup, winget manifest automation, SignPath code signing |
 | **UI Rules & Coding Standards** | [`CONVENTIONS.md`](CONVENTIONS.md) | Plain-English UI rules, action-first design, token palette |
 
 ---

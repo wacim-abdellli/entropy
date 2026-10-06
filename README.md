@@ -169,12 +169,28 @@ Entropy was engineered with strict safety guardrails for developer workstations:
 
 ## 📦 Download & Installation
 
-### Windows Installer (Recommended)
-Download the latest pre-compiled setup executable from the **[Releases](https://github.com/wacim-abdellli/entropy/releases)** page:
+### Windows Package Manager (`winget`)
+Install or upgrade Entropy with a single shell command:
+```powershell
+winget install WassimAbdelli.Entropy
+```
 
-- **Installer**: `Entropy-Setup-0.2.6.exe`
-- Per-user installation (no administrative elevation required to install).
-- Creates optional Desktop and Start Menu shortcuts with clean uninstaller registration.
+### Windows Installer & Portable ZIP
+Download release binaries directly from **[GitHub Releases](https://github.com/wacim-abdellli/entropy/releases)**:
+
+- **Installer**: `Entropy-Setup-0.2.6.exe` (Per-user setup, Start Menu & Desktop shortcuts, clean uninstaller)
+- **Portable Edition**: `Entropy-0.2.6-portable.zip` (Zero installation, unzip and run `Entropy.exe`)
+
+#### 🛡️ Windows SmartScreen & Integrity Verification
+As a community open-source project without a costly enterprise EV code-signing certificate, Windows SmartScreen may present an unknown publisher prompt on newly downloaded binaries:
+1. Click **"More info"**
+2. Click **"Run anyway"**
+
+You can independently verify the cryptographic integrity of any downloaded binary using Windows `certutil`:
+```powershell
+certutil -hashfile Entropy-Setup-0.2.6.exe SHA256
+```
+Compare the output against the official `SHA256SUMS.txt` published alongside the GitHub Release.
 
 ---
 
