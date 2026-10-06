@@ -16,40 +16,33 @@ env:
   PYTHONUTF8: "1"
 
 jobs:
-  frontend-verification:
-    name: Frontend Verification
+  quality-gate:
+    name: Test & Quality Gate
     runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: desktop/package-lock.json
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         working-directory: desktop
         run: npm ci
 
-      - name: Type check (TypeScript)
+      - name: TypeScript typecheck
         working-directory: desktop
         run: npx tsc --noEmit
 
-      - name: Build Frontend
+      - name: Build frontend bundle
         working-directory: desktop
         run: npm run build
 
-  backend-verification:
-    name: Backend Verification
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Python
+      - name: Setup Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -58,42 +51,43 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install psutil pywebview pythonnet
+          pip install -r requirements.txt
 
-      - name: Run Python unit tests
+      - name: Run backend unit tests (158 tests)
         run: python -m unittest discover -v tests
 
-  build-windows-app:
-    name: Build Windows Desktop App & Setup Wizard
-    needs: [frontend-verification, backend-verification]
+  release-build:
+    name: Build & Publish Release
+    needs: quality-gate
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Setup Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
 
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install psutil pywebview pythonnet pyinstaller
-
-      - name: Install frontend dependencies & build
-        working-directory: desktop
-        run: |
+          pip install -r requirements.txt
+          cd desktop
           npm ci
           npm run build
 
       - name: Build standalone executable (PyInstaller)
-        run: pyinstaller Entropy.spec --noconfirm
+        run: pyinstaller --noconfirm Entropy.spec
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
@@ -101,33 +95,47 @@ jobs:
       - name: Build Windows Setup Wizard (Inno Setup)
         shell: pwsh
         run: |
-          $ver = if ($env:GITHUB_REF -match 'refs/tags/v?(.*)') { $Matches[1] } else { "0.1.1" }
+          $ver = if ($env:GITHUB_REF -match 'refs/tags/v?(.*)') {
+            $Matches[1]
+          } else {
+            (Get-Content scan.py | Select-String '__version__ = "(.*)"').Matches.Groups[1].Value
+          }
+          Write-Host "Compiling Entropy Setup for version: $ver"
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$ver" installer.iss
+
+          # Create standalone portable zip archive
+          if (Test-Path "dist\Entropy.exe") {
+            Write-Host "Creating portable zip archive: dist\Entropy-$ver-portable.zip"
+            Compress-Archive -Path "dist\Entropy.exe" -DestinationPath "dist\Entropy-$ver-portable.zip" -Force
+          }
 
       - name: Generate SHA-256 Checksums
         shell: pwsh
         run: |
           cd dist
-          Get-ChildItem -Filter *.exe | ForEach-Object {
+          Remove-Item -Path "SHA256SUMS.txt" -ErrorAction SilentlyContinue
+          Get-ChildItem -File | Where-Object { $_.Extension -in '.exe', '.zip' } | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
             "$hash  $($_.Name)" | Out-File -Append -Encoding utf8 SHA256SUMS.txt
           }
+          Write-Host "Generated SHA256SUMS.txt:"
           Get-Content SHA256SUMS.txt
 
-      - name: Upload Artifacts
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Entropy-Windows-x64
           path: |
             dist/*.exe
+            dist/*.zip
             dist/SHA256SUMS.txt
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*.exe
+            dist/*.zip
             dist/SHA256SUMS.txt
           generate_release_notes: true
           draft: false

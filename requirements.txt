@@ -1,0 +1,4 @@
+psutil>=5.9.0
+pywebview>=5.0.0
+pythonnet>=3.0.0
+pyinstaller>=6.0.0
